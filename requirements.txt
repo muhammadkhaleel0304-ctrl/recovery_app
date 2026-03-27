@@ -1,1 +1,12 @@
-
+streamlit==1.19.0
+pandas
+numpy
+openpyxl
+altair==4.2.2
+plotly
+fpdf
+reportlab
+matplotlib
+pandas
+xlsxwriter
+boto3
