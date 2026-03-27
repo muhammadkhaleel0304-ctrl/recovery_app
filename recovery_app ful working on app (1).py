@@ -1119,127 +1119,83 @@ if uploaded_cheque:
         )
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 import os
-
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
 
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.oauth2 import service_account
+from google_auth_oauthlib.flow import Flow
 
-# ---------------- PAGE ----------------
-st.title("Recovery Date Range Summary")
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+CLIENT_SECRETS_FILE = "client_secret.json"
+REDIRECT_URI = "https://YOUR-APP.streamlit.app"
 
-# ---------------- LOCAL STORAGE ----------------
-LOCAL_FOLDER = "data"
-LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
-os.makedirs(LOCAL_FOLDER, exist_ok=True)
-
-# ---------------- GOOGLE DRIVE SETUP ----------------
-SCOPES = ['https://www.googleapis.com/auth/drive']
 FOLDER_ID = "1zbDCaRUi7QQ4xiV6c3iM19Py9CjFj3I8"
 
-# Use Streamlit Secrets instead of file
-try:
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES
+# ---------------- AUTH URL ----------------
+def get_auth_url():
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
     )
-    drive_service = build('drive', 'v3', credentials=credentials)
-    DRIVE_ENABLED = True
-except Exception as e:
-    DRIVE_ENABLED = False
-    st.warning(f"Google Drive not connected: {e}")
+    auth_url, state = flow.authorization_url(prompt="consent")
+    return auth_url, state
 
-# ---------------- FILE UPLOAD ----------------
-uploaded_file = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
+# ---------------- STREAMLIT UI ----------------
+st.title("Google Drive OAuth Fix")
 
-df = None
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
-if uploaded_file:
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+if not st.session_state.auth:
+    auth_url, state = get_auth_url()
 
-        st.session_state["df"] = df
+    st.write("### Step 1: Login with Google")
+    st.link_button("Login Google Drive", auth_url)
 
-        # Save locally
-        df.to_excel(LOCAL_FILE, index=False)
+    st.write("After login, paste code below 👇")
 
-        # Upload to Drive
-        if DRIVE_ENABLED:
-            temp_file = os.path.join(LOCAL_FOLDER, "upload_temp.xlsx")
-            df.to_excel(temp_file, index=False)
+    code = st.text_input("Enter Authorization Code")
 
-            file_metadata = {
-                "name": "recovery.xlsx",
-                "parents": [FOLDER_ID]
-            }
+    if st.button("Verify"):
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
 
-            media = MediaFileUpload(temp_file, resumable=True)
+        flow.fetch_token(code=code)
 
-            file = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields="id"
-            ).execute()
+        creds = flow.credentials
+        st.session_state.creds = creds
+        st.session_state.auth = True
+        st.success("Login successful ✔ Please refresh")
 
-            st.success("File saved locally + uploaded to Google Drive 🚀")
-            st.write("Drive File ID:", file.get("id"))
-        else:
-            st.success("File saved locally (Drive not connected)")
+# ---------------- UPLOAD ----------------
+if st.session_state.get("auth"):
 
-    except Exception as e:
-        st.error(f"File error: {e}")
-        st.stop()
+    uploaded_file = st.file_uploader("Upload file", type=["xlsx"])
 
-elif "df" in st.session_state:
-    df = st.session_state["df"]
-    st.info("Using session data")
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
+        st.dataframe(df)
 
-elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.session_state["df"] = df
-    st.info("Loaded from local storage")
+        temp_file = "temp.xlsx"
+        df.to_excel(temp_file, index=False)
 
-else:
-    st.info("Upload file to continue")
-    st.stop()
+        service = build("drive", "v3", credentials=st.session_state.creds)
 
-# ---------------- PROCESS ----------------
-date_col = st.selectbox("Select Date Column", df.columns)
-branch_col = st.selectbox("Select Branch Column", df.columns)
+        file_metadata = {
+            "name": "recovery.xlsx",
+            "parents": [FOLDER_ID]
+        }
 
-df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-df = df.dropna(subset=[date_col, branch_col])
-df["Day"] = df[date_col].dt.day
+        media = MediaFileUpload(temp_file, resumable=True)
 
-df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31"])
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
 
-pivot = pd.pivot_table(df, index=[branch_col], columns="Range", aggfunc="size", fill_value=0)
-
-pivot["Total"] = pivot.sum(axis=1)
-
-result_df = pivot.reset_index()
-
-st.dataframe(result_df)
-
-# ---------------- CSV ----------------
-csv = result_df.to_csv(index=False).encode("utf-8")
-st.download_button("Download CSV", csv, "data.csv")
-
-# ---------------- PDF ----------------
-buffer = BytesIO()
-doc = SimpleDocTemplate(buffer, pagesize=A4)
-
-table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-table = Table(table_data)
-table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black)]))
-
-doc.build([table])
-
-st.download_button("Download PDF", buffer.getvalue(), "data.pdf")
+        st.success(f"Uploaded! File ID: {file.get('id')}")
