@@ -1,6 +1,11 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
+if not firebase_admin._apps:
+    cred = credentials.Certificate(st.secrets["gcp_service_account"])
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -1288,12 +1293,8 @@ st.download_button(
     file_name="recovery_summary.pdf",
     mime="application/pdf"
 )
-import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate(st.secrets["gcp_service_account"])
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+if st.button("Test Save"):
+    db.collection("test").document("first").set({
+        "message": "Firebase working"
+    })
+    st.success("Saved!")
