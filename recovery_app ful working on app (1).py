@@ -50,104 +50,137 @@ else:
     st.warning("No data found in Firebase")
 import streamlit as st
 import pandas as pd
-import os
 from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+import os
 
+# ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ---------------- FIREBASE INIT ----------------
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# ---------------- PAGE ----------------
-st.title("Recovery App (Firebase Permanent System)")
+# ================= PAGE =================
+st.title("Recovery Date Range Summary")
 
-# ---------------- LOCAL STORAGE ----------------
+# ================= LOCAL STORAGE =================
 LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ---------------- FIREBASE LOAD (FIXED) ----------------
+# ================= LOAD FROM FIREBASE =================
 def load_from_firebase():
     doc = db.collection("recovery_summary").document("latest").get()
-
     if doc.exists:
         data = doc.to_dict().get("data", [])
-        return pd.DataFrame(data)
+        if data:
+            return pd.DataFrame(data)
     return None
 
-# ---------------- FILE UPLOAD ----------------
-uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
-
-if uploaded_file:
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
-
-    st.session_state["df"] = df
-
-    # save local backup
-    df.to_excel(LOCAL_FILE, index=False)
-
-    # save to firebase
+# ================= SAVE TO FIREBASE =================
+def save_to_firebase(df):
     db.collection("recovery_summary").document("latest").set({
-        "data": df.to_dict(orient="records")
+        "data": df.fillna("").to_dict(orient="records")
     })
 
-    st.success("File uploaded + saved to Firebase ✅")
+# ================= FILE UPLOAD =================
+uploaded_file = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
 
-# ---------------- LOAD PRIORITY SYSTEM ----------------
-if "df" in st.session_state:
+df = None
+
+if uploaded_file:
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+
+        st.session_state["df"] = df
+
+        # local save
+        df.to_excel(LOCAL_FILE, index=False)
+
+        # firebase save
+        save_to_firebase(df)
+
+        st.success("File uploaded + saved to Firebase!")
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        st.stop()
+
+# ================= AUTO LOAD PRIORITY =================
+elif "df" in st.session_state:
     df = st.session_state["df"]
+    st.info("Loaded from session")
 
 elif os.path.exists(LOCAL_FILE):
     df = pd.read_excel(LOCAL_FILE)
     st.session_state["df"] = df
+    st.info("Loaded from local file")
 
 else:
-    firebase_df = load_from_firebase()
-
-    if firebase_df is not None and not firebase_df.empty:
-        df = firebase_df
+    # 🔥 Firebase fallback (IMPORTANT)
+    fb_df = load_from_firebase()
+    if fb_df is not None:
+        df = fb_df
         st.session_state["df"] = df
-        st.success("Loaded from Firebase ☁ (Permanent Data)")
+        st.info("Loaded from Firebase")
     else:
-        st.warning("No data found. Please upload file.")
+        st.warning("No file found. Please upload.")
         st.stop()
 
-# ---------------- SHOW DATA ----------------
-st.subheader("Data Preview")
-st.dataframe(df)
+# ================= SAFE CHECK =================
+if df is None or df.empty:
+    st.warning("Data empty")
+    st.stop()
 
-# ---------------- SAVE BUTTON (OPTIONAL MANUAL) ----------------
-if st.button("💾 Save Again to Firebase"):
-    db.collection("recovery_summary").document("latest").set({
-        "data": df.to_dict(orient="records")
-    })
-    st.success("Saved again to Firebase ✅")
+# ================= DEBUG =================
+st.write("Columns:", list(df.columns))
 
-# ---------------- DOWNLOAD CSV ----------------
-csv = df.to_csv(index=False).encode("utf-8")
+# ================= COLUMN SELECTION =================
+date_col = st.selectbox("Select Date Column", df.columns)
+branch_col = st.selectbox("Select Branch Column", df.columns)
 
-st.download_button(
-    "⬇ Download CSV",
-    csv,
-    "data.csv",
-    "text/csv"
+area_col = 'area_id' if 'area_id' in df.columns else None
+
+# ================= DATE PROCESS =================
+df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+df = df.dropna(subset=[date_col, branch_col])
+
+df["Day"] = df[date_col].dt.day
+df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31"])
+
+# ================= PIVOT =================
+pivot = pd.pivot_table(
+    df,
+    index=[branch_col],
+    columns="Range",
+    aggfunc="size",
+    fill_value=0
 )
 
-# ---------------- DOWNLOAD EXCEL ----------------
-output = BytesIO()
-df.to_excel(output, index=False)
+for c in ["1-10","11-20","21-31"]:
+    if c not in pivot.columns:
+        pivot[c] = 0
 
-st.download_button(
-    "⬇ Download Excel",
-    output.getvalue(),
-    "data.xlsx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+pivot["Total"] = pivot.sum(axis=1)
+
+pivot["1-10 %"] = (pivot["1-10"]/pivot["Total"]*100).round(2)
+pivot["11-20 %"] = (pivot["11-20"]/pivot["Total"]*100).round(2)
+pivot["21-31 %"] = (pivot["21-31"]/pivot["Total"]*100).round(2)
+
+result_df = pivot.reset_index()
+
+# ================= SHOW =================
+st.dataframe(result_df)
+
+# ================= MANUAL REFRESH SAVE BUTTON =================
+if st.button("🔄 Save Again to Firebase"):
+    save_to_firebase(df)
+    st.success("Saved to Firebase")
