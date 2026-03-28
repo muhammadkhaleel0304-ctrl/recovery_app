@@ -1,19 +1,10 @@
 import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
 import pandas as pd
 
-# 🔥 Firebase INIT
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
-
-st.title("📂 File Upload + Firebase System")
+st.title("📂 File Upload & Display App")
 
 # 📁 File upload
-file = st.file_uploader("Upload Excel/CSV file", type=["csv", "xlsx"])
+file = st.file_uploader("Upload Excel or CSV file", type=["csv", "xlsx"])
 
 if file is not None:
 
@@ -23,22 +14,10 @@ if file is not None:
     else:
         df = pd.read_excel(file)
 
-    st.subheader("📊 File Data")
+    # 📊 Show file on screen
+    st.subheader("📊 Uploaded File Data")
     st.dataframe(df)
 
-    # 🔵 Example result (you can change logic)
-    total_rows = len(df)
-
-    st.success(f"Total Rows: {total_rows}")
-
-    # 🔥 Save to Firebase
-    if st.button("Save Result to Firebase"):
-
-        data = {
-            "file_name": file.name,
-            "total_rows": total_rows
-        }
-
-        db.collection("file_results").add(data)
-
-        st.success("Result saved to Firebase ✅")
+    # 🔢 Basic info
+    st.write("Total Rows:", len(df))
+    st.write("Total Columns:", len(df.columns))
