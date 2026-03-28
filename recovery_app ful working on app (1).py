@@ -1286,3 +1286,12 @@ st.download_button(
     file_name="recovery_summary.pdf",
     mime="application/pdf"
 )
+imports
+firebase init
+db = firestore.client()
+
+st.title()
+st.sidebar()
+file upload
+charts
+tables
