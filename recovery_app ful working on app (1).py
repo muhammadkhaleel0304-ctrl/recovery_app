@@ -1286,12 +1286,12 @@ st.download_button(
     file_name="recovery_summary.pdf",
     mime="application/pdf"
 )
-imports
-firebase init
-db = firestore.client()
+import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-st.title()
-st.sidebar()
-file upload
-charts
-tables
+if not firebase_admin._apps:
+    cred = credentials.Certificate(st.secrets["gcp_service_account"])
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
