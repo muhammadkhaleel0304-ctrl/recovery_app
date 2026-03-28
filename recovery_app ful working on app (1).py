@@ -60,8 +60,9 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# init firebase only once
 if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    cred = credentials.Certificate("serviceAccountKey.json")  # اپنا json file name
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -74,7 +75,7 @@ LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ================= LOAD FROM FIREBASE =================
+# ================= FIREBASE LOAD =================
 def load_from_firebase():
     doc = db.collection("recovery_summary").document("latest").get()
     if doc.exists:
@@ -83,10 +84,15 @@ def load_from_firebase():
             return pd.DataFrame(data)
     return None
 
-# ================= SAVE TO FIREBASE =================
+# ================= FIREBASE SAVE (FIXED) =================
 def save_to_firebase(df):
+    safe_df = df.copy()
+
+    # ✅ FIX: categorical + NaN issue solve
+    safe_df = safe_df.astype(str).replace("nan", "")
+
     db.collection("recovery_summary").document("latest").set({
-        "data": df.fillna("").to_dict(orient="records")
+        "data": safe_df.to_dict(orient="records")
     })
 
 # ================= FILE UPLOAD =================
@@ -109,12 +115,13 @@ if uploaded_file:
         # firebase save
         save_to_firebase(df)
 
-        st.success("File uploaded + saved to Firebase!")
+        st.success("File uploaded + saved successfully!")
+
     except Exception as e:
-        st.error(f"Error reading file: {e}")
+        st.error(f"Error: {e}")
         st.stop()
 
-# ================= AUTO LOAD PRIORITY =================
+# ================= AUTO LOAD SYSTEM =================
 elif "df" in st.session_state:
     df = st.session_state["df"]
     st.info("Loaded from session")
@@ -125,25 +132,24 @@ elif os.path.exists(LOCAL_FILE):
     st.info("Loaded from local file")
 
 else:
-    # 🔥 Firebase fallback (IMPORTANT)
     fb_df = load_from_firebase()
     if fb_df is not None:
         df = fb_df
         st.session_state["df"] = df
         st.info("Loaded from Firebase")
     else:
-        st.warning("No file found. Please upload.")
+        st.warning("No data found. Please upload file.")
         st.stop()
 
-# ================= SAFE CHECK =================
+# ================= SAFETY CHECK =================
 if df is None or df.empty:
-    st.warning("Data empty")
+    st.warning("Empty dataset")
     st.stop()
 
 # ================= DEBUG =================
 st.write("Columns:", list(df.columns))
 
-# ================= COLUMN SELECTION =================
+# ================= COLUMN SELECT =================
 date_col = st.selectbox("Select Date Column", df.columns)
 branch_col = st.selectbox("Select Branch Column", df.columns)
 
@@ -171,16 +177,17 @@ for c in ["1-10","11-20","21-31"]:
 
 pivot["Total"] = pivot.sum(axis=1)
 
-pivot["1-10 %"] = (pivot["1-10"]/pivot["Total"]*100).round(2)
-pivot["11-20 %"] = (pivot["11-20"]/pivot["Total"]*100).round(2)
-pivot["21-31 %"] = (pivot["21-31"]/pivot["Total"]*100).round(2)
+pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
+pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
+pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
 
 result_df = pivot.reset_index()
 
 # ================= SHOW =================
+st.subheader("Branch Wise Recovery Summary")
 st.dataframe(result_df)
 
-# ================= MANUAL REFRESH SAVE BUTTON =================
-if st.button("🔄 Save Again to Firebase"):
+# ================= SAVE BUTTON =================
+if st.button("🔄 Save to Firebase Again"):
     save_to_firebase(df)
-    st.success("Saved to Firebase")
+    st.success("Saved successfully!")
