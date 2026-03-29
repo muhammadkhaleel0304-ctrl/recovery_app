@@ -469,90 +469,118 @@ from fpdf import FPDF
 import os
 import zipfile
 
+import streamlit as st
+import pandas as pd
+import os
+import zipfile
+import io
+
+from fpdf import FPDF
+
+import firebase_admin
+from firebase_admin import credentials, firestore, storage
+
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred, {
+        "storageBucket": "your-project-id.appspot.com"
+    })
+
+db = firestore.client()
+bucket = storage.bucket()
+
 st.title("📊 Excel Cleaner + Branch-wise PDF Generator")
 
-# Upload Excel file
+# ================= UPLOAD =================
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
+# ================= SAVE TO FIREBASE =================
+def upload_to_firebase(file_path, folder):
+    blob = bucket.blob(f"{folder}/{os.path.basename(file_path)}")
+    blob.upload_from_filename(file_path)
+
+# ================= MAIN =================
 if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
 
+        df.columns = df.columns.astype(str).str.strip()
+
         st.subheader("📋 Original Data")
         st.dataframe(df, use_container_width=True)
 
-        # Clean column names (important)
-        df.columns = df.columns.astype(str).str.strip()
-
-        columns = list(df.columns)
-
-        # Remove columns option
-        st.subheader("❌ Remove Columns")
-        remove_columns = st.multiselect("Select columns to REMOVE", columns)
-
+        # ================= REMOVE COLUMNS =================
+        remove_columns = st.multiselect("❌ Remove Columns", df.columns)
         if remove_columns:
             df = df.drop(columns=remove_columns)
 
         st.subheader("✅ Cleaned Data")
         st.dataframe(df, use_container_width=True)
 
-        # Select Branch Column
-        st.subheader("🏢 Branch Selection")
-        branch_column = st.selectbox("Select Branch Column", list(df.columns))
+        # ================= BRANCH =================
+        branch_column = st.selectbox("🏢 Select Branch Column", df.columns)
 
-        if branch_column:
+        if branch_column and st.button("📄 Generate PDFs + Firebase Save"):
+            os.makedirs("pdfs", exist_ok=True)
+
+            # clear old files
+            for f in os.listdir("pdfs"):
+                os.remove(os.path.join("pdfs", f))
+
             branches = df[branch_column].dropna().astype(str).unique()
 
-            st.write(f"Total Branches Found: {len(branches)}")
+            zip_buffer = io.BytesIO()
 
-            if st.button("📄 Generate Branch-wise PDFs"):
-                os.makedirs("pdfs", exist_ok=True)
-
-                # Clear old PDFs
-                for f in os.listdir("pdfs"):
-                    os.remove(os.path.join("pdfs", f))
+            with zipfile.ZipFile(zip_buffer, "w") as zipf:
 
                 for branch in branches:
                     branch_df = df[df[branch_column].astype(str) == branch]
 
-                    pdf = FPDF(orientation='L')  # Landscape for better width
+                    pdf = FPDF(orientation='L', unit='mm', format='A4')
                     pdf.add_page()
                     pdf.set_font("Arial", size=8)
 
-                    # Title
                     pdf.cell(0, 10, txt=f"Branch: {branch}", ln=True)
 
-                    col_width = 40
+                    # ================= AUTO COLUMN WIDTH =================
+                    page_width = pdf.w - 20
+                    col_width = page_width / len(branch_df.columns)
 
-                    # Header
+                    # HEADER
                     for col in branch_df.columns:
-                        pdf.cell(col_width, 8, str(col)[:15], border=1)
+                        pdf.cell(col_width, 8, str(col)[:20], border=1)
                     pdf.ln()
 
-                    # Data
+                    # DATA (NO CUTTING IMPROVEMENT)
                     for _, row in branch_df.iterrows():
                         for item in row:
-                            pdf.cell(col_width, 8, str(item)[:15], border=1)
+                            text = str(item)
+                            if len(text) > 25:
+                                text = text[:25] + "..."
+                            pdf.cell(col_width, 8, text, border=1)
                         pdf.ln()
 
                     safe_branch = branch.replace("/", "_")
-                    pdf.output(f"pdfs/{safe_branch}.pdf")
+                    pdf_path = f"pdfs/{safe_branch}.pdf"
+                    pdf.output(pdf_path)
 
-                # Create ZIP
-                zip_path = "branch_pdfs.zip"
-                with zipfile.ZipFile(zip_path, "w") as zipf:
-                    for file in os.listdir("pdfs"):
-                        zipf.write(os.path.join("pdfs", file), file)
+                    # add to zip
+                    zipf.write(pdf_path, f"{safe_branch}.pdf")
 
-                # Download button
-                with open(zip_path, "rb") as f:
-                    st.download_button(
-                        "⬇️ Download All PDFs",
-                        f,
-                        file_name="branch_pdfs.zip"
-                    )
+                    # ================= FIREBASE UPLOAD =================
+                    upload_to_firebase(pdf_path, "pdfs")
 
-                st.success("✅ PDFs Generated Successfully!")
+            zip_buffer.seek(0)
+
+            # ================= DOWNLOAD =================
+            st.download_button(
+                "⬇️ Download All PDFs",
+                zip_buffer,
+                file_name="branch_pdfs.zip"
+            )
+
+            st.success("✅ PDFs Generated + Firebase Saved!")
 
     except Exception as e:
         st.error(f"Error: {str(e)}")
