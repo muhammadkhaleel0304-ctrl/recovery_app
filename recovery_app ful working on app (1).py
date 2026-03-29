@@ -355,7 +355,7 @@ df = load_data()
 st.title("Recovery MIS System")
 
 # ================= PASSWORD =================
-DELETE_PASSWORD = "1234"   # <-- change this
+DELETE_PASSWORD = "123456789"   # <-- change this
 
 # ================= ADD ENTRY =================
 st.subheader("Add Record")
