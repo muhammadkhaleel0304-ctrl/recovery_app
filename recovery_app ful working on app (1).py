@@ -52,45 +52,39 @@ import streamlit as st
 import pandas as pd
 import os
 
-# ================= MUST BE FIRST STREAMLIT COMMAND =================
-
-
-# ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ================= FIREBASE INIT =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# ================= LOCAL STORAGE =================
+# ================= PAGE =================
+st.title("Recovery Dashboard")
+
+# ================= STORAGE =================
 LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ================= FIREBASE FUNCTIONS =================
+# ================= FIREBASE LOAD =================
 def load_from_firebase():
-    try:
-        doc = db.collection("recovery_summary").document("latest").get()
-        if doc.exists:
-            data = doc.to_dict().get("data", [])
-            return pd.DataFrame(data) if data else None
-    except:
-        return None
+    doc = db.collection("recovery_summary").document("latest").get()
+    if doc.exists:
+        return pd.DataFrame(doc.to_dict().get("data", []))
+    return None
 
 def save_to_firebase(df):
-    try:
-        safe_df = df.astype(str).replace(["nan", "NaT"], "")
-        db.collection("recovery_summary").document("latest").set({
-            "data": safe_df.to_dict(orient="records")
-        })
-    except Exception as e:
-        st.error(f"Firebase save error: {e}")
+    df = df.fillna("").astype(str)
+    db.collection("recovery_summary").document("latest").set({
+        "data": df.to_dict(orient="records")
+    })
 
-# ================= FILE UPLOAD =================
-uploaded_file = st.file_uploader("Upload Excel / CSV", type=["xlsx", "csv"])
+# ================= UPLOAD =================
+uploaded_file = st.file_uploader("Upload Excel/CSV", type=["xlsx", "csv"])
 
 if uploaded_file:
     if uploaded_file.name.endswith(".csv"):
@@ -100,140 +94,94 @@ if uploaded_file:
 
     df.to_excel(LOCAL_FILE, index=False)
     save_to_firebase(df)
-
-    st.session_state["df"] = df
-    st.success("File uploaded & saved ✅")
+    st.success("Saved ✅")
 
 # ================= LOAD DATA =================
-df = None
+fb_df = load_from_firebase()
 
-if "df" in st.session_state:
-    df = st.session_state["df"]
-
+if fb_df is not None and not fb_df.empty:
+    main_df = fb_df
+    st.success("Loaded from Firebase ☁")
+elif os.path.exists(LOCAL_FILE):
+    main_df = pd.read_excel(LOCAL_FILE)
+    st.info("Loaded from local file")
 else:
-    fb_df = load_from_firebase()
-
-    if fb_df is not None and not fb_df.empty:
-        df = fb_df
-        st.success("Loaded from Firebase ☁")
-
-    elif os.path.exists(LOCAL_FILE):
-        df = pd.read_excel(LOCAL_FILE)
-        st.info("Loaded from local file")
-
-    else:
-        st.warning("Please upload file")
-        st.stop()
-
-# ================= SAFETY =================
-if df is None or df.empty:
-    st.warning("No data available")
     st.stop()
 
-# ================= PREVIEW =================
-st.subheader("Data Preview")
-st.dataframe(df, use_container_width=True)
+# =====================================================
+# 🔷 SECTION 1: TOP (INDEPENDENT VIEW)
+# =====================================================
+st.header("🔷 Top Section (Independent View)")
 
-# ================= COLUMN SELECT (FIXED) =================
-cols = df.columns.tolist()
+top_cols = list(main_df.columns)
 
-if "date_col" not in st.session_state:
-    st.session_state.date_col = cols[0]
+top_col = st.selectbox(
+    "Select Column (Top Section)",
+    top_cols,
+    key="top_col"
+)
 
-if "branch_col" not in st.session_state:
-    st.session_state.branch_col = cols[1] if len(cols) > 1 else cols[0]
+st.dataframe(main_df[[top_col]].head(50))
+
+
+# =====================================================
+# 🔷 SECTION 2: BOTTOM (SUMMARY - COMPLETELY INDEPENDENT)
+# =====================================================
+st.header("🔷 Recovery Summary (Bottom Section)")
+
+df = main_df.copy()
+
+cols = list(df.columns)
 
 date_col = st.selectbox(
-    "Select Date Column",
+    "Select Date Column (Bottom)",
     cols,
-    index=cols.index(st.session_state.date_col) if st.session_state.date_col in cols else 0,
     key="date_col"
 )
 
 branch_col = st.selectbox(
-    "Select Branch Column",
+    "Select Branch Column (Bottom)",
     cols,
-    index=cols.index(st.session_state.branch_col) if st.session_state.branch_col in cols else 0,
     key="branch_col"
 )
 
-st.session_state.date_col = date_col
-st.session_state.branch_col = branch_col
+# ================= DATE FIX =================
+df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+df = df.dropna(subset=[date_col, branch_col])
 
-area_col = "area_id" if "area_id" in df.columns else None
+df["Day"] = df[date_col].dt.day
 
-# ================= PROCESS =================
-try:
-    df = df.copy()
-
-    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-    df = df.dropna(subset=[date_col, branch_col])
-
-    df["Day"] = df[date_col].dt.day
-    df = df[df["Day"].between(1, 31)]
-
-    df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31"])
-
-    pivot = pd.pivot_table(
-        df,
-        index=branch_col,
-        columns="Range",
-        aggfunc="size",
-        fill_value=0
-    )
-
-    for c in ["1-10", "11-20", "21-31"]:
-        if c not in pivot.columns:
-            pivot[c] = 0
-
-    pivot["Total"] = pivot.sum(axis=1)
-
-    for c in ["1-10", "11-20", "21-31"]:
-        pivot[f"{c} %"] = (pivot[c] / pivot["Total"].replace(0, 1) * 100).round(2)
-
-    pivot.rename(columns={
-        "1-10": "Recovery 1-10",
-        "11-20": "Recovery 11-20",
-        "21-31": "Recovery 21-31"
-    }, inplace=True)
-
-    result_df = pivot.reset_index()
-
-    # ================= AREA =================
-    if area_col:
-        area_map = df[[branch_col, area_col]].drop_duplicates()
-        result_df = result_df.merge(area_map, on=branch_col, how="left")
-
-    # ================= GRAND TOTAL =================
-    numeric_cols = ["Recovery 1-10", "Recovery 11-20", "Recovery 21-31", "Total"]
-
-    grand = result_df[numeric_cols].sum()
-
-    grand_row = {col: "" for col in result_df.columns}
-    grand_row[branch_col] = "Grand Total"
-
-    for col in numeric_cols:
-        grand_row[col] = grand[col]
-
-    result_df = pd.concat([result_df, pd.DataFrame([grand_row])], ignore_index=True)
-
-except Exception as e:
-    st.error(f"Processing error: {e}")
-    st.stop()
-
-# ================= OUTPUT =================
-st.subheader("📊 Branch Wise Recovery Summary")
-st.dataframe(result_df, use_container_width=True)
-
-# ================= DOWNLOAD CSV =================
-st.download_button(
-    "⬇ Download CSV",
-    result_df.to_csv(index=False).encode("utf-8"),
-    "recovery_summary.csv",
-    "text/csv"
+df["Range"] = pd.cut(
+    df["Day"],
+    bins=[0, 10, 20, 31],
+    labels=["1-10", "11-20", "21-31"]
 )
 
+# ================= PIVOT =================
+pivot = pd.pivot_table(
+    df,
+    index=[branch_col],
+    columns="Range",
+    aggfunc="size",
+    fill_value=0
+)
+
+for c in ["1-10", "11-20", "21-31"]:
+    if c not in pivot.columns:
+        pivot[c] = 0
+
+pivot = pivot[["1-10", "11-20", "21-31"]]
+pivot["Total"] = pivot.sum(axis=1)
+
+pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"].replace(0, 1) * 100).round(2)
+pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"].replace(0, 1) * 100).round(2)
+pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"].replace(0, 1) * 100).round(2)
+
+result_df = pivot.reset_index()
+
+st.dataframe(result_df)
+
 # ================= SAVE =================
-if st.button("🔄 Save to Firebase Again"):
-    save_to_firebase(df)
-    st.success("Saved to Firebase")
+if st.button("Save Again to Firebase"):
+    save_to_firebase(main_df)
+    st.success("Saved ☁")
