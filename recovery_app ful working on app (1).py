@@ -52,10 +52,10 @@ import streamlit as st
 import pandas as pd
 import os
 
-# ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ================= FIREBASE INIT =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
@@ -63,9 +63,9 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ================= PAGE =================
-st.title("Recovery Date Range Summary")
+st.title("Recovery Dashboard")
 
-# ================= LOCAL STORAGE =================
+# ================= STORAGE =================
 LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
@@ -79,15 +79,14 @@ def load_from_firebase():
             return pd.DataFrame(data)
     return None
 
-# ================= FIREBASE SAVE =================
 def save_to_firebase(df):
-    safe_df = df.astype(str).replace("nan", "")
+    df = df.fillna("").astype(str)
     db.collection("recovery_summary").document("latest").set({
-        "data": safe_df.to_dict(orient="records")
+        "data": df.to_dict(orient="records")
     })
 
-# ================= FILE UPLOAD =================
-uploaded_file = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
+# ================= UPLOAD =================
+uploaded_file = st.file_uploader("Upload Excel / CSV", type=["xlsx", "csv"])
 
 if uploaded_file:
     if uploaded_file.name.endswith(".csv"):
@@ -97,73 +96,86 @@ if uploaded_file:
 
     df.to_excel(LOCAL_FILE, index=False)
     save_to_firebase(df)
+    st.success("File uploaded & saved ✅")
 
-    st.success("File uploaded & saved permanently ✅")
-
-# ================= AUTO LOAD =================
-df = None
-
+# ================= LOAD DATA =================
 fb_df = load_from_firebase()
+
 if fb_df is not None and not fb_df.empty:
-    df = fb_df
+    main_df = fb_df
     st.success("Loaded from Firebase ☁")
 
 elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
+    main_df = pd.read_excel(LOCAL_FILE)
     st.info("Loaded from local file")
 
 else:
     st.warning("Please upload file")
     st.stop()
 
-# ================= SAFETY =================
-if df is None or df.empty:
-    st.warning("No data available")
+# ================= CLEAN COLUMNS =================
+main_df.columns = main_df.columns.str.strip()
+
+# ================= DATA PREVIEW =================
+st.subheader("Data Preview")
+st.dataframe(main_df)
+
+# =====================================================
+# 🔷 TOP SECTION (Independent View)
+# =====================================================
+st.header("🔷 Top Section")
+
+top_df = main_df.copy()
+
+top_col = st.selectbox(
+    "Select Column (Top View)",
+    top_df.columns,
+    key="top_col"
+)
+
+st.dataframe(top_df[[top_col]].head(50))
+
+
+# =====================================================
+# 🔷 BOTTOM SECTION (SUMMARY)
+# =====================================================
+st.header("🔷 Recovery Summary")
+
+df = main_df.copy()
+
+# ================= FIXED DATE COLUMN =================
+if "Recovery Date" not in df.columns:
+    st.error("❌ 'Recovery Date' column missing in file")
     st.stop()
 
-# ================= SHOW =================
-st.subheader("Data Preview")
-st.dataframe(df)
+date_col = "Recovery Date"
 
-# ================= 🔥 STABLE COLUMN SELECT FIX =================
+# ================= FIXED BRANCH OPTIONS =================
+branch_options = ["Branch", "Area", "Region"]
+branch_options = [c for c in branch_options if c in df.columns]
 
-# force stable default index (NO session_state bug)
-cols = list(df.columns)
-
-default_date_index = 0
-default_branch_index = 1 if len(cols) > 1 else 0
-
-date_col = st.selectbox(
-    "Select Date Column",
-    cols,
-    index=default_date_index,
-    key="date_column"
-)
+if not branch_options:
+    st.error("❌ Branch / Area / Region columns not found in file")
+    st.stop()
 
 branch_col = st.selectbox(
-    "Select Branch Column",
-    cols,
-    index=default_branch_index,
-    key="branch_column"
+    "Select Group Type",
+    branch_options,
+    key="branch_col"
 )
 
-# ================= DEBUG =================
-st.write("Selected Date:", date_col)
-st.write("Selected Branch:", branch_col)
-
-# ================= DATE FIX =================
-df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-
-if df[date_col].isna().all():
-    st.error("❌ Wrong Date Column Selected!")
-    st.stop()
-
-# ================= CLEAN =================
+# ================= DATE PROCESS =================
+df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 df = df.dropna(subset=[date_col, branch_col])
 
 # ================= RANGE =================
 df["Day"] = df[date_col].dt.day
-df["Range"] = pd.cut(df["Day"], bins=[0, 10, 20, 31], labels=["1-10", "11-20", "21-31"])
+
+df["Range"] = pd.cut(
+    df["Day"],
+    bins=[0, 10, 20, 31],
+    labels=["1-10", "11-20", "21-31"]
+)
 
 # ================= PIVOT =================
 pivot = pd.pivot_table(
@@ -178,19 +190,19 @@ for c in ["1-10", "11-20", "21-31"]:
     if c not in pivot.columns:
         pivot[c] = 0
 
-pivot["Total"] = pivot[["1-10", "11-20", "21-31"]].sum(axis=1)
+pivot = pivot[["1-10", "11-20", "21-31"]]
+pivot["Total"] = pivot.sum(axis=1)
 
-pivot["1-10 %"] = ((pivot["1-10"] / pivot["Total"]).fillna(0) * 100).round(2)
-pivot["11-20 %"] = ((pivot["11-20"] / pivot["Total"]).fillna(0) * 100).round(2)
-pivot["21-31 %"] = ((pivot["21-31"] / pivot["Total"]).fillna(0) * 100).round(2)
+pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"].replace(0, 1) * 100).round(2)
+pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"].replace(0, 1) * 100).round(2)
+pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"].replace(0, 1) * 100).round(2)
 
 result_df = pivot.reset_index()
 
-# ================= RESULT =================
-st.subheader("Recovery Summary")
+# ================= OUTPUT =================
 st.dataframe(result_df)
 
-# ================= SAVE BUTTON =================
-if st.button("🔄 Save Again to Firebase"):
-    save_to_firebase(df)
-    st.success("Saved again to Firebase")
+# ================= SAVE =================
+if st.button("Save Again to Firebase"):
+    save_to_firebase(main_df)
+    st.success("Saved to Firebase ☁")
