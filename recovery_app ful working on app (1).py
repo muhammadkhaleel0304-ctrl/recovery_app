@@ -1534,6 +1534,7 @@ from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE =================
+st.set_page_config(page_title="Expense Tracker", layout="wide")
 st.title("💰 Daily Expense Tracker")
 
 # ================= FIREBASE =================
@@ -1565,27 +1566,35 @@ def delete_data(doc_id):
 # ================= LOAD DATA =================
 df = load_data()
 
-# ================= AUTO IMAGE SLIDER (FIXED) =================
+# ================= AUTO SLIDER (SAFE) =================
 images = [
     "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
 ]
 
-# refresh every 2 sec
-st_autorefresh(interval=2000, key="slider")
+# refresh page every 2 sec
+st_autorefresh(interval=2000, key="slider_refresh")
 
+# safe index init
 if "img_index" not in st.session_state:
     st.session_state.img_index = 0
 
+# update index safely
 st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
 
+# show image safely
 st.image(images[st.session_state.img_index], use_container_width=True)
 
 # ================= SIDEBAR =================
 st.sidebar.header("💵 Budget System")
 
-budget = st.sidebar.number_input("Total Budget", min_value=0.0, value=9000.0, step=100.0)
+budget = st.sidebar.number_input(
+    "Total Budget",
+    min_value=0.0,
+    value=9000.0,
+    step=100.0
+)
 
 with st.sidebar.expander("➕ Add Expense", expanded=True):
     with st.form("expense_form"):
