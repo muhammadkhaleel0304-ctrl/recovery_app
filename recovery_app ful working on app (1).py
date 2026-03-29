@@ -1532,7 +1532,7 @@ import pandas as pd
 from datetime import datetime
 
 # ---------------- PAGE ----------------
-
+st.set_page_config(page_title="Expense Tracker", layout="wide")
 st.title("💰 Daily Expense Tracker")
 
 # ---------------- FIREBASE ----------------
@@ -1545,31 +1545,28 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ---------------- LOAD DATA ----------------
+# ---------------- FUNCTIONS ----------------
 def load_data():
     docs = db.collection("expenses").stream()
     data = []
     for doc in docs:
         d = doc.to_dict()
-        d["id"] = doc.id  # important for delete
+        d["id"] = doc.id
         data.append(d)
     return pd.DataFrame(data)
 
-# ---------------- ADD ----------------
 def add_data(data):
     db.collection("expenses").add(data)
 
-# ---------------- DELETE ----------------
 def delete_data(doc_id):
     db.collection("expenses").document(doc_id).delete()
 
 # ---------------- LOAD ----------------
 df = load_data()
 
-# ---------------- SIDEBAR (EXPANDABLE FORM) ----------------
+# ---------------- SIDEBAR FORM ----------------
 with st.sidebar.expander("➕ Add Expense", expanded=True):
-
-    with st.form("form"):
+    with st.form("expense_form"):
         date = datetime.now().strftime("%Y-%m-%d")
         item = st.text_input("Kya liya?")
         amount = st.number_input("Amount", min_value=0.0, step=1.0)
@@ -1583,32 +1580,42 @@ with st.sidebar.expander("➕ Add Expense", expanded=True):
             "Amount": amount
         })
         st.success("Saved to Firebase ☁")
-        st.rerun()
+        st.experimental_rerun()   # ✅ FIXED
 
-# ---------------- SHOW DATA ----------------
+# ---------------- DISPLAY ----------------
 st.subheader("📊 Expense List")
 
 if not df.empty:
 
-    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
+    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
 
     running_total = 0
-    rows = []
 
+    # Header
+    h1, h2, h3, h4, h5 = st.columns([2,3,2,2,1])
+    h1.markdown("**Date**")
+    h2.markdown("**Item**")
+    h3.markdown("**Amount**")
+    h4.markdown("**Running Total**")
+    h5.markdown("**Delete**")
+
+    st.markdown("---")
+
+    # Rows
     for i, row in df.iterrows():
         running_total += row["Amount"]
 
-        cols = st.columns([2,3,2,2,1])
+        c1, c2, c3, c4, c5 = st.columns([2,3,2,2,1])
 
-        cols[0].write(row["Date"])
-        cols[1].write(row["Item"])
-        cols[2].write(row["Amount"])
-        cols[3].write(f"Total: {running_total}")
+        c1.write(row["Date"])
+        c2.write(row["Item"])
+        c3.write(row["Amount"])
+        c4.write(running_total)
 
-        # DELETE BUTTON
-        if cols[4].button("❌", key=row["id"]):
+        # Delete button
+        if c5.button("❌", key=row["id"]):
             delete_data(row["id"])
-            st.rerun()
+            st.experimental_rerun()   # ✅ FIXED
 
     # ---------------- GRAND TOTAL ----------------
     st.markdown("---")
@@ -1619,7 +1626,8 @@ else:
 
 # ---------------- DOWNLOAD ----------------
 if not df.empty:
-    csv = df.drop(columns=["id"]).to_csv(index=False).encode("utf-8")
+    download_df = df.drop(columns=["id"])
+    csv = download_df.to_csv(index=False).encode("utf-8")
 
     st.download_button(
         "⬇️ Download Excel",
