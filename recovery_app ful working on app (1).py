@@ -468,7 +468,6 @@ import pandas as pd
 from fpdf import FPDF
 import os
 import zipfile
-
 import streamlit as st
 import pandas as pd
 import os
@@ -476,98 +475,69 @@ import zipfile
 from fpdf import FPDF
 from datetime import datetime
 
-# Firebase
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 
-# ---------------- FIREBASE INIT ----------------
+# ---------------- PAGE ----------------
+st.set_page_config(page_title="Recovery App", layout="wide")
+st.title("📊 Excel + Firebase + PDF System")
+
+# ---------------- FIREBASE INIT (FIXED) ----------------
 if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase.json")  # <-- apni file
+    cred = credentials.Certificate("firebase.json")  # your file
     firebase_admin.initialize_app(cred, {
         'storageBucket': 'YOUR_PROJECT_ID.appspot.com'
     })
 
 db = firestore.client()
-bucket = storage.bucket()
 
-# ---------------- PAGE CONFIG (IMPORTANT FIX) ----------------
-st.set_page_config(page_title="Recovery System", layout="wide")
+# 🔥 FIX: ALWAYS give bucket name
+bucket = storage.bucket("YOUR_PROJECT_ID.appspot.com")
 
-st.title("📊 Recovery Excel + Firebase + PDF System")
-
-# ---------------- UPLOAD FILE ----------------
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
-# ---------------- SEARCH BOX ----------------
-search = st.text_input("🔍 Search by Name / CNIC / Mobile")
+# ---------------- UPLOAD ----------------
+uploaded_file = st.file_uploader("Upload Excel", type=["xlsx"])
 
 if uploaded_file:
+
     df = pd.read_excel(uploaded_file)
     df.columns = df.columns.astype(str).str.strip()
 
     st.subheader("📋 Original Data")
     st.dataframe(df, use_container_width=True)
 
-    # ---------------- SEARCH FILTER ----------------
-    if search:
-        df = df[df.astype(str).apply(lambda row: row.str.contains(search, case=False).any(), axis=1)]
+    # ---------------- SEARCH ----------------
+    search = st.text_input("🔍 Search")
 
-    # ---------------- REMOVE COLUMNS ----------------
+    if search:
+        df = df[df.astype(str).apply(
+            lambda x: x.str.contains(search, case=False).any(), axis=1
+        )]
+
+    # ---------------- REMOVE COLS ----------------
     remove_cols = st.multiselect("❌ Remove Columns", df.columns)
     if remove_cols:
         df = df.drop(columns=remove_cols)
 
     # ---------------- BRANCH ----------------
-    branch_col = st.selectbox("🏢 Select Branch Column", df.columns)
-
-    # reorder: Area ID then Branch ID (as requested)
-    cols = list(df.columns)
-    if "Area ID" in cols and "Branch ID" in cols:
-        cols.remove("Area ID")
-        cols.remove("Branch ID")
-        cols = ["Area ID", "Branch ID"] + cols
-        df = df[cols]
+    branch_col = st.selectbox("🏢 Branch Column", df.columns)
 
     st.subheader("✅ Clean Data")
     st.dataframe(df, use_container_width=True)
 
-    # ---------------- GRAND TOTAL ----------------
-    if "Amount" in df.columns:
-        total = pd.to_numeric(df["Amount"], errors="coerce").sum()
-        st.success(f"💰 Grand Total: {total}")
-
-        # add row
-        grand_row = {col: "" for col in df.columns}
-        grand_row["Amount"] = total
-        grand_row[df.columns[0]] = "GRAND TOTAL"
-        df = pd.concat([df, pd.DataFrame([grand_row])], ignore_index=True)
-
-    # ---------------- DOWNLOAD EXCEL ----------------
-    def create_excel(data):
-        file_path = "final.xlsx"
-        data.to_excel(file_path, index=False)
-        return file_path
-
-    excel_file = create_excel(df)
-
-    st.download_button(
-        "⬇️ Download Excel",
-        open(excel_file, "rb"),
-        file_name="recovery.xlsx"
-    )
-
-    # ---------------- SAVE FIREBASE ----------------
-    def save_firebase(data):
-        db.collection("recovery_data").document(str(datetime.now())).set({
+    # ---------------- FIREBASE SAVE ----------------
+    def save_to_firebase(data):
+        db.collection("recovery_data").add({
+            "timestamp": str(datetime.now()),
             "data": data.to_dict(orient="records")
         })
 
     if st.button("☁️ Save to Firebase"):
-        save_firebase(df)
-        st.success("Saved to Firebase")
+        save_to_firebase(df)
+        st.success("Saved to Firebase ✅")
 
     # ---------------- PDF GENERATION ----------------
     if st.button("📄 Generate PDFs"):
+
         os.makedirs("pdfs", exist_ok=True)
 
         branches = df[branch_col].dropna().unique()
@@ -575,14 +545,9 @@ if uploaded_file:
         for b in branches:
             temp = df[df[branch_col] == b]
 
-            pdf = FPDF(orientation='L')
+            pdf = FPDF(orientation="L")
             pdf.add_page()
             pdf.set_font("Arial", size=8)
-
-            # WATERMARK
-            pdf.set_text_color(200, 200, 200)
-            pdf.text(80, 100, "Created by M Khaleel")
-            pdf.set_text_color(0, 0, 0)
 
             pdf.cell(0, 10, f"Branch: {b}", ln=True)
 
@@ -599,22 +564,22 @@ if uploaded_file:
                     pdf.cell(col_width, 8, str(item)[:20], border=1)
                 pdf.ln()
 
-            file_name = f"pdfs/{b}.pdf"
-            pdf.output(file_name)
+            pdf.output(f"pdfs/{b}.pdf")
 
-        # ZIP FILE
+        # ---------------- ZIP ----------------
         zip_name = "reports.zip"
+
         with zipfile.ZipFile(zip_name, "w") as zipf:
-            for f in os.listdir("pdfs"):
-                zipf.write(os.path.join("pdfs", f), f)
+            for file in os.listdir("pdfs"):
+                zipf.write(os.path.join("pdfs", file), file)
 
         st.download_button(
-            "⬇️ Download PDFs ZIP",
+            "⬇️ Download PDFs",
             open(zip_name, "rb"),
             file_name="branch_reports.zip"
         )
 
-        st.success("PDF Generated Successfully")
+        st.success("PDF Generated Successfully ✅")
 import streamlit as st
 import pandas as pd
 
