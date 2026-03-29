@@ -77,7 +77,7 @@ LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ================= AUTO DETECT COLUMNS =================
+# ================= AUTO DETECT =================
 def detect_columns(df):
     date_col = None
     branch_col = None
@@ -154,15 +154,8 @@ else:
 if df is None or df.empty:
     st.stop()
 
-st.subheader("Data Preview")
-st.dataframe(df, use_container_width=True)
-
 # ================= AUTO COLUMNS =================
 date_col, branch_col, area_col = detect_columns(df)
-
-st.info(f"Date Column: {date_col}")
-st.info(f"Branch Column: {branch_col}")
-st.info(f"Area Column: {area_col}")
 
 # ================= CLEAN =================
 df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
@@ -198,14 +191,36 @@ if area_col:
     area_map = df[[branch_col, area_col]].drop_duplicates()
     result_df = result_df.merge(area_map, on=branch_col, how="left")
 
-# ================= SHOW =================
+# ================= COLUMN ORDER FIX =================
+cols = result_df.columns.tolist()
+
+ordered_cols = []
+
+# Area first
+for c in cols:
+    if "area" in c.lower():
+        ordered_cols.append(c)
+
+# Branch second
+for c in cols:
+    if "branch" in c.lower():
+        ordered_cols.append(c)
+
+# rest
+for c in cols:
+    if c not in ordered_cols:
+        ordered_cols.append(c)
+
+result_df = result_df[ordered_cols]
+
+# ================= CLEAN SCREEN OUTPUT =================
 st.subheader("Recovery Summary")
 st.dataframe(result_df, use_container_width=True)
 
 # ================= WATERMARK =================
 WATERMARK = "Created by M Khaleel"
 
-# ================= EXCEL WITH GRAND TOTAL LAST ROW =================
+# ================= EXCEL WITH GRAND TOTAL =================
 import openpyxl
 from openpyxl import Workbook
 
@@ -298,7 +313,7 @@ st.download_button(
     "application/pdf"
 )
 
-# ================= SAVE BUTTON =================
+# ================= SAVE =================
 if st.button("🔄 Save Again Firebase"):
     save_to_firebase(df)
     st.success("Saved successfully ☁")
