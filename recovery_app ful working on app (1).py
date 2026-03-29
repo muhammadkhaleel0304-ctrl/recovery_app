@@ -331,36 +331,36 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD FROM FIREBASE =================
+# ================= LOAD =================
 def load_data():
     doc = db.collection("recovery_data").document("records").get()
     if doc.exists:
         data = doc.to_dict().get("data", [])
         return pd.DataFrame(data)
-    return pd.DataFrame()
+    return pd.DataFrame(columns=[
+        "Sr","Name","Parentage","CNIC","Mobile",
+        "Address","Amount","Received By","Branch"
+    ])
 
-# ================= SAVE TO FIREBASE =================
+# ================= SAVE =================
 def save_data(df):
     df_clean = df.fillna("").astype(str)
     db.collection("recovery_data").document("records").set({
         "data": df_clean.to_dict(orient="records")
     })
 
-# ================= SAMPLE / LOAD DATA =================
+# ================= DATA =================
 df = load_data()
-
-if df.empty:
-    df = pd.DataFrame(columns=[
-        "Sr","Name","Parentage","CNIC","Mobile",
-        "Address","Amount","Received By","Branch"
-    ])
 
 st.title("Recovery MIS System")
 
-# ================= INPUT FORM =================
-st.subheader("Add New Record")
+# ================= PASSWORD =================
+DELETE_PASSWORD = "1234"   # <-- change this
 
-with st.form("entry_form"):
+# ================= ADD ENTRY =================
+st.subheader("Add Record")
+
+with st.form("add_form"):
     sr = st.number_input("Sr", step=1)
     name = st.text_input("Name")
     parentage = st.text_input("Parentage")
@@ -391,44 +391,70 @@ if submit:
     st.success("Saved to Firebase ☁")
 
 # ================= FILTER =================
-st.subheader("Filters")
+st.subheader("Search & Filter")
 
 branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
-selected_branch = st.selectbox("Select Branch", branches)
+branch = st.selectbox("Branch", branches)
 
 search = st.text_input("Search (Name / CNIC / Mobile)")
 
-filtered_df = df.copy()
+filtered = df.copy()
 
-if selected_branch != "All":
-    filtered_df = filtered_df[filtered_df["Branch"] == selected_branch]
+if branch != "All":
+    filtered = filtered[filtered["Branch"] == branch]
 
 if search:
     search = search.lower()
-    filtered_df = filtered_df[
-        filtered_df.astype(str).apply(
+    filtered = filtered[
+        filtered.astype(str).apply(
             lambda row: row.str.lower().str.contains(search).any(),
             axis=1
         )
     ]
 
-# ================= DISPLAY =================
+# ================= FIX COLUMN ORDER (IMPORTANT) =================
+fixed_order = [
+    "Sr","Name","Parentage","CNIC","Mobile",
+    "Address","Amount","Received By","Branch"
+]
+
+filtered = filtered[[c for c in fixed_order if c in filtered.columns]]
+
 st.subheader("Records")
-st.dataframe(filtered_df, use_container_width=True)
+st.dataframe(filtered, use_container_width=True)
+
+# ================= DELETE SECTION =================
+st.subheader("Delete Entry (Protected)")
+
+delete_cnic = st.text_input("Enter CNIC to Delete")
+password = st.text_input("Enter Password", type="password")
+
+if st.button("Delete Record"):
+    if password != DELETE_PASSWORD:
+        st.error("Wrong password ❌")
+    else:
+        if delete_cnic:
+            df = df[df["CNIC"] != delete_cnic]
+            save_data(df)
+            st.success("Record deleted successfully ✅")
+        else:
+            st.warning("Enter CNIC first")
 
 # ================= EXCEL DOWNLOAD =================
 def to_excel(dataframe):
     output = io.BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         dataframe.to_excel(writer, index=False, sheet_name="Recovery")
+
     output.seek(0)
     return output
 
-excel_file = to_excel(filtered_df)
+excel_file = to_excel(filtered)
 
 st.download_button(
     "📥 Download Excel",
     excel_file,
-    "recovery_data.xlsx",
+    "recovery.xlsx",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
