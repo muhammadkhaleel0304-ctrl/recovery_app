@@ -76,7 +76,16 @@ def load_from_firebase():
     if doc.exists:
         data = doc.to_dict().get("data", [])
         if data:
-            return pd.DataFrame(data)
+            df = pd.DataFrame(data)
+
+            # 🔥 FIX TYPES AFTER LOAD
+            for col in df.columns:
+                try:
+                    df[col] = pd.to_numeric(df[col])
+                except:
+                    pass
+
+            return df
     return None
 
 # ================= FIREBASE SAVE =================
@@ -95,29 +104,29 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    # save locally
+    # local save
     df.to_excel(LOCAL_FILE, index=False)
 
-    # save firebase
+    # firebase save
     save_to_firebase(df)
 
     st.success("File uploaded & saved permanently ✅")
 
-# ================= AUTO LOAD (FINAL FIX) =================
+# ================= AUTO LOAD =================
 df = None
 
-# 🔥 FIRST → Firebase
+# 🔥 Firebase FIRST
 fb_df = load_from_firebase()
 if fb_df is not None and not fb_df.empty:
     df = fb_df
     st.success("Loaded from Firebase ☁")
 
-# 🔥 SECOND → Local backup
+# 🔥 Local fallback
 elif os.path.exists(LOCAL_FILE):
     df = pd.read_excel(LOCAL_FILE)
     st.info("Loaded from local file")
 
-# 🔥 THIRD → Ask upload
+# 🔥 No data
 else:
     st.warning("Please upload file")
     st.stop()
@@ -131,17 +140,17 @@ if df is None or df.empty:
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= SELECT =================
+# ================= COLUMN SELECT =================
 date_col = st.selectbox("Select Date Column", df.columns)
-branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
-area_col = None
-if 'area_id' in df.columns:
-    area_col = 'area_id'
+branch_col = st.selectbox("Select Branch Column", df.columns)
 
-# ================= PROCESS =================
+# ================= DATE FIX =================
 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+
+# ================= CLEAN =================
 df = df.dropna(subset=[date_col, branch_col])
 
+# ================= RANGE =================
 df["Day"] = df[date_col].dt.day
 df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31"])
 
@@ -160,9 +169,9 @@ for c in ["1-10","11-20","21-31"]:
 
 pivot["Total"] = pivot.sum(axis=1)
 
-pivot["1-10 %"] = (pivot["1-10"]/pivot["Total"]*100).round(2)
-pivot["11-20 %"] = (pivot["11-20"]/pivot["Total"]*100).round(2)
-pivot["21-31 %"] = (pivot["21-31"]/pivot["Total"]*100).round(2)
+pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
+pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
+pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
 
 result_df = pivot.reset_index()
 
@@ -170,7 +179,7 @@ result_df = pivot.reset_index()
 st.subheader("Recovery Summary")
 st.dataframe(result_df)
 
-# ================= MANUAL SAVE =================
+# ================= SAVE BUTTON =================
 if st.button("🔄 Save Again to Firebase"):
     save_to_firebase(df)
     st.success("Saved again to Firebase")
