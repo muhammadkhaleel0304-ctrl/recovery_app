@@ -471,7 +471,6 @@ import zipfile
 from fpdf import FPDF
 
 # ⚠️ MUST be first Streamlit command
-st.set_page_config(page_title="Excel Cleaner + PDF Generator", layout="wide")
 
 st.title("📊 Excel Cleaner + Branch-wise PDF Generator")
 
