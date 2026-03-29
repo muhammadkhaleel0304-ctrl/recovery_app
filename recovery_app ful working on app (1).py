@@ -1532,100 +1532,99 @@ import pandas as pd
 from datetime import datetime
 
 # ---------------- PAGE ----------------
-# ---------------- STYLE ----------------
-st.markdown("""
-<style>
-.title {
-    font-size: 32px;
-    font-weight: bold;
-    text-align: center;
-    color: #2E86C1;
-}
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Expense Tracker", layout="wide")
 
-st.markdown('<div class="title">💰 Daily Expense Tracker</div>', unsafe_allow_html=True)
+st.title("💰 Daily Expense Tracker")
 
-# ---------------- IMAGE SLIDER (FIXED LINKS) ----------------
-images = [
-    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
-]
+# ---------------- FIREBASE ----------------
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-# slider index
-if "img_index" not in st.session_state:
-    st.session_state.img_index = 0
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
 
-# show image safely
-try:
-    st.image(images[st.session_state.img_index], use_container_width=True)
-except:
-    st.warning("Image load issue ⚠️")
+db = firestore.client()
 
-# slider buttons
-col1, col2, col3 = st.columns([1,2,1])
+# ---------------- LOAD DATA ----------------
+def load_data():
+    docs = db.collection("expenses").stream()
+    data = []
+    for doc in docs:
+        d = doc.to_dict()
+        d["id"] = doc.id  # important for delete
+        data.append(d)
+    return pd.DataFrame(data)
 
-with col1:
-    if st.button("⬅️"):
-        st.session_state.img_index = (st.session_state.img_index - 1) % len(images)
+# ---------------- ADD ----------------
+def add_data(data):
+    db.collection("expenses").add(data)
 
-with col3:
-    if st.button("➡️"):
-        st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
+# ---------------- DELETE ----------------
+def delete_data(doc_id):
+    db.collection("expenses").document(doc_id).delete()
 
-# ---------------- DATA ----------------
-if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame(columns=["Date", "Item", "Amount"])
+# ---------------- LOAD ----------------
+df = load_data()
 
-df = st.session_state.data
+# ---------------- SIDEBAR (EXPANDABLE FORM) ----------------
+with st.sidebar.expander("➕ Add Expense", expanded=True):
 
-# ---------------- ADD EXPENSE ----------------
-st.subheader("➕ Add Expense")
+    with st.form("form"):
+        date = datetime.now().strftime("%Y-%m-%d")
+        item = st.text_input("Kya liya?")
+        amount = st.number_input("Amount", min_value=0.0, step=1.0)
 
-with st.form("expense_form"):
-    date = datetime.now().strftime("%Y-%m-%d")
-    item = st.text_input("Kya liya?")
-    amount = st.number_input("Kitni amount?", min_value=0.0, step=1.0)
+        submit = st.form_submit_button("Add")
 
-    submit = st.form_submit_button("Add")
-
-if submit:
-    new_row = pd.DataFrame([{
-        "Date": date,
-        "Item": item,
-        "Amount": amount
-    }])
-
-    st.session_state.data = pd.concat([df, new_row], ignore_index=True)
-    st.success("✅ Expense Added")
+    if submit:
+        add_data({
+            "Date": date,
+            "Item": item,
+            "Amount": amount
+        })
+        st.success("Saved to Firebase ☁")
+        st.rerun()
 
 # ---------------- SHOW DATA ----------------
 st.subheader("📊 Expense List")
-st.dataframe(st.session_state.data, use_container_width=True)
 
-# ---------------- TOTAL ----------------
-total = pd.to_numeric(st.session_state.data["Amount"], errors="coerce").sum()
-st.success(f"💰 Total Expense: {total}")
+if not df.empty:
 
-# ---------------- DELETE ----------------
-st.subheader("❌ Delete Entry")
+    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
 
-delete_index = st.number_input("Row number delete karna hai", min_value=0, step=1)
+    running_total = 0
+    rows = []
 
-if st.button("Delete"):
-    if delete_index < len(st.session_state.data):
-        st.session_state.data = st.session_state.data.drop(index=delete_index).reset_index(drop=True)
-        st.success("Deleted successfully")
-    else:
-        st.error("Invalid index")
+    for i, row in df.iterrows():
+        running_total += row["Amount"]
+
+        cols = st.columns([2,3,2,2,1])
+
+        cols[0].write(row["Date"])
+        cols[1].write(row["Item"])
+        cols[2].write(row["Amount"])
+        cols[3].write(f"Total: {running_total}")
+
+        # DELETE BUTTON
+        if cols[4].button("❌", key=row["id"]):
+            delete_data(row["id"])
+            st.rerun()
+
+    # ---------------- GRAND TOTAL ----------------
+    st.markdown("---")
+    st.success(f"💰 Grand Total: {running_total}")
+
+else:
+    st.info("No data yet")
 
 # ---------------- DOWNLOAD ----------------
-csv = st.session_state.data.to_csv(index=False).encode("utf-8")
+if not df.empty:
+    csv = df.drop(columns=["id"]).to_csv(index=False).encode("utf-8")
 
-st.download_button(
-    "⬇️ Download Excel",
-    csv,
-    file_name="expenses.csv",
-    mime="text/csv"
-)
+    st.download_button(
+        "⬇️ Download Excel",
+        csv,
+        file_name="expenses.csv",
+        mime="text/csv"
+    )
