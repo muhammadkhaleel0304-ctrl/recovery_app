@@ -1527,15 +1527,16 @@ if uploaded_cheque:
             "application/zip"
         )
 
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 
-# ---------------- PAGE ----------------
-
+# ================= PAGE =================
 st.title("💰 Daily Expense Tracker")
 
-# ---------------- FIREBASE ----------------
+# ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -1545,7 +1546,7 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ---------------- FUNCTIONS ----------------
+# ================= FUNCTIONS =================
 def load_data():
     docs = db.collection("expenses").stream()
     data = []
@@ -1561,10 +1562,32 @@ def add_data(data):
 def delete_data(doc_id):
     db.collection("expenses").document(doc_id).delete()
 
-# ---------------- LOAD ----------------
+# ================= LOAD DATA =================
 df = load_data()
 
-# ---------------- SIDEBAR FORM ----------------
+# ================= AUTO SLIDER =================
+images = [
+    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
+    "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
+    "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
+]
+
+if "img_index" not in st.session_state:
+    st.session_state.img_index = 0
+
+# update image index
+st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
+
+st.image(images[st.session_state.img_index], use_container_width=True)
+
+time.sleep(2)
+st.rerun()
+
+# ================= SIDEBAR =================
+st.sidebar.header("💵 Budget System")
+
+budget = st.sidebar.number_input("Total Budget", min_value=0.0, value=9000.0, step=100.0)
+
 with st.sidebar.expander("➕ Add Expense", expanded=True):
     with st.form("expense_form"):
         date = datetime.now().strftime("%Y-%m-%d")
@@ -1580,28 +1603,41 @@ with st.sidebar.expander("➕ Add Expense", expanded=True):
             "Amount": amount
         })
         st.success("Saved to Firebase ☁")
-        st.experimental_rerun()   # ✅ FIXED
+        st.experimental_rerun()
 
-# ---------------- DISPLAY ----------------
+# ================= CALCULATIONS =================
+if not df.empty:
+    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+    total_expense = df["Amount"].sum()
+    remaining = budget - total_expense
+else:
+    total_expense = 0
+    remaining = budget
+
+# ================= METRICS =================
+c1, c2, c3 = st.columns(3)
+c1.metric("💰 Budget", budget)
+c2.metric("💸 Expense", total_expense)
+c3.metric("📊 Remaining", remaining)
+
+st.markdown("---")
+
+# ================= TABLE =================
 st.subheader("📊 Expense List")
+
+running_total = 0
 
 if not df.empty:
 
-    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
-
-    running_total = 0
-
-    # Header
     h1, h2, h3, h4, h5 = st.columns([2,3,2,2,1])
-    h1.markdown("**Date**")
-    h2.markdown("**Item**")
-    h3.markdown("**Amount**")
-    h4.markdown("**Running Total**")
-    h5.markdown("**Delete**")
+    h1.write("Date")
+    h2.write("Item")
+    h3.write("Amount")
+    h4.write("Running")
+    h5.write("Delete")
 
     st.markdown("---")
 
-    # Rows
     for i, row in df.iterrows():
         running_total += row["Amount"]
 
@@ -1612,22 +1648,21 @@ if not df.empty:
         c3.write(row["Amount"])
         c4.write(running_total)
 
-        # Delete button
         if c5.button("❌", key=row["id"]):
             delete_data(row["id"])
-            st.experimental_rerun()   # ✅ FIXED
-
-    # ---------------- GRAND TOTAL ----------------
-    st.markdown("---")
-    st.success(f"💰 Grand Total: {running_total}")
+            st.experimental_rerun()
 
 else:
-    st.info("No data yet")
+    st.info("No expenses yet")
 
-# ---------------- DOWNLOAD ----------------
+# ================= TOTAL =================
+st.markdown("---")
+st.success(f"💰 Total Expense: {total_expense}")
+st.info(f"📉 Remaining Budget: {remaining}")
+
+# ================= DOWNLOAD =================
 if not df.empty:
-    download_df = df.drop(columns=["id"])
-    csv = download_df.to_csv(index=False).encode("utf-8")
+    csv = df.drop(columns=["id"]).to_csv(index=False).encode("utf-8")
 
     st.download_button(
         "⬇️ Download Excel",
