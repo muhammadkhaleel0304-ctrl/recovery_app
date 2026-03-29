@@ -62,16 +62,33 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD FIREBASE =================
+# ================= PAGE =================
+st.title("Recovery Date Range Summary")
+
+# ================= LOCAL STORAGE =================
+LOCAL_FOLDER = "data"
+LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
+os.makedirs(LOCAL_FOLDER, exist_ok=True)
+
+# ================= FIREBASE LOAD =================
 def load_from_firebase():
     doc = db.collection("recovery_summary").document("latest").get()
     if doc.exists:
         data = doc.to_dict().get("data", [])
         if data:
-            return pd.DataFrame(data)
+            df = pd.DataFrame(data)
+
+            # 🔥 FIX TYPES AFTER LOAD
+            for col in df.columns:
+                try:
+                    df[col] = pd.to_numeric(df[col])
+                except:
+                    pass
+
+            return df
     return None
 
-# ================= SAVE FIREBASE =================
+# ================= FIREBASE SAVE =================
 def save_to_firebase(df):
     safe_df = df.astype(str).replace("nan", "")
     db.collection("recovery_summary").document("latest").set({
@@ -79,46 +96,59 @@ def save_to_firebase(df):
     })
 
 # ================= FILE UPLOAD =================
-uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
+uploaded_file = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
 
 if uploaded_file:
-    df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith("xlsx") else pd.read_csv(uploaded_file)
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
+
+    # local save
+    df.to_excel(LOCAL_FILE, index=False)
+
+    # firebase save
     save_to_firebase(df)
-    st.success("Uploaded & Saved ✔")
 
-# ================= LOAD DATA =================
-df = load_from_firebase()
+    st.success("File uploaded & saved permanently ✅")
 
-if df is None or df.empty:
-    st.warning("Upload file first")
+# ================= AUTO LOAD =================
+df = None
+
+# 🔥 Firebase FIRST
+fb_df = load_from_firebase()
+if fb_df is not None and not fb_df.empty:
+    df = fb_df
+    st.success("Loaded from Firebase ☁")
+
+# 🔥 Local fallback
+elif os.path.exists(LOCAL_FILE):
+    df = pd.read_excel(LOCAL_FILE)
+    st.info("Loaded from local file")
+
+# 🔥 No data
+else:
+    st.warning("Please upload file")
     st.stop()
 
+# ================= SAFETY =================
+if df is None or df.empty:
+    st.warning("No data available")
+    st.stop()
+
+# ================= SHOW =================
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= AUTO DETECT DATE =================
-date_col = "recovery_date"
+# ================= COLUMN SELECT =================
+date_col = st.selectbox("Select Date Column", df.columns)
+branch_col = st.selectbox("Select Branch Column", df.columns)
 
-if date_col not in df.columns:
-    st.error("recovery_date column not found")
-    st.stop()
-
-df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-
-# ================= GROUP TYPE =================
-group_type = st.selectbox(
-    "Select Report Type",
-    ["Branch", "Area", "Region"],
-    key="group_type"
-)
-
-# ================= VALIDATION =================
-if group_type not in df.columns:
-    st.error(f"{group_type} column not found in data")
-    st.stop()
+# ================= DATE FIX =================
+df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
 
 # ================= CLEAN =================
-df = df.dropna(subset=[date_col, group_type])
+df = df.dropna(subset=[date_col, branch_col])
 
 # ================= RANGE =================
 df["Day"] = df[date_col].dt.day
@@ -127,7 +157,7 @@ df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31
 # ================= PIVOT =================
 pivot = pd.pivot_table(
     df,
-    index=[group_type],
+    index=[branch_col],
     columns="Range",
     aggfunc="size",
     fill_value=0
@@ -145,6 +175,11 @@ pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
 
 result_df = pivot.reset_index()
 
-# ================= SHOW RESULT =================
+# ================= RESULT =================
 st.subheader("Recovery Summary")
 st.dataframe(result_df)
+
+# ================= SAVE BUTTON =================
+if st.button("🔄 Save Again to Firebase"):
+    save_to_firebase(df)
+    st.success("Saved again to Firebase")
