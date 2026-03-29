@@ -60,8 +60,6 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
-# ================= PAGE =================
-st.set_page_config(page_title="Recovery Summary", layout="wide")
 
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
