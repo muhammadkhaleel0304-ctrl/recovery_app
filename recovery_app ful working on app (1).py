@@ -52,20 +52,15 @@ import streamlit as st
 import pandas as pd
 import os
 
-import firebase_admin
-from firebase_admin import credentials, firestore
-
-from io import BytesIO
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-
-# ================= PAGE CONFIG (MUST FIRST) =================
+# ================= MUST BE FIRST STREAMLIT COMMAND =================
 st.set_page_config(page_title="Recovery Date Range Summary", layout="wide")
 
 st.title("🔄 Recovery Date Range Summary")
 
-# ================= FIREBASE INIT =================
+# ================= FIREBASE =================
+import firebase_admin
+from firebase_admin import credentials, firestore
+
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
@@ -96,7 +91,7 @@ def save_to_firebase(df):
     except Exception as e:
         st.error(f"Firebase save error: {e}")
 
-# ================= UPLOAD =================
+# ================= FILE UPLOAD =================
 uploaded_file = st.file_uploader("Upload Excel / CSV", type=["xlsx", "csv"])
 
 if uploaded_file:
@@ -228,11 +223,11 @@ except Exception as e:
     st.error(f"Processing error: {e}")
     st.stop()
 
-# ================= DISPLAY =================
+# ================= OUTPUT =================
 st.subheader("📊 Branch Wise Recovery Summary")
 st.dataframe(result_df, use_container_width=True)
 
-# ================= CSV =================
+# ================= DOWNLOAD CSV =================
 st.download_button(
     "⬇ Download CSV",
     result_df.to_csv(index=False).encode("utf-8"),
@@ -240,33 +235,7 @@ st.download_button(
     "text/csv"
 )
 
-# ================= PDF =================
-buffer = BytesIO()
-doc = SimpleDocTemplate(buffer, pagesize=A4)
-
-table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-
-table = Table(table_data)
-
-table.setStyle(TableStyle([
-    ("GRID", (0,0), (-1,-1), 0.5, colors.black),
-    ("BACKGROUND", (0,0), (-1,0), colors.grey),
-    ("TEXTCOLOR", (0,0), (-1,0), colors.whitesmoke),
-    ("ALIGN", (0,0), (-1,-1), "CENTER"),
-]))
-
-doc.build([table])
-
-st.download_button(
-    "⬇ Download PDF",
-    buffer.getvalue(),
-    "recovery_summary.pdf",
-    "application/pdf"
-)
-
-buffer.close()
-
-# ================= SAVE BUTTON =================
+# ================= SAVE =================
 if st.button("🔄 Save to Firebase Again"):
     save_to_firebase(df)
     st.success("Saved to Firebase")
