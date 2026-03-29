@@ -1700,3 +1700,105 @@ if st.button("Test Save"):
         "message": "Firebase working"
     })
     st.success("Saved!")
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+# ---------------- PAGE ----------------
+# ---------------- STYLE ----------------
+st.markdown("""
+<style>
+.title {
+    font-size: 32px;
+    font-weight: bold;
+    text-align: center;
+    color: #2E86C1;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="title">💰 Daily Expense Tracker</div>', unsafe_allow_html=True)
+
+# ---------------- IMAGE SLIDER (FIXED LINKS) ----------------
+images = [
+    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
+    "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
+    "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
+]
+
+# slider index
+if "img_index" not in st.session_state:
+    st.session_state.img_index = 0
+
+# show image safely
+try:
+    st.image(images[st.session_state.img_index], use_container_width=True)
+except:
+    st.warning("Image load issue ⚠️")
+
+# slider buttons
+col1, col2, col3 = st.columns([1,2,1])
+
+with col1:
+    if st.button("⬅️"):
+        st.session_state.img_index = (st.session_state.img_index - 1) % len(images)
+
+with col3:
+    if st.button("➡️"):
+        st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
+
+# ---------------- DATA ----------------
+if "data" not in st.session_state:
+    st.session_state.data = pd.DataFrame(columns=["Date", "Item", "Amount"])
+
+df = st.session_state.data
+
+# ---------------- ADD EXPENSE ----------------
+st.subheader("➕ Add Expense")
+
+with st.form("expense_form"):
+    date = datetime.now().strftime("%Y-%m-%d")
+    item = st.text_input("Kya liya?")
+    amount = st.number_input("Kitni amount?", min_value=0.0, step=1.0)
+
+    submit = st.form_submit_button("Add")
+
+if submit:
+    new_row = pd.DataFrame([{
+        "Date": date,
+        "Item": item,
+        "Amount": amount
+    }])
+
+    st.session_state.data = pd.concat([df, new_row], ignore_index=True)
+    st.success("✅ Expense Added")
+
+# ---------------- SHOW DATA ----------------
+st.subheader("📊 Expense List")
+st.dataframe(st.session_state.data, use_container_width=True)
+
+# ---------------- TOTAL ----------------
+total = pd.to_numeric(st.session_state.data["Amount"], errors="coerce").sum()
+st.success(f"💰 Total Expense: {total}")
+
+# ---------------- DELETE ----------------
+st.subheader("❌ Delete Entry")
+
+delete_index = st.number_input("Row number delete karna hai", min_value=0, step=1)
+
+if st.button("Delete"):
+    if delete_index < len(st.session_state.data):
+        st.session_state.data = st.session_state.data.drop(index=delete_index).reset_index(drop=True)
+        st.success("Deleted successfully")
+    else:
+        st.error("Invalid index")
+
+# ---------------- DOWNLOAD ----------------
+csv = st.session_state.data.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    "⬇️ Download Excel",
+    csv,
+    file_name="expenses.csv",
+    mime="text/csv"
+)
