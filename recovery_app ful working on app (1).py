@@ -1534,7 +1534,7 @@ from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE =================
-st.set_page_config(page_title="Expense Tracker", layout="wide")
+
 st.title("💰 Daily Expense Tracker")
 
 # ================= FIREBASE =================
