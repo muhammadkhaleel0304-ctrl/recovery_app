@@ -133,7 +133,10 @@ st.dataframe(df)
 
 # ================= SELECT =================
 date_col = st.selectbox("Select Date Column", df.columns)
-branch_col = st.selectbox("Select Branch Column", df.columns)
+branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
+area_col = None
+if 'area_id' in df.columns:
+    area_col = 'area_id'
 
 # ================= PROCESS =================
 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
