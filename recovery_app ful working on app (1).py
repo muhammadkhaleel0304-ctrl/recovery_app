@@ -50,7 +50,6 @@ else:
     st.warning("No data found in Firebase")
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 import os
 
 # ================= FIREBASE =================
@@ -90,60 +89,47 @@ def save_to_firebase(df):
 # ================= FILE UPLOAD =================
 uploaded_file = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
 
+if uploaded_file:
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
+
+    # save locally
+    df.to_excel(LOCAL_FILE, index=False)
+
+    # save firebase
+    save_to_firebase(df)
+
+    st.success("File uploaded & saved permanently ✅")
+
+# ================= AUTO LOAD (FINAL FIX) =================
 df = None
 
-if uploaded_file:
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+# 🔥 FIRST → Firebase
+fb_df = load_from_firebase()
+if fb_df is not None and not fb_df.empty:
+    df = fb_df
+    st.success("Loaded from Firebase ☁")
 
-        st.session_state["df"] = df
+# 🔥 SECOND → Local backup
+elif os.path.exists(LOCAL_FILE):
+    df = pd.read_excel(LOCAL_FILE)
+    st.info("Loaded from local file")
 
-        # local save
-        df.to_excel(LOCAL_FILE, index=False)
-
-        # firebase save
-        save_to_firebase(df)
-
-        st.success("File uploaded + saved to Firebase")
-
-    except Exception as e:
-        st.error(f"Error: {e}")
-        st.stop()
-
-# ================= AUTO LOAD SYSTEM (FIXED) =================
-elif "df" in st.session_state:
-    df = st.session_state["df"]
-    st.info("Loaded from session")
-
+# 🔥 THIRD → Ask upload
 else:
-    # 🔥 FIRST TRY FIREBASE
-    fb_df = load_from_firebase()
-
-    if fb_df is not None and not fb_df.empty:
-        df = fb_df
-        st.session_state["df"] = df
-        st.success("Loaded from Firebase ☁")
-
-    # 🔥 FALLBACK LOCAL
-    elif os.path.exists(LOCAL_FILE):
-        df = pd.read_excel(LOCAL_FILE)
-        st.session_state["df"] = df
-        st.info("Loaded from local file")
-
-    else:
-        st.warning("No data found. Upload file.")
-        st.stop()
+    st.warning("Please upload file")
+    st.stop()
 
 # ================= SAFETY =================
 if df is None or df.empty:
-    st.warning("Empty data")
+    st.warning("No data available")
     st.stop()
 
-# ================= SHOW COLUMNS =================
-st.write("Columns:", list(df.columns))
+# ================= SHOW =================
+st.subheader("Data Preview")
+st.dataframe(df)
 
 # ================= SELECT =================
 date_col = st.selectbox("Select Date Column", df.columns)
@@ -177,11 +163,11 @@ pivot["21-31 %"] = (pivot["21-31"]/pivot["Total"]*100).round(2)
 
 result_df = pivot.reset_index()
 
-# ================= DISPLAY =================
+# ================= RESULT =================
 st.subheader("Recovery Summary")
 st.dataframe(result_df)
 
-# ================= SAVE BUTTON =================
+# ================= MANUAL SAVE =================
 if st.button("🔄 Save Again to Firebase"):
     save_to_firebase(df)
-    st.success("Saved again!")
+    st.success("Saved again to Firebase")
