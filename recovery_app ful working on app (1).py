@@ -76,8 +76,7 @@ def load_from_firebase():
     if doc.exists:
         data = doc.to_dict().get("data", [])
         if data:
-            df = pd.DataFrame(data)
-            return df
+            return pd.DataFrame(data)
     return None
 
 # ================= FIREBASE SAVE =================
@@ -126,28 +125,29 @@ if df is None or df.empty:
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= 🔥 FIX: SESSION STATE CONTROL =================
-cols_hash = str(list(df.columns))
+# ================= 🔥 STABLE COLUMN SELECT FIX =================
 
-if "cols_hash" not in st.session_state or st.session_state.cols_hash != cols_hash:
-    st.session_state.cols_hash = cols_hash
-    st.session_state.date_column = df.columns[0]
-    st.session_state.branch_column = df.columns[1] if len(df.columns) > 1 else df.columns[0]
+# force stable default index (NO session_state bug)
+cols = list(df.columns)
 
-# ================= COLUMN SELECT (FIXED) =================
+default_date_index = 0
+default_branch_index = 1 if len(cols) > 1 else 0
+
 date_col = st.selectbox(
     "Select Date Column",
-    df.columns,
+    cols,
+    index=default_date_index,
     key="date_column"
 )
 
 branch_col = st.selectbox(
     "Select Branch Column",
-    df.columns,
+    cols,
+    index=default_branch_index,
     key="branch_column"
 )
 
-# DEBUG
+# ================= DEBUG =================
 st.write("Selected Date:", date_col)
 st.write("Selected Branch:", branch_col)
 
@@ -163,7 +163,7 @@ df = df.dropna(subset=[date_col, branch_col])
 
 # ================= RANGE =================
 df["Day"] = df[date_col].dt.day
-df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31"])
+df["Range"] = pd.cut(df["Day"], bins=[0, 10, 20, 31], labels=["1-10", "11-20", "21-31"])
 
 # ================= PIVOT =================
 pivot = pd.pivot_table(
@@ -174,15 +174,15 @@ pivot = pd.pivot_table(
     fill_value=0
 )
 
-for c in ["1-10","11-20","21-31"]:
+for c in ["1-10", "11-20", "21-31"]:
     if c not in pivot.columns:
         pivot[c] = 0
 
-pivot["Total"] = pivot.sum(axis=1)
+pivot["Total"] = pivot[["1-10", "11-20", "21-31"]].sum(axis=1)
 
-pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
-pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
-pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
+pivot["1-10 %"] = ((pivot["1-10"] / pivot["Total"]).fillna(0) * 100).round(2)
+pivot["11-20 %"] = ((pivot["11-20"] / pivot["Total"]).fillna(0) * 100).round(2)
+pivot["21-31 %"] = ((pivot["21-31"] / pivot["Total"]).fillna(0) * 100).round(2)
 
 result_df = pivot.reset_index()
 
