@@ -1534,7 +1534,15 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
+
 st.title("💰 Daily Expense Tracker")
+
+# ================= SAFE RERUN FIX =================
+def safe_rerun():
+    try:
+        st.rerun()
+    except:
+        st.experimental_rerun()
 
 # ================= FIREBASE =================
 if not firebase_admin._apps:
@@ -1550,7 +1558,7 @@ def add_expense(data):
 def delete_expense(doc_id):
     db.collection("expenses").document(doc_id).delete()
 
-def get_data():
+def load_data():
     docs = db.collection("expenses").stream()
     data = []
     for doc in docs:
@@ -1560,25 +1568,25 @@ def get_data():
     return pd.DataFrame(data)
 
 # ================= LOAD DATA =================
-df = get_data()
+df = load_data()
 
-# safe empty handling
+# safe empty dataframe
 if df.empty:
     df = pd.DataFrame(columns=["Date", "Item", "Amount"])
 
 df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
 
-# ================= SIDEBAR INPUT =================
+# ================= SIDEBAR =================
 st.sidebar.header("➕ Add Expense")
 
 budget = st.sidebar.number_input("💵 Budget", min_value=0.0, value=9000.0)
 
-with st.sidebar.form("form"):
+with st.sidebar.form("expense_form"):
     date = datetime.now().strftime("%Y-%m-%d")
     item = st.text_input("Item Name")
     amount = st.number_input("Amount", min_value=0.0)
 
-    submit = st.form_submit_button("Add")
+    submit = st.form_submit_button("Add Expense")
 
 if submit:
     if item:
@@ -1588,7 +1596,7 @@ if submit:
             "Amount": amount
         })
         st.success("Saved to Firebase ✅")
-        st.rerun()
+        safe_rerun()
 
 # ================= CALCULATIONS =================
 total = df["Amount"].sum()
@@ -1630,10 +1638,10 @@ if not df.empty:
 
         if c5.button("❌", key=row["id"]):
             delete_expense(row["id"])
-            st.rerun()
+            safe_rerun()
 
 else:
-    st.info("No expenses added yet")
+    st.info("No expenses yet")
 
 # ================= TOTAL =================
 st.markdown("---")
@@ -1641,4 +1649,4 @@ st.success(f"💰 Total Expense: {total}")
 st.info(f"📉 Remaining Budget: {remaining}")
 
 # ================= FOOTER =================
-st.caption("Built with Streamlit + Firebase")
+st.caption("Expense App • Streamlit + Firebase")
