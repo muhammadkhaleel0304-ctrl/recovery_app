@@ -134,29 +134,29 @@ if df is None or df.empty:
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= AUTO DATE DETECT =================
-date_candidates = []
-for col in df.columns:
-    try:
-        temp = pd.to_datetime(df[col], errors='coerce')
-        if temp.notna().sum() > len(df) * 0.5:
-            date_candidates.append(col)
-    except:
-        pass
+# ================= COLUMN SELECT (FIXED) =================
+date_col = st.selectbox(
+    "Select Date Column",
+    df.columns,
+    key="date_column"
+)
 
-if date_candidates:
-    date_col = st.selectbox("Select Date Column", date_candidates)
-else:
-    date_col = st.selectbox("Select Date Column", df.columns)
+branch_col = st.selectbox(
+    "Select Branch Column",
+    df.columns,
+    key="branch_column"
+)
 
-branch_col = st.selectbox("Select Branch Column", df.columns)
+# DEBUG (optional but helpful)
+st.write("Selected Date:", date_col)
+st.write("Selected Branch:", branch_col)
 
 # ================= DATE FIX =================
 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
 
 # ❗ WRONG DATE SELECT
 if df[date_col].isna().all():
-    st.error("❌ Wrong Date Column Selected! Please select correct date column")
+    st.error("❌ Wrong Date Column Selected!")
     st.stop()
 
 # ================= CLEAN =================
