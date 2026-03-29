@@ -196,7 +196,7 @@ result_df = pivot.reset_index()
 # ================= ADD AREA =================
 if area_col:
     area_map = df[[branch_col, area_col]].drop_duplicates()
-    result_df = result_df.merge(area_map, on=branch_col, how="Right")
+    result_df = result_df.merge(area_map, on=branch_col, how="left")
 
 # ================= SHOW =================
 st.subheader("Recovery Summary")
