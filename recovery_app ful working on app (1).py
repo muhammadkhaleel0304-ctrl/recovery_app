@@ -53,7 +53,6 @@ import pandas as pd
 import os
 
 # ================= MUST BE FIRST STREAMLIT COMMAND =================
-st.set_page_config(page_title="Recovery Date Range Summary", layout="wide")
 
 
 # ================= FIREBASE =================
