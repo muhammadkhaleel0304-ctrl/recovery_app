@@ -317,3 +317,118 @@ st.download_button(
 if st.button("🔄 Save Again Firebase"):
     save_to_firebase(df)
     st.success("Saved successfully ☁")
+import streamlit as st
+import pandas as pd
+import io
+
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+# ================= LOAD FROM FIREBASE =================
+def load_data():
+    doc = db.collection("recovery_data").document("records").get()
+    if doc.exists:
+        data = doc.to_dict().get("data", [])
+        return pd.DataFrame(data)
+    return pd.DataFrame()
+
+# ================= SAVE TO FIREBASE =================
+def save_data(df):
+    df_clean = df.fillna("").astype(str)
+    db.collection("recovery_data").document("records").set({
+        "data": df_clean.to_dict(orient="records")
+    })
+
+# ================= SAMPLE / LOAD DATA =================
+df = load_data()
+
+if df.empty:
+    df = pd.DataFrame(columns=[
+        "Sr","Name","Parentage","CNIC","Mobile",
+        "Address","Amount","Received By","Branch"
+    ])
+
+st.title("Recovery MIS System")
+
+# ================= INPUT FORM =================
+st.subheader("Add New Record")
+
+with st.form("entry_form"):
+    sr = st.number_input("Sr", step=1)
+    name = st.text_input("Name")
+    parentage = st.text_input("Parentage")
+    cnic = st.text_input("CNIC")
+    mobile = st.text_input("Mobile")
+    address = st.text_input("Address")
+    amount = st.number_input("Amount", step=1)
+    received_by = st.text_input("Received By")
+    branch = st.text_input("Branch")
+
+    submit = st.form_submit_button("Save")
+
+if submit:
+    new_row = pd.DataFrame([{
+        "Sr": sr,
+        "Name": name,
+        "Parentage": parentage,
+        "CNIC": cnic,
+        "Mobile": mobile,
+        "Address": address,
+        "Amount": amount,
+        "Received By": received_by,
+        "Branch": branch
+    }])
+
+    df = pd.concat([df, new_row], ignore_index=True)
+    save_data(df)
+    st.success("Saved to Firebase ☁")
+
+# ================= FILTER =================
+st.subheader("Filters")
+
+branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
+selected_branch = st.selectbox("Select Branch", branches)
+
+search = st.text_input("Search (Name / CNIC / Mobile)")
+
+filtered_df = df.copy()
+
+if selected_branch != "All":
+    filtered_df = filtered_df[filtered_df["Branch"] == selected_branch]
+
+if search:
+    search = search.lower()
+    filtered_df = filtered_df[
+        filtered_df.astype(str).apply(
+            lambda row: row.str.lower().str.contains(search).any(),
+            axis=1
+        )
+    ]
+
+# ================= DISPLAY =================
+st.subheader("Records")
+st.dataframe(filtered_df, use_container_width=True)
+
+# ================= EXCEL DOWNLOAD =================
+def to_excel(dataframe):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        dataframe.to_excel(writer, index=False, sheet_name="Recovery")
+    output.seek(0)
+    return output
+
+excel_file = to_excel(filtered_df)
+
+st.download_button(
+    "📥 Download Excel",
+    excel_file,
+    "recovery_data.xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
