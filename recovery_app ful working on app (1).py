@@ -78,7 +78,7 @@ def load_from_firebase():
         if data:
             df = pd.DataFrame(data)
 
-            # 🔥 FIX TYPES AFTER LOAD
+            # 🔥 FIX TYPES
             for col in df.columns:
                 try:
                     df[col] = pd.to_numeric(df[col])
@@ -104,10 +104,7 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    # local save
     df.to_excel(LOCAL_FILE, index=False)
-
-    # firebase save
     save_to_firebase(df)
 
     st.success("File uploaded & saved permanently ✅")
@@ -115,18 +112,15 @@ if uploaded_file:
 # ================= AUTO LOAD =================
 df = None
 
-# 🔥 Firebase FIRST
 fb_df = load_from_firebase()
 if fb_df is not None and not fb_df.empty:
     df = fb_df
     st.success("Loaded from Firebase ☁")
 
-# 🔥 Local fallback
 elif os.path.exists(LOCAL_FILE):
     df = pd.read_excel(LOCAL_FILE)
     st.info("Loaded from local file")
 
-# 🔥 No data
 else:
     st.warning("Please upload file")
     st.stop()
@@ -140,12 +134,30 @@ if df is None or df.empty:
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= COLUMN SELECT =================
-date_col = st.selectbox("Select Date Column", df.columns)
+# ================= AUTO DATE DETECT =================
+date_candidates = []
+for col in df.columns:
+    try:
+        temp = pd.to_datetime(df[col], errors='coerce')
+        if temp.notna().sum() > len(df) * 0.5:
+            date_candidates.append(col)
+    except:
+        pass
+
+if date_candidates:
+    date_col = st.selectbox("Select Date Column", date_candidates)
+else:
+    date_col = st.selectbox("Select Date Column", df.columns)
+
 branch_col = st.selectbox("Select Branch Column", df.columns)
 
 # ================= DATE FIX =================
 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+
+# ❗ WRONG DATE SELECT
+if df[date_col].isna().all():
+    st.error("❌ Wrong Date Column Selected! Please select correct date column")
+    st.stop()
 
 # ================= CLEAN =================
 df = df.dropna(subset=[date_col, branch_col])
