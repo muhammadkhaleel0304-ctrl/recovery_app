@@ -62,7 +62,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 # ================= PAGE =================
 st.set_page_config(page_title="Recovery Summary", layout="wide")
-st.title("🔄 Recovery Date Range Summary")
 
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
