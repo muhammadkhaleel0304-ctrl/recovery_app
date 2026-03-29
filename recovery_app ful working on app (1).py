@@ -1534,9 +1534,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
-st.title("💰 Daily Expense Tracker (Firebase)")
+st.title("💰 Daily Expense Tracker")
 
-# ================= FIREBASE INIT =================
+# ================= FIREBASE =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(st.secrets["gcp_service_account"])
     firebase_admin.initialize_app(cred)
@@ -1550,7 +1550,7 @@ def add_expense(data):
 def delete_expense(doc_id):
     db.collection("expenses").document(doc_id).delete()
 
-def load_expenses():
+def get_data():
     docs = db.collection("expenses").stream()
     data = []
     for doc in docs:
@@ -1560,33 +1560,25 @@ def load_expenses():
     return pd.DataFrame(data)
 
 # ================= LOAD DATA =================
-df = load_expenses()
+df = get_data()
 
-# ================= SAFE SLIDER =================
-images = [
-    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
-]
+# safe empty handling
+if df.empty:
+    df = pd.DataFrame(columns=["Date", "Item", "Amount"])
 
-if "img_index" not in st.session_state:
-    st.session_state.img_index = 0
+df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
 
-st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
+# ================= SIDEBAR INPUT =================
+st.sidebar.header("➕ Add Expense")
 
-st.image(images[st.session_state.img_index], use_container_width=True)
+budget = st.sidebar.number_input("💵 Budget", min_value=0.0, value=9000.0)
 
-# ================= SIDEBAR =================
-st.sidebar.header("💵 Budget System")
-
-budget = st.sidebar.number_input("Set Budget", min_value=0.0, value=9000.0)
-
-with st.sidebar.form("add_form"):
+with st.sidebar.form("form"):
     date = datetime.now().strftime("%Y-%m-%d")
     item = st.text_input("Item Name")
     amount = st.number_input("Amount", min_value=0.0)
 
-    submit = st.form_submit_button("Add Expense")
+    submit = st.form_submit_button("Add")
 
 if submit:
     if item:
@@ -1598,19 +1590,14 @@ if submit:
         st.success("Saved to Firebase ✅")
         st.rerun()
 
-# ================= SAFE DATA =================
-if df.empty:
-    df = pd.DataFrame(columns=["Date", "Item", "Amount"])
-
-df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
-
-total_expense = df["Amount"].sum()
-remaining = budget - total_expense
+# ================= CALCULATIONS =================
+total = df["Amount"].sum()
+remaining = budget - total
 
 # ================= METRICS =================
 c1, c2, c3 = st.columns(3)
 c1.metric("💰 Budget", budget)
-c2.metric("💸 Expense", total_expense)
+c2.metric("💸 Total Expense", total)
 c3.metric("📊 Remaining", remaining)
 
 st.markdown("---")
@@ -1650,16 +1637,8 @@ else:
 
 # ================= TOTAL =================
 st.markdown("---")
-st.success(f"💰 Total Expense: {total_expense}")
+st.success(f"💰 Total Expense: {total}")
 st.info(f"📉 Remaining Budget: {remaining}")
 
-# ================= DOWNLOAD =================
-if not df.empty:
-    csv = df.to_csv(index=False).encode("utf-8")
-
-    st.download_button(
-        "⬇️ Download Data",
-        csv,
-        file_name="expenses.csv",
-        mime="text/csv"
-    )
+# ================= FOOTER =================
+st.caption("Built with Streamlit + Firebase")
