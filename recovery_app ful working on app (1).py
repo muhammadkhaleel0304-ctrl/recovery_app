@@ -77,10 +77,11 @@ LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ================= AUTO DETECT =================
+# ================= AUTO DETECT COLUMNS =================
 def detect_columns(df):
     date_col = None
     branch_col = None
+    area_col = None
 
     for col in df.columns:
         c = col.lower()
@@ -91,13 +92,16 @@ def detect_columns(df):
         if "branch" in c:
             branch_col = col
 
+        if "area" in c:
+            area_col = col
+
     if date_col is None:
         date_col = df.columns[0]
 
     if branch_col is None:
         branch_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
 
-    return date_col, branch_col
+    return date_col, branch_col, area_col
 
 
 # ================= FIREBASE LOAD =================
@@ -140,7 +144,7 @@ if fb_df is not None and not fb_df.empty:
 
 elif os.path.exists(LOCAL_FILE):
     df = pd.read_excel(LOCAL_FILE)
-    st.info("Loaded from local storage")
+    st.info("Loaded from local file")
 
 else:
     st.warning("Please upload file first")
@@ -154,10 +158,11 @@ st.subheader("Data Preview")
 st.dataframe(df, use_container_width=True)
 
 # ================= AUTO COLUMNS =================
-date_col, branch_col = detect_columns(df)
+date_col, branch_col, area_col = detect_columns(df)
 
 st.info(f"Date Column: {date_col}")
 st.info(f"Branch Column: {branch_col}")
+st.info(f"Area Column: {area_col}")
 
 # ================= CLEAN =================
 df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
@@ -188,21 +193,51 @@ pivot["21-30 %"] = (pivot["21-30"] / pivot["Total"].replace(0,1) * 100).round(2)
 
 result_df = pivot.reset_index()
 
+# ================= ADD AREA =================
+if area_col:
+    area_map = df[[branch_col, area_col]].drop_duplicates()
+    result_df = result_df.merge(area_map, on=branch_col, how="left")
+
 # ================= SHOW =================
 st.subheader("Recovery Summary")
 st.dataframe(result_df, use_container_width=True)
 
-# ================= WATERMARK TEXT =================
+# ================= WATERMARK =================
 WATERMARK = "Created by M Khaleel"
 
-# ================= EXCEL DOWNLOAD =================
-excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-    result_df.to_excel(writer, index=False, sheet_name="Recovery")
-    ws = writer.sheets["Recovery"]
-    ws.cell(row=1, column=1).value = WATERMARK
+# ================= EXCEL WITH GRAND TOTAL LAST ROW =================
+import openpyxl
+from openpyxl import Workbook
 
-excel_buffer.seek(0)
+def create_excel(df):
+    output = io.BytesIO()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Recovery Summary"
+
+    ws.append(df.columns.tolist())
+
+    numeric_cols = df.select_dtypes(include="number").columns
+
+    for _, row in df.iterrows():
+        ws.append(list(row))
+
+    # GRAND TOTAL LAST ROW
+    grand = []
+    for col in df.columns:
+        if col in numeric_cols:
+            grand.append(df[col].sum())
+        else:
+            grand.append("Grand Total")
+
+    ws.append(grand)
+
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+excel_buffer = create_excel(result_df)
 
 st.download_button(
     "📥 Download Excel",
@@ -211,7 +246,7 @@ st.download_button(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# ================= PDF WATERMARK CLASS =================
+# ================= PDF WATERMARK =================
 class WatermarkCanvas(canvas.Canvas):
     def draw_watermark(self):
         self.saveState()
@@ -233,7 +268,6 @@ class WatermarkCanvas(canvas.Canvas):
         super().save()
 
 
-# ================= PDF GENERATION =================
 def create_pdf(df):
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(buffer)
