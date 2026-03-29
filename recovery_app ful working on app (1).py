@@ -1532,7 +1532,7 @@ import pandas as pd
 from datetime import datetime
 
 # ---------------- PAGE ----------------
-st.set_page_config(page_title="Expense Tracker", layout="wide")
+
 st.title("💰 Daily Expense Tracker")
 
 # ---------------- FIREBASE ----------------
