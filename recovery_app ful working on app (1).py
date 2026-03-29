@@ -1527,28 +1527,30 @@ if uploaded_cheque:
             "application/zip"
         )
 
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from streamlit_autorefresh import st_autorefresh
-
-# ================= PAGE =================
-
-st.title("💰 Daily Expense Tracker")
-
-# ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ================= PAGE =================
+st.title("💰 Daily Expense Tracker (Firebase)")
+
+# ================= FIREBASE INIT =================
 if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    cred = credentials.Certificate(st.secrets["gcp_service_account"])
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
 # ================= FUNCTIONS =================
-def load_data():
+def add_expense(data):
+    db.collection("expenses").add(data)
+
+def delete_expense(doc_id):
+    db.collection("expenses").document(doc_id).delete()
+
+def load_expenses():
     docs = db.collection("expenses").stream()
     data = []
     for doc in docs:
@@ -1557,70 +1559,53 @@ def load_data():
         data.append(d)
     return pd.DataFrame(data)
 
-def add_data(data):
-    db.collection("expenses").add(data)
-
-def delete_data(doc_id):
-    db.collection("expenses").document(doc_id).delete()
-
 # ================= LOAD DATA =================
-df = load_data()
+df = load_expenses()
 
-# ================= AUTO SLIDER (SAFE) =================
+# ================= SAFE SLIDER =================
 images = [
     "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
 ]
 
-# refresh page every 2 sec
-st_autorefresh(interval=2000, key="slider_refresh")
-
-# safe index init
 if "img_index" not in st.session_state:
     st.session_state.img_index = 0
 
-# update index safely
 st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
 
-# show image safely
 st.image(images[st.session_state.img_index], use_container_width=True)
 
 # ================= SIDEBAR =================
 st.sidebar.header("💵 Budget System")
 
-budget = st.sidebar.number_input(
-    "Total Budget",
-    min_value=0.0,
-    value=9000.0,
-    step=100.0
-)
+budget = st.sidebar.number_input("Set Budget", min_value=0.0, value=9000.0)
 
-with st.sidebar.expander("➕ Add Expense", expanded=True):
-    with st.form("expense_form"):
-        date = datetime.now().strftime("%Y-%m-%d")
-        item = st.text_input("Kya liya?")
-        amount = st.number_input("Amount", min_value=0.0, step=1.0)
+with st.sidebar.form("add_form"):
+    date = datetime.now().strftime("%Y-%m-%d")
+    item = st.text_input("Item Name")
+    amount = st.number_input("Amount", min_value=0.0)
 
-        submit = st.form_submit_button("Add")
+    submit = st.form_submit_button("Add Expense")
 
-    if submit:
-        add_data({
+if submit:
+    if item:
+        add_expense({
             "Date": date,
             "Item": item,
             "Amount": amount
         })
-        st.success("Saved to Firebase ☁")
+        st.success("Saved to Firebase ✅")
         st.rerun()
 
-# ================= CALCULATIONS =================
-if not df.empty:
-    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
-    total_expense = df["Amount"].sum()
-    remaining = budget - total_expense
-else:
-    total_expense = 0
-    remaining = budget
+# ================= SAFE DATA =================
+if df.empty:
+    df = pd.DataFrame(columns=["Date", "Item", "Amount"])
+
+df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+
+total_expense = df["Amount"].sum()
+remaining = budget - total_expense
 
 # ================= METRICS =================
 c1, c2, c3 = st.columns(3)
@@ -1631,13 +1616,13 @@ c3.metric("📊 Remaining", remaining)
 st.markdown("---")
 
 # ================= TABLE =================
-st.subheader("📊 Expense List")
+st.subheader("📋 Expense List")
 
 running_total = 0
 
 if not df.empty:
 
-    h1, h2, h3, h4, h5 = st.columns([2,3,2,2,1])
+    h1, h2, h3, h4, h5 = st.columns([2, 3, 2, 2, 1])
     h1.write("Date")
     h2.write("Item")
     h3.write("Amount")
@@ -1646,10 +1631,10 @@ if not df.empty:
 
     st.markdown("---")
 
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         running_total += row["Amount"]
 
-        c1, c2, c3, c4, c5 = st.columns([2,3,2,2,1])
+        c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
 
         c1.write(row["Date"])
         c2.write(row["Item"])
@@ -1657,11 +1642,11 @@ if not df.empty:
         c4.write(running_total)
 
         if c5.button("❌", key=row["id"]):
-            delete_data(row["id"])
+            delete_expense(row["id"])
             st.rerun()
 
 else:
-    st.info("No expenses yet")
+    st.info("No expenses added yet")
 
 # ================= TOTAL =================
 st.markdown("---")
@@ -1670,10 +1655,10 @@ st.info(f"📉 Remaining Budget: {remaining}")
 
 # ================= DOWNLOAD =================
 if not df.empty:
-    csv = df.drop(columns=["id"]).to_csv(index=False).encode("utf-8")
+    csv = df.to_csv(index=False).encode("utf-8")
 
     st.download_button(
-        "⬇️ Download Excel",
+        "⬇️ Download Data",
         csv,
         file_name="expenses.csv",
         mime="text/csv"
