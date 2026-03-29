@@ -464,7 +464,7 @@ st.markdown("""
     <hr style='border-top: 3px solid #bbb;'>
 """, unsafe_allow_html=True)
 
-    import streamlit as st
+import streamlit as st
 import pandas as pd
 import os
 import zipfile
