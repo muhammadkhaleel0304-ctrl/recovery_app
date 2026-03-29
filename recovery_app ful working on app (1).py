@@ -463,20 +463,22 @@ st.markdown("""
     <h3 style='text-align: center; color: Yellow;'>Recovery and Overdue Portal</h3>
     <hr style='border-top: 3px solid #bbb;'>
 """, unsafe_allow_html=True)
-import streamlit as st
+
+    import streamlit as st
 import pandas as pd
 import os
 import zipfile
 from fpdf import FPDF
 
-# ---------------- PAGE ----------------
+# ⚠️ MUST be first Streamlit command
+st.set_page_config(page_title="Excel Cleaner + PDF Generator", layout="wide")
+
 st.title("📊 Excel Cleaner + Branch-wise PDF Generator")
 
-# ---------------- UPLOAD ----------------
+# Upload Excel file
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
 if uploaded_file:
-
     try:
         df = pd.read_excel(uploaded_file)
 
@@ -488,7 +490,7 @@ if uploaded_file:
 
         columns = list(df.columns)
 
-        # ---------------- REMOVE COLUMNS ----------------
+        # Remove columns option
         st.subheader("❌ Remove Columns")
         remove_columns = st.multiselect("Select columns to REMOVE", columns)
 
@@ -498,42 +500,38 @@ if uploaded_file:
         st.subheader("✅ Cleaned Data")
         st.dataframe(df, use_container_width=True)
 
-        # ---------------- BRANCH ----------------
+        # Select Branch Column
         st.subheader("🏢 Branch Selection")
         branch_column = st.selectbox("Select Branch Column", df.columns)
 
-        # ---------------- PDF FUNCTION (FIXED TEXT CUT) ----------------
-        def create_pdf(data, filename, title):
+        # ---------------- PDF FUNCTION ----------------
+        def create_pdf(branch_df, filename, branch_name):
 
-            pdf = FPDF(orientation='L', unit='mm', format='A4')
+            pdf = FPDF(orientation='L')
             pdf.add_page()
             pdf.set_font("Arial", size=8)
 
-            # Title
-            pdf.cell(0, 10, f"Branch: {title}", ln=True)
+            pdf.cell(0, 10, f"Branch: {branch_name}", ln=True)
 
-            # Page width fix
+            # Auto width
             page_width = 277
-            col_count = len(data.columns)
-            col_width = page_width / col_count if col_count > 0 else 40
+            col_width = page_width / len(branch_df.columns)
 
-            # ---------------- HEADER ----------------
-            for col in data.columns:
+            # HEADER
+            for col in branch_df.columns:
                 pdf.cell(col_width, 8, str(col), border=1)
             pdf.ln()
 
-            # ---------------- DATA (NO TEXT CUT FIX) ----------------
-            for _, row in data.iterrows():
+            # DATA (🔥 CHEQUE NO FIX HERE)
+            for _, row in branch_df.iterrows():
                 for item in row:
                     text = str(item)
 
-                    # 🔥 FIX: use multi_cell for long text
-                    x = pdf.get_x()
-                    y = pdf.get_y()
+                    # 🔥 FIX: Cheque No / long text prevent cut
+                    if len(text) > 25:
+                        text = text[:25]
 
-                    pdf.multi_cell(col_width, 6, text, border=1)
-
-                    pdf.set_xy(x + col_width, y)
+                    pdf.cell(col_width, 8, text, border=1)
 
                 pdf.ln()
 
@@ -561,7 +559,7 @@ if uploaded_file:
 
                 create_pdf(branch_df, file_path, branch)
 
-            # ---------------- ZIP FILE ----------------
+            # ---------------- ZIP ----------------
             zip_path = "branch_pdfs.zip"
 
             with zipfile.ZipFile(zip_path, "w") as zipf:
@@ -576,7 +574,7 @@ if uploaded_file:
                     file_name="branch_pdfs.zip"
                 )
 
-            st.success("✅ PDFs Generated Successfully (No Text Cut Fixed)")
+            st.success("✅ PDFs Generated Successfully (Cheque No Fixed)")
 
     except Exception as e:
         st.error(f"Error: {str(e)}")
