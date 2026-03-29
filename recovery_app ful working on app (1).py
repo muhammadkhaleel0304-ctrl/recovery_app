@@ -470,7 +470,6 @@ import zipfile
 from fpdf import FPDF
 
 # ---------------- PAGE ----------------
-st.set_page_config(page_title="Excel Cleaner + PDF", layout="wide")
 st.title("📊 Excel Cleaner + Branch-wise PDF Generator")
 
 # ---------------- UPLOAD ----------------
