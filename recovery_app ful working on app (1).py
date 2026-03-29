@@ -51,18 +51,14 @@ else:
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
 import os
 
 # ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# init firebase only once
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")  # اپنا json file name
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -84,13 +80,9 @@ def load_from_firebase():
             return pd.DataFrame(data)
     return None
 
-# ================= FIREBASE SAVE (FIXED) =================
+# ================= FIREBASE SAVE =================
 def save_to_firebase(df):
-    safe_df = df.copy()
-
-    # ✅ FIX: categorical + NaN issue solve
-    safe_df = safe_df.astype(str).replace("nan", "")
-
+    safe_df = df.astype(str).replace("nan", "")
     db.collection("recovery_summary").document("latest").set({
         "data": safe_df.to_dict(orient="records")
     })
@@ -115,47 +107,49 @@ if uploaded_file:
         # firebase save
         save_to_firebase(df)
 
-        st.success("File uploaded + saved successfully!")
+        st.success("File uploaded + saved to Firebase")
 
     except Exception as e:
         st.error(f"Error: {e}")
         st.stop()
 
-# ================= AUTO LOAD SYSTEM =================
+# ================= AUTO LOAD SYSTEM (FIXED) =================
 elif "df" in st.session_state:
     df = st.session_state["df"]
     st.info("Loaded from session")
 
-elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.session_state["df"] = df
-    st.info("Loaded from local file")
-
 else:
+    # 🔥 FIRST TRY FIREBASE
     fb_df = load_from_firebase()
-    if fb_df is not None:
+
+    if fb_df is not None and not fb_df.empty:
         df = fb_df
         st.session_state["df"] = df
-        st.info("Loaded from Firebase")
+        st.success("Loaded from Firebase ☁")
+
+    # 🔥 FALLBACK LOCAL
+    elif os.path.exists(LOCAL_FILE):
+        df = pd.read_excel(LOCAL_FILE)
+        st.session_state["df"] = df
+        st.info("Loaded from local file")
+
     else:
-        st.warning("No data found. Please upload file.")
+        st.warning("No data found. Upload file.")
         st.stop()
 
-# ================= SAFETY CHECK =================
+# ================= SAFETY =================
 if df is None or df.empty:
-    st.warning("Empty dataset")
+    st.warning("Empty data")
     st.stop()
 
-# ================= DEBUG =================
+# ================= SHOW COLUMNS =================
 st.write("Columns:", list(df.columns))
 
-# ================= COLUMN SELECT =================
+# ================= SELECT =================
 date_col = st.selectbox("Select Date Column", df.columns)
 branch_col = st.selectbox("Select Branch Column", df.columns)
 
-area_col = 'area_id' if 'area_id' in df.columns else None
-
-# ================= DATE PROCESS =================
+# ================= PROCESS =================
 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
 df = df.dropna(subset=[date_col, branch_col])
 
@@ -177,17 +171,17 @@ for c in ["1-10","11-20","21-31"]:
 
 pivot["Total"] = pivot.sum(axis=1)
 
-pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
-pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
-pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
+pivot["1-10 %"] = (pivot["1-10"]/pivot["Total"]*100).round(2)
+pivot["11-20 %"] = (pivot["11-20"]/pivot["Total"]*100).round(2)
+pivot["21-31 %"] = (pivot["21-31"]/pivot["Total"]*100).round(2)
 
 result_df = pivot.reset_index()
 
-# ================= SHOW =================
-st.subheader("Branch Wise Recovery Summary")
+# ================= DISPLAY =================
+st.subheader("Recovery Summary")
 st.dataframe(result_df)
 
 # ================= SAVE BUTTON =================
-if st.button("🔄 Save to Firebase Again"):
+if st.button("🔄 Save Again to Firebase"):
     save_to_firebase(df)
-    st.success("Saved successfully!")
+    st.success("Saved again!")
