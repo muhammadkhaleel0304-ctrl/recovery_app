@@ -55,7 +55,6 @@ import os
 # ================= MUST BE FIRST STREAMLIT COMMAND =================
 st.set_page_config(page_title="Recovery Date Range Summary", layout="wide")
 
-st.title("🔄 Recovery Date Range Summary")
 
 # ================= FIREBASE =================
 import firebase_admin
