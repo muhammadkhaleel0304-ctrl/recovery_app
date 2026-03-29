@@ -465,37 +465,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 import streamlit as st
 import pandas as pd
-from fpdf import FPDF
-import os
-import zipfile
-import streamlit as st
-import pandas as pd
 import os
 import zipfile
 from fpdf import FPDF
-from datetime import datetime
-
-import firebase_admin
-from firebase_admin import credentials, firestore, storage
 
 # ---------------- PAGE ----------------
-st.set_page_config(page_title="Recovery App", layout="wide")
-st.title("📊 Excel + Firebase + PDF System")
-
-# ---------------- FIREBASE INIT (FIXED) ----------------
-if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase.json")  # your file
-    firebase_admin.initialize_app(cred, {
-        'storageBucket': 'YOUR_PROJECT_ID.appspot.com'
-    })
-
-db = firestore.client()
-
-# 🔥 FIX: ALWAYS give bucket name
-bucket = storage.bucket("YOUR_PROJECT_ID.appspot.com")
+st.set_page_config(page_title="Excel to PDF", layout="wide")
+st.title("📊 Excel Cleaner + PDF Generator (No Firebase)")
 
 # ---------------- UPLOAD ----------------
-uploaded_file = st.file_uploader("Upload Excel", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
 if uploaded_file:
 
@@ -505,37 +484,58 @@ if uploaded_file:
     st.subheader("📋 Original Data")
     st.dataframe(df, use_container_width=True)
 
-    # ---------------- SEARCH ----------------
-    search = st.text_input("🔍 Search")
-
-    if search:
-        df = df[df.astype(str).apply(
-            lambda x: x.str.contains(search, case=False).any(), axis=1
-        )]
-
-    # ---------------- REMOVE COLS ----------------
+    # ---------------- REMOVE COLUMNS ----------------
     remove_cols = st.multiselect("❌ Remove Columns", df.columns)
     if remove_cols:
         df = df.drop(columns=remove_cols)
 
-    # ---------------- BRANCH ----------------
-    branch_col = st.selectbox("🏢 Branch Column", df.columns)
+    # ---------------- SEARCH ----------------
+    search = st.text_input("🔍 Search (Name / CNIC / etc)")
+
+    if search:
+        df = df[df.astype(str).apply(
+            lambda x: x.str.contains(search, case=False, na=False).any(), axis=1
+        )]
 
     st.subheader("✅ Clean Data")
     st.dataframe(df, use_container_width=True)
 
-    # ---------------- FIREBASE SAVE ----------------
-    def save_to_firebase(data):
-        db.collection("recovery_data").add({
-            "timestamp": str(datetime.now()),
-            "data": data.to_dict(orient="records")
-        })
+    # ---------------- BRANCH ----------------
+    branch_col = st.selectbox("🏢 Select Branch Column", df.columns)
 
-    if st.button("☁️ Save to Firebase"):
-        save_to_firebase(df)
-        st.success("Saved to Firebase ✅")
+    # ---------------- FIX: PDF WIDTH ISSUE ----------------
+    def make_pdf(data, filename, title):
+        pdf = FPDF(orientation='L', unit='mm', format='A4')
+        pdf.add_page()
+        pdf.set_font("Arial", size=8)
 
-    # ---------------- PDF GENERATION ----------------
+        # Title
+        pdf.cell(0, 10, f"Branch: {title}", ln=True)
+
+        # AUTO COLUMN WIDTH FIX
+        page_width = 280
+        col_width = page_width / len(data.columns)
+
+        # HEADER
+        for col in data.columns:
+            pdf.cell(col_width, 8, str(col)[:25], border=1)
+        pdf.ln()
+
+        # DATA
+        for _, row in data.iterrows():
+            for item in row:
+                text = str(item)
+
+                # 🔥 FIX TEXT CUT ISSUE
+                if len(text) > 30:
+                    text = text[:30] + "..."
+
+                pdf.cell(col_width, 8, text, border=1)
+            pdf.ln()
+
+        pdf.output(filename)
+
+    # ---------------- GENERATE ----------------
     if st.button("📄 Generate PDFs"):
 
         os.makedirs("pdfs", exist_ok=True)
@@ -545,41 +545,25 @@ if uploaded_file:
         for b in branches:
             temp = df[df[branch_col] == b]
 
-            pdf = FPDF(orientation="L")
-            pdf.add_page()
-            pdf.set_font("Arial", size=8)
+            safe_name = str(b).replace("/", "_").replace("\\", "_")
+            file_path = f"pdfs/{safe_name}.pdf"
 
-            pdf.cell(0, 10, f"Branch: {b}", ln=True)
-
-            col_width = 35
-
-            # HEADER
-            for col in temp.columns:
-                pdf.cell(col_width, 8, str(col)[:20], border=1)
-            pdf.ln()
-
-            # DATA
-            for _, row in temp.iterrows():
-                for item in row:
-                    pdf.cell(col_width, 8, str(item)[:20], border=1)
-                pdf.ln()
-
-            pdf.output(f"pdfs/{b}.pdf")
+            make_pdf(temp, file_path, b)
 
         # ---------------- ZIP ----------------
-        zip_name = "reports.zip"
+        zip_name = "branch_reports.zip"
 
         with zipfile.ZipFile(zip_name, "w") as zipf:
             for file in os.listdir("pdfs"):
                 zipf.write(os.path.join("pdfs", file), file)
 
         st.download_button(
-            "⬇️ Download PDFs",
+            "⬇️ Download All PDFs",
             open(zip_name, "rb"),
             file_name="branch_reports.zip"
         )
 
-        st.success("PDF Generated Successfully ✅")
+        st.success("✅ PDFs Generated Successfully (No Cut Issue Fixed)")
 import streamlit as st
 import pandas as pd
 
