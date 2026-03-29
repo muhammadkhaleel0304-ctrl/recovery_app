@@ -470,100 +470,117 @@ import zipfile
 from fpdf import FPDF
 
 # ---------------- PAGE ----------------
-st.set_page_config(page_title="Excel to PDF", layout="wide")
-st.title("📊 Excel Cleaner + PDF Generator (No Firebase)")
+st.set_page_config(page_title="Excel Cleaner + PDF", layout="wide")
+st.title("📊 Excel Cleaner + Branch-wise PDF Generator")
 
 # ---------------- UPLOAD ----------------
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
 if uploaded_file:
 
-    df = pd.read_excel(uploaded_file)
-    df.columns = df.columns.astype(str).str.strip()
+    try:
+        df = pd.read_excel(uploaded_file)
 
-    st.subheader("📋 Original Data")
-    st.dataframe(df, use_container_width=True)
+        st.subheader("📋 Original Data")
+        st.dataframe(df, use_container_width=True)
 
-    # ---------------- REMOVE COLUMNS ----------------
-    remove_cols = st.multiselect("❌ Remove Columns", df.columns)
-    if remove_cols:
-        df = df.drop(columns=remove_cols)
+        # Clean column names
+        df.columns = df.columns.astype(str).str.strip()
 
-    # ---------------- SEARCH ----------------
-    search = st.text_input("🔍 Search (Name / CNIC / etc)")
+        columns = list(df.columns)
 
-    if search:
-        df = df[df.astype(str).apply(
-            lambda x: x.str.contains(search, case=False, na=False).any(), axis=1
-        )]
+        # ---------------- REMOVE COLUMNS ----------------
+        st.subheader("❌ Remove Columns")
+        remove_columns = st.multiselect("Select columns to REMOVE", columns)
 
-    st.subheader("✅ Clean Data")
-    st.dataframe(df, use_container_width=True)
+        if remove_columns:
+            df = df.drop(columns=remove_columns)
 
-    # ---------------- BRANCH ----------------
-    branch_col = st.selectbox("🏢 Select Branch Column", df.columns)
+        st.subheader("✅ Cleaned Data")
+        st.dataframe(df, use_container_width=True)
 
-    # ---------------- FIX: PDF WIDTH ISSUE ----------------
-    def make_pdf(data, filename, title):
-        pdf = FPDF(orientation='L', unit='mm', format='A4')
-        pdf.add_page()
-        pdf.set_font("Arial", size=8)
+        # ---------------- BRANCH ----------------
+        st.subheader("🏢 Branch Selection")
+        branch_column = st.selectbox("Select Branch Column", df.columns)
 
-        # Title
-        pdf.cell(0, 10, f"Branch: {title}", ln=True)
+        # ---------------- PDF FUNCTION (FIXED TEXT CUT) ----------------
+        def create_pdf(data, filename, title):
 
-        # AUTO COLUMN WIDTH FIX
-        page_width = 280
-        col_width = page_width / len(data.columns)
+            pdf = FPDF(orientation='L', unit='mm', format='A4')
+            pdf.add_page()
+            pdf.set_font("Arial", size=8)
 
-        # HEADER
-        for col in data.columns:
-            pdf.cell(col_width, 8, str(col)[:25], border=1)
-        pdf.ln()
+            # Title
+            pdf.cell(0, 10, f"Branch: {title}", ln=True)
 
-        # DATA
-        for _, row in data.iterrows():
-            for item in row:
-                text = str(item)
+            # Page width fix
+            page_width = 277
+            col_count = len(data.columns)
+            col_width = page_width / col_count if col_count > 0 else 40
 
-                # 🔥 FIX TEXT CUT ISSUE
-                if len(text) > 30:
-                    text = text[:30] + "..."
-
-                pdf.cell(col_width, 8, text, border=1)
+            # ---------------- HEADER ----------------
+            for col in data.columns:
+                pdf.cell(col_width, 8, str(col), border=1)
             pdf.ln()
 
-        pdf.output(filename)
+            # ---------------- DATA (NO TEXT CUT FIX) ----------------
+            for _, row in data.iterrows():
+                for item in row:
+                    text = str(item)
 
-    # ---------------- GENERATE ----------------
-    if st.button("📄 Generate PDFs"):
+                    # 🔥 FIX: use multi_cell for long text
+                    x = pdf.get_x()
+                    y = pdf.get_y()
 
-        os.makedirs("pdfs", exist_ok=True)
+                    pdf.multi_cell(col_width, 6, text, border=1)
 
-        branches = df[branch_col].dropna().unique()
+                    pdf.set_xy(x + col_width, y)
 
-        for b in branches:
-            temp = df[df[branch_col] == b]
+                pdf.ln()
 
-            safe_name = str(b).replace("/", "_").replace("\\", "_")
-            file_path = f"pdfs/{safe_name}.pdf"
+            pdf.output(filename)
 
-            make_pdf(temp, file_path, b)
+        # ---------------- GENERATE PDFs ----------------
+        if st.button("📄 Generate Branch-wise PDFs"):
 
-        # ---------------- ZIP ----------------
-        zip_name = "branch_reports.zip"
+            os.makedirs("pdfs", exist_ok=True)
 
-        with zipfile.ZipFile(zip_name, "w") as zipf:
-            for file in os.listdir("pdfs"):
-                zipf.write(os.path.join("pdfs", file), file)
+            # clear old files
+            for f in os.listdir("pdfs"):
+                os.remove(os.path.join("pdfs", f))
 
-        st.download_button(
-            "⬇️ Download All PDFs",
-            open(zip_name, "rb"),
-            file_name="branch_reports.zip"
-        )
+            branches = df[branch_column].dropna().astype(str).unique()
 
-        st.success("✅ PDFs Generated Successfully (No Cut Issue Fixed)")
+            st.write(f"Total Branches Found: {len(branches)}")
+
+            for branch in branches:
+
+                branch_df = df[df[branch_column].astype(str) == branch]
+
+                safe_branch = str(branch).replace("/", "_").replace("\\", "_")
+                file_path = f"pdfs/{safe_branch}.pdf"
+
+                create_pdf(branch_df, file_path, branch)
+
+            # ---------------- ZIP FILE ----------------
+            zip_path = "branch_pdfs.zip"
+
+            with zipfile.ZipFile(zip_path, "w") as zipf:
+                for file in os.listdir("pdfs"):
+                    zipf.write(os.path.join("pdfs", file), file)
+
+            # ---------------- DOWNLOAD ----------------
+            with open(zip_path, "rb") as f:
+                st.download_button(
+                    "⬇️ Download All PDFs",
+                    f,
+                    file_name="branch_pdfs.zip"
+                )
+
+            st.success("✅ PDFs Generated Successfully (No Text Cut Fixed)")
+
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
 import streamlit as st
 import pandas as pd
 
