@@ -53,19 +53,29 @@ import pandas as pd
 import os
 from io import BytesIO
 
+# ================= PAGE CONFIG (MUST BE FIRST) =================
+st.set_page_config(
+    page_title="Recovery Date Range Summary",
+    layout="wide",
+    page_icon="🔄"
+)
+
+# ================= TITLE =================
+st.title("🔄 Recovery Date Range Summary")
+
 # ================= FIREBASE =================
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
-    firebase_admin.initialize_app(cred)
+    try:
+        cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"Firebase initialization failed: {e}")
+        st.stop()
 
 db = firestore.client()
-
-# ================= PAGE CONFIG =================
-st.set_page_config(page_title="Recovery Date Range Summary", layout="wide")
-st.title("🔄 Recovery Date Range Summary")
 
 # ================= LOCAL STORAGE =================
 LOCAL_FOLDER = "data"
@@ -74,23 +84,28 @@ os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
 # ================= FIREBASE FUNCTIONS =================
 def load_from_firebase():
-    doc = db.collection("recovery_summary").document("latest").get()
-    if doc.exists:
-        data = doc.to_dict().get("data", [])
-        if data:
-            return pd.DataFrame(data)
+    try:
+        doc = db.collection("recovery_summary").document("latest").get()
+        if doc.exists:
+            data = doc.to_dict().get("data", [])
+            if data:
+                return pd.DataFrame(data)
+    except Exception as e:
+        st.warning(f"Firebase load failed: {e}")
     return None
 
 def save_to_firebase(df):
-    safe_df = df.astype(str).replace("nan", "").replace("NaT", "")
-    db.collection("recovery_summary").document("latest").set({
-        "data": safe_df.to_dict(orient="records")
-    })
+    try:
+        safe_df = df.astype(str).replace("nan", "").replace("NaT", "")
+        db.collection("recovery_summary").document("latest").set({
+            "data": safe_df.to_dict(orient="records")
+        })
+    except Exception as e:
+        st.warning(f"Firebase save failed: {e}")
 
 # ================= FILE UPLOAD =================
 uploaded_file = st.file_uploader("Upload Recovery Excel or CSV", 
-                                 type=["xlsx", "csv"], 
-                                 help="Upload your recovery data file")
+                                 type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
@@ -101,7 +116,7 @@ if uploaded_file:
 
         df.to_excel(LOCAL_FILE, index=False)
         save_to_firebase(df)
-        st.success("✅ File uploaded and saved permanently to Firebase & Local storage")
+        st.success("✅ File uploaded and saved permanently")
     except Exception as e:
         st.error(f"Error reading file: {e}")
 
@@ -111,12 +126,15 @@ df = None
 fb_df = load_from_firebase()
 if fb_df is not None and not fb_df.empty:
     df = fb_df
-    st.success("☁️ Loaded latest data from Firebase")
+    st.success("☁️ Loaded from Firebase")
 elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.info("📁 Loaded from local backup")
+    try:
+        df = pd.read_excel(LOCAL_FILE)
+        st.info("📁 Loaded from local backup")
+    except Exception as e:
+        st.error(f"Local file error: {e}")
 else:
-    st.warning("⚠️ No data available. Please upload a file.")
+    st.warning("⚠️ No data found. Please upload an Excel or CSV file.")
     st.stop()
 
 # ================= SAFETY CHECK =================
@@ -124,96 +142,67 @@ if df is None or df.empty:
     st.warning("No data available")
     st.stop()
 
-# ================= COLUMN SELECTION (FIXED) =================
+# ================= COLUMN SELECTION =================
 st.subheader("Column Selection")
 
 cols = list(df.columns)
 st.write("**Available Columns:**", cols)
 
-# Smart default detection
-date_default = 0
-if "recovery_date" in cols:
-    date_default = cols.index("recovery_date")
-elif any("date" in c.lower() for c in cols):
-    for i, c in enumerate(cols):
-        if "date" in c.lower():
-            date_default = i
-            break
+# Smart defaults
+date_default = next((i for i, c in enumerate(cols) if "recovery_date" in c.lower() or "date" in c.lower()), 0)
+branch_default = next((i for i, c in enumerate(cols) if "name" in c.lower() or "branch" in c.lower()), 1)
 
-branch_default = 0
-if "Name" in cols:
-    branch_default = cols.index("Name")
-elif "branch" in " ".join(cols).lower():
-    for i, c in enumerate(cols):
-        if "name" in c.lower() or "branch" in c.lower():
-            branch_default = i
-            break
-
-# Date Column
 date_col = st.selectbox(
     "Select **Date Column**", 
     cols, 
     index=date_default,
-    key="date_col_key"   # Unique key - yeh masla solve karega
+    key="date_col_key"
 )
 
-# Branch Column
 branch_col = st.selectbox(
-    "Select **Branch Column** (branch name or id)", 
+    "Select **Branch Column** (Name / branch_id)", 
     cols, 
     index=branch_default,
-    key="branch_col_key"   # Unique key - important
+    key="branch_col_key"
 )
 
 # Area Column
 area_col = None
-area_options = [c for c in cols if c in ["area_id", "region_id"]]
-if area_options:
-    area_col = area_options[0]  # pehle area_id phir region_id
+for possible in ["area_id", "region_id"]:
+    if possible in cols:
+        area_col = possible
+        break
 
 # ================= DATA PROCESSING =================
 try:
-    # Convert date
+    df = df.copy()
     df[date_col] = pd.to_datetime(df[date_col].astype(str).str.strip(), errors='coerce')
+    df = df.dropna(subset=[date_col, branch_col])
     
-    # Drop invalid rows
-    df = df.dropna(subset=[date_col, branch_col]).copy()
     df["Day"] = df[date_col].dt.day
-    
-    # Filter valid days
     df = df[(df["Day"] >= 1) & (df["Day"] <= 31)]
 
     if df.empty:
-        st.error("No valid dates found in the selected date column.")
+        st.error("No valid dates found.")
         st.stop()
 
-    # Create Range (1-10, 11-20, 21-31)
-    df["Range"] = pd.cut(df["Day"], 
-                        bins=[0, 10, 20, 31], 
-                        labels=["1-10", "11-20", "21-31"],
-                        include_lowest=True)
+    df["Range"] = pd.cut(df["Day"], bins=[0, 10, 20, 31], 
+                        labels=["1-10", "11-20", "21-31"], include_lowest=True)
 
-    # ================= PIVOT TABLE =================
+    # Pivot Table
     pivot = pd.pivot_table(
-        df,
-        index=[branch_col],
-        columns="Range",
-        aggfunc="size",
-        fill_value=0
+        df, index=branch_col, columns="Range", aggfunc="size", fill_value=0
     )
 
-    # Ensure all columns exist
     for c in ["1-10", "11-20", "21-31"]:
         if c not in pivot.columns:
             pivot[c] = 0
 
     pivot["Total"] = pivot.sum(axis=1)
 
-    # Calculate percentages
     for c in ["1-10", "11-20", "21-31"]:
         pivot[f"{c} %"] = (pivot[c] / pivot["Total"] * 100).round(2)
 
-    # Rename for better display
     pivot.rename(columns={
         "1-10": "Recovery 1-10",
         "11-20": "Recovery 11-20",
@@ -222,36 +211,35 @@ try:
 
     result_df = pivot.reset_index()
 
-    # ================= ADD AREA COLUMN =================
+    # Add Area Column
     if area_col and area_col in df.columns:
-        branch_area_map = df[[branch_col, area_col]].drop_duplicates()
-        result_df = result_df.merge(branch_area_map, on=branch_col, how='left')
+        area_map = df[[branch_col, area_col]].drop_duplicates()
+        result_df = result_df.merge(area_map, on=branch_col, how='left')
         
-        # Move area column right after branch column
-        cols_order = result_df.columns.tolist()
-        if area_col in cols_order:
-            area_idx = cols_order.index(area_col)
-            branch_idx = cols_order.index(branch_col)
-            cols_order.insert(branch_idx + 1, cols_order.pop(area_idx))
-            result_df = result_df[cols_order]
+        # Move area right after branch
+        cols_list = result_df.columns.tolist()
+        if area_col in cols_list:
+            area_idx = cols_list.index(area_col)
+            branch_idx = cols_list.index(branch_col)
+            cols_list.insert(branch_idx + 1, cols_list.pop(area_idx))
+            result_df = result_df[cols_list]
 
-    # ================= GRAND TOTAL ROW =================
+    # Grand Total
     numeric_cols = ["Recovery 1-10", "Recovery 11-20", "Recovery 21-31", "Total"]
-    grand_counts = result_df[numeric_cols].sum()
+    grand = result_df[numeric_cols].sum()
 
     grand_row = {col: "" for col in result_df.columns}
     grand_row[branch_col] = "Grand Total"
-    if area_col and area_col in grand_row:
+    if area_col:
         grand_row[area_col] = ""
 
     for col in numeric_cols:
-        if col in grand_row:
-            grand_row[col] = grand_counts[col]
+        grand_row[col] = grand[col]
 
     for c in ["1-10", "11-20", "21-31"]:
-        pct_col = f"{c} %"
-        if pct_col in grand_row and grand_counts["Total"] > 0:
-            grand_row[pct_col] = round((grand_counts[f"Recovery {c}"] / grand_counts["Total"] * 100), 2)
+        pct = f"{c} %"
+        if pct in grand_row and grand["Total"] > 0:
+            grand_row[pct] = round(grand[f"Recovery {c}"] / grand["Total"] * 100, 2)
 
     result_df = pd.concat([result_df, pd.DataFrame([grand_row])], ignore_index=True)
 
@@ -259,7 +247,7 @@ except Exception as e:
     st.error(f"Processing Error: {str(e)}")
     st.stop()
 
-# ================= DISPLAY =================
+# ================= DISPLAY RESULT =================
 st.subheader("📊 Branch Wise Recovery Summary")
 st.dataframe(result_df, use_container_width=True, height=650)
 
@@ -268,12 +256,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     csv = result_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="⬇ Download CSV",
-        data=csv,
-        file_name="recovery_summary.csv",
-        mime="text/csv"
-    )
+    st.download_button("⬇ Download CSV", csv, "recovery_summary.csv", "text/csv")
 
 with col2:
     try:
@@ -287,31 +270,24 @@ with col2:
 
         table = Table(table_data)
         style = TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.lightgrey)
         ])
         table.setStyle(style)
         doc.build([table])
-
         pdf_bytes = buffer.getvalue()
         buffer.close()
 
-        st.download_button(
-            label="⬇ Download PDF",
-            data=pdf_bytes,
-            file_name="recovery_summary.pdf",
-            mime="application/pdf"
-        )
-    except ImportError:
-        st.info("For PDF download: pip install reportlab")
+        st.download_button("⬇ Download PDF", pdf_bytes, "recovery_summary.pdf", "application/pdf")
+    except:
+        st.info("PDF support requires `reportlab` package.")
 
-# ================= SAVE BUTTON =================
+# ================= SAVE TO FIREBASE =================
 if st.button("🔄 Save Current Data to Firebase"):
     save_to_firebase(df)
-    st.success("✅ Data saved to Firebase successfully")
+    st.success("✅ Saved to Firebase successfully")
