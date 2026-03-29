@@ -1531,7 +1531,7 @@ if uploaded_cheque:
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import time
+from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE =================
 st.title("💰 Daily Expense Tracker")
@@ -1565,23 +1565,22 @@ def delete_data(doc_id):
 # ================= LOAD DATA =================
 df = load_data()
 
-# ================= AUTO SLIDER =================
+# ================= AUTO IMAGE SLIDER (FIXED) =================
 images = [
     "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1573246123716-6b1782bfc499?auto=format&fit=crop&w=800&q=60",
     "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60"
 ]
 
+# refresh every 2 sec
+st_autorefresh(interval=2000, key="slider")
+
 if "img_index" not in st.session_state:
     st.session_state.img_index = 0
 
-# update image index
 st.session_state.img_index = (st.session_state.img_index + 1) % len(images)
 
 st.image(images[st.session_state.img_index], use_container_width=True)
-
-time.sleep(2)
-st.rerun()
 
 # ================= SIDEBAR =================
 st.sidebar.header("💵 Budget System")
@@ -1603,7 +1602,7 @@ with st.sidebar.expander("➕ Add Expense", expanded=True):
             "Amount": amount
         })
         st.success("Saved to Firebase ☁")
-        st.experimental_rerun()
+        st.rerun()
 
 # ================= CALCULATIONS =================
 if not df.empty:
@@ -1633,7 +1632,7 @@ if not df.empty:
     h1.write("Date")
     h2.write("Item")
     h3.write("Amount")
-    h4.write("Running")
+    h4.write("Running Total")
     h5.write("Delete")
 
     st.markdown("---")
@@ -1650,7 +1649,7 @@ if not df.empty:
 
         if c5.button("❌", key=row["id"]):
             delete_data(row["id"])
-            st.experimental_rerun()
+            st.rerun()
 
 else:
     st.info("No expenses yet")
