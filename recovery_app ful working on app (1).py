@@ -51,6 +51,12 @@ else:
 import streamlit as st
 import pandas as pd
 import os
+import io
+
+# ================= PDF =================
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 
 # ================= FIREBASE =================
 import firebase_admin
@@ -70,25 +76,20 @@ LOCAL_FOLDER = "data"
 LOCAL_FILE = os.path.join(LOCAL_FOLDER, "recovery.xlsx")
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-# ================= AUTO COLUMN DETECTION =================
+# ================= AUTO DETECT =================
 def detect_columns(df):
     date_col = None
     branch_col = None
 
-    # common patterns
-    date_keywords = ["date", "recovery_date", "rec_date", "tran_date"]
-    branch_keywords = ["branch", "branch_id", "branchid", "br_code", "brcode"]
-
     for col in df.columns:
         c = col.lower()
 
-        if any(k in c for k in date_keywords):
+        if "date" in c:
             date_col = col
 
-        if any(k in c for k in branch_keywords):
+        if "branch" in c:
             branch_col = col
 
-    # fallback
     if date_col is None:
         date_col = df.columns[0]
 
@@ -103,16 +104,7 @@ def load_from_firebase():
     doc = db.collection("recovery_summary").document("latest").get()
     if doc.exists:
         data = doc.to_dict().get("data", [])
-        if data:
-            df = pd.DataFrame(data)
-
-            for col in df.columns:
-                try:
-                    df[col] = pd.to_numeric(df[col])
-                except:
-                    pass
-
-            return df
+        return pd.DataFrame(data) if data else None
     return None
 
 
@@ -135,9 +127,9 @@ if uploaded_file:
 
     df.to_excel(LOCAL_FILE, index=False)
     save_to_firebase(df)
-    st.success("Uploaded & saved permanently ✅")
+    st.success("Uploaded & saved ✅")
 
-# ================= LOAD DATA =================
+# ================= LOAD =================
 df = None
 
 fb_df = load_from_firebase()
@@ -150,24 +142,23 @@ elif os.path.exists(LOCAL_FILE):
     st.info("Loaded from local file")
 
 else:
-    st.warning("Please upload file")
+    st.warning("Upload file first")
     st.stop()
 
-# ================= SAFETY =================
+# ================= CLEAN =================
 if df is None or df.empty:
     st.stop()
 
 st.subheader("Data Preview")
 st.dataframe(df)
 
-# ================= AUTO DETECT (NO SELECTBOX) =================
+# ================= AUTO COLUMNS =================
 date_col, branch_col = detect_columns(df)
 
-st.info(f"Auto Selected Date Column: {date_col}")
-st.info(f"Auto Selected Branch Column: {branch_col}")
+st.info(f"Date Column: {date_col}")
+st.info(f"Branch Column: {branch_col}")
 
-# ================= CLEAN DATE =================
-df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 df = df.dropna(subset=[date_col, branch_col])
 
 # ================= RANGE =================
@@ -177,7 +168,7 @@ df["Range"] = pd.cut(df["Day"], bins=[0,10,20,31], labels=["1-10","11-20","21-31
 # ================= PIVOT =================
 pivot = pd.pivot_table(
     df,
-    index=[branch_col],
+    index=branch_col,
     columns="Range",
     aggfunc="size",
     fill_value=0
@@ -189,18 +180,68 @@ for c in ["1-10","11-20","21-31"]:
 
 pivot["Total"] = pivot.sum(axis=1)
 
-# safe division
 pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"].replace(0,1) * 100).round(2)
 pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"].replace(0,1) * 100).round(2)
 pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"].replace(0,1) * 100).round(2)
 
 result_df = pivot.reset_index()
 
-# ================= RESULT =================
+# ================= SHOW =================
 st.subheader("Recovery Summary")
 st.dataframe(result_df, use_container_width=True)
 
-# ================= SAVE =================
-if st.button("🔄 Save Again to Firebase"):
+# ================= WATERMARK TEXT =================
+WATERMARK = "Created by M Khaleel"
+
+# ================= EXCEL DOWNLOAD =================
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    result_df.to_excel(writer, index=False, sheet_name="Recovery")
+    workbook = writer.book
+    sheet = writer.sheets["Recovery"]
+    sheet.cell(row=1, column=1).value = WATERMARK  # watermark top-left
+excel_buffer.seek(0)
+
+st.download_button(
+    "📥 Download Excel",
+    excel_buffer,
+    "recovery_summary.xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# ================= PDF DOWNLOAD =================
+def create_pdf(df):
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(buffer)
+
+    styles = getSampleStyleSheet()
+    title = Paragraph(WATERMARK, styles["Title"])
+
+    table_data = [df.columns.tolist()] + df.values.tolist()
+    table = Table(table_data)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+
+    pdf.build([title, Spacer(1, 12), table])
+    buffer.seek(0)
+    return buffer
+
+
+pdf_buffer = create_pdf(result_df)
+
+st.download_button(
+    "📄 Download PDF",
+    pdf_buffer,
+    "recovery_summary.pdf",
+    "application/pdf"
+)
+
+# ================= SAVE BUTTON =================
+if st.button("🔄 Save Again Firebase"):
     save_to_firebase(df)
-    st.success("Saved again to Firebase")
+    st.success("Saved again ✅")
