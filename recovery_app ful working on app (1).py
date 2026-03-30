@@ -352,13 +352,13 @@ def save_data(df):
 # ================= DATA =================
 df = load_data()
 
-st.title("Recovery MIS System")
+st.title("📊 Recovery MIS System")
 
 # ================= PASSWORD =================
-DELETE_PASSWORD = "123456789"   # <-- change this
+DELETE_PASSWORD = "123456789"   # change if needed
 
 # ================= ADD ENTRY =================
-st.subheader("Add Record")
+st.subheader("➕ Add Record")
 
 with st.form("add_form"):
     sr = st.number_input("Sr", step=1)
@@ -391,7 +391,7 @@ if submit:
     st.success("Saved to Firebase ☁")
 
 # ================= FILTER =================
-st.subheader("Search & Filter")
+st.subheader("🔍 Search & Filter")
 
 branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
 branch = st.selectbox("Branch", branches)
@@ -412,7 +412,7 @@ if search:
         )
     ]
 
-# ================= FIX COLUMN ORDER (IMPORTANT) =================
+# ================= FIX COLUMN ORDER =================
 fixed_order = [
     "Sr","Name","Parentage","CNIC","Mobile",
     "Address","Amount","Received By","Branch"
@@ -420,11 +420,32 @@ fixed_order = [
 
 filtered = filtered[[c for c in fixed_order if c in filtered.columns]]
 
-st.subheader("Records")
-st.dataframe(filtered, use_container_width=True)
+# ================= RECORDS (EXPANDABLE) =================
+st.subheader("📋 Records")
 
-# ================= DELETE SECTION =================
-st.subheader("Delete Entry (Protected)")
+if filtered.empty:
+    st.info("No records found")
+else:
+    for i, row in filtered.iterrows():
+
+        title = f"{row['Name']} | {row['CNIC']} | {row['Branch']}"
+
+        with st.expander(title):
+            c1, c2 = st.columns(2)
+
+            c1.write(f"**Sr:** {row['Sr']}")
+            c1.write(f"**Name:** {row['Name']}")
+            c1.write(f"**Parentage:** {row['Parentage']}")
+            c1.write(f"**CNIC:** {row['CNIC']}")
+            c1.write(f"**Mobile:** {row['Mobile']}")
+
+            c2.write(f"**Address:** {row['Address']}")
+            c2.write(f"**Amount:** {row['Amount']}")
+            c2.write(f"**Received By:** {row['Received By']}")
+            c2.write(f"**Branch:** {row['Branch']}")
+
+# ================= DELETE =================
+st.subheader("🗑 Delete Record")
 
 delete_cnic = st.text_input("Enter CNIC to Delete")
 password = st.text_input("Enter Password", type="password")
