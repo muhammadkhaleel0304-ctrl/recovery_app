@@ -320,7 +320,6 @@ if st.button("🔄 Save Again Firebase"):
 import streamlit as st
 import pandas as pd
 import io
-
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -330,6 +329,22 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+
+# ================= TOGGLE STATE =================
+if "show_app" not in st.session_state:
+    st.session_state.show_app = True
+
+def toggle_app():
+    st.session_state.show_app = not st.session_state.show_app
+
+# ================= HEADER =================
+st.markdown("## 📊 Recovery MIS System")
+st.button("👆 Click to Show/Hide", on_click=toggle_app)
+
+# ================= HIDE / SHOW =================
+if not st.session_state.show_app:
+    st.info("System Hidden 👁‍🗨 — click button to show")
+    st.stop()
 
 # ================= LOAD =================
 def load_data():
@@ -352,10 +367,8 @@ def save_data(df):
 # ================= DATA =================
 df = load_data()
 
-st.title("📊 Recovery MIS System")
-
 # ================= PASSWORD =================
-DELETE_PASSWORD = "123456789"   # change if needed
+DELETE_PASSWORD = "123456789"
 
 # ================= ADD ENTRY =================
 st.subheader("➕ Add Record")
@@ -396,7 +409,7 @@ st.subheader("🔍 Search & Filter")
 branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
 branch = st.selectbox("Branch", branches)
 
-search = st.text_input("Search (Name / CNIC / Mobile)")
+search = st.text_input("Search")
 
 filtered = df.copy()
 
@@ -404,80 +417,43 @@ if branch != "All":
     filtered = filtered[filtered["Branch"] == branch]
 
 if search:
-    search = search.lower()
     filtered = filtered[
         filtered.astype(str).apply(
-            lambda row: row.str.lower().str.contains(search).any(),
+            lambda row: row.str.contains(search, case=False).any(),
             axis=1
         )
     ]
 
-# ================= FIX COLUMN ORDER =================
-fixed_order = [
-    "Sr","Name","Parentage","CNIC","Mobile",
-    "Address","Amount","Received By","Branch"
-]
-
-filtered = filtered[[c for c in fixed_order if c in filtered.columns]]
-
-# ================= RECORDS (EXPANDABLE) =================
+# ================= RECORDS =================
 st.subheader("📋 Records")
-
-if filtered.empty:
-    st.info("No records found")
-else:
-    for i, row in filtered.iterrows():
-
-        title = f"{row['Name']} | {row['CNIC']} | {row['Branch']}"
-
-        with st.expander(title):
-            c1, c2 = st.columns(2)
-
-            c1.write(f"**Sr:** {row['Sr']}")
-            c1.write(f"**Name:** {row['Name']}")
-            c1.write(f"**Parentage:** {row['Parentage']}")
-            c1.write(f"**CNIC:** {row['CNIC']}")
-            c1.write(f"**Mobile:** {row['Mobile']}")
-
-            c2.write(f"**Address:** {row['Address']}")
-            c2.write(f"**Amount:** {row['Amount']}")
-            c2.write(f"**Received By:** {row['Received By']}")
-            c2.write(f"**Branch:** {row['Branch']}")
+st.dataframe(filtered, use_container_width=True)
 
 # ================= DELETE =================
 st.subheader("🗑 Delete Record")
 
-delete_cnic = st.text_input("Enter CNIC to Delete")
-password = st.text_input("Enter Password", type="password")
+delete_cnic = st.text_input("Enter CNIC")
+password = st.text_input("Password", type="password")
 
-if st.button("Delete Record"):
-    if password != DELETE_PASSWORD:
-        st.error("Wrong password ❌")
+if st.button("Delete"):
+    if password == DELETE_PASSWORD:
+        df = df[df["CNIC"] != delete_cnic]
+        save_data(df)
+        st.success("Deleted ✅")
     else:
-        if delete_cnic:
-            df = df[df["CNIC"] != delete_cnic]
-            save_data(df)
-            st.success("Record deleted successfully ✅")
-        else:
-            st.warning("Enter CNIC first")
+        st.error("Wrong password ❌")
 
-# ================= EXCEL DOWNLOAD =================
+# ================= DOWNLOAD =================
 def to_excel(dataframe):
     output = io.BytesIO()
-
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        dataframe.to_excel(writer, index=False, sheet_name="Recovery")
-
+        dataframe.to_excel(writer, index=False)
     output.seek(0)
     return output
 
-excel_file = to_excel(filtered)
-
 st.download_button(
     "📥 Download Excel",
-    excel_file,
-    "recovery.xlsx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    to_excel(filtered),
+    "recovery.xlsx"
 )
 st.markdown("""
     <h1 style='text-align: center; color: White;'>📊 Welcome to Recovery Portal Created By:M.Khaleel</h1>
