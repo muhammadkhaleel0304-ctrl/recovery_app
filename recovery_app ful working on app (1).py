@@ -330,22 +330,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= TOGGLE STATE =================
-if "show_app" not in st.session_state:
-    st.session_state.show_app = True
-
-def toggle_app():
-    st.session_state.show_app = not st.session_state.show_app
-
-# ================= HEADER =================
-st.markdown("## 📊 Recovery MIS System")
-st.button("👆 Click to Show/Hide", on_click=toggle_app)
-
-# ================= HIDE / SHOW =================
-if not st.session_state.show_app:
-    st.info("System Hidden 👁‍🗨 — click button to show")
-    st.stop()
-
 # ================= LOAD =================
 def load_data():
     doc = db.collection("recovery_data").document("records").get()
@@ -364,71 +348,75 @@ def save_data(df):
         "data": df_clean.to_dict(orient="records")
     })
 
-# ================= DATA =================
 df = load_data()
 
-# ================= PASSWORD =================
 DELETE_PASSWORD = "123456789"
 
-# ================= ADD ENTRY =================
-st.subheader("➕ Add Record")
+# ================= HEADER =================
+st.title("📊 Recovery MIS System")
 
-with st.form("add_form"):
-    sr = st.number_input("Sr", step=1)
-    name = st.text_input("Name")
-    parentage = st.text_input("Parentage")
-    cnic = st.text_input("CNIC")
-    mobile = st.text_input("Mobile")
-    address = st.text_input("Address")
-    amount = st.number_input("Amount", step=1)
-    received_by = st.text_input("Received By")
-    branch = st.text_input("Branch")
+# ================= EXPANDABLE MAIN SYSTEM =================
+with st.expander("📂 Recovery MIS System (Click to Expand / Close)", expanded=True):
 
-    submit = st.form_submit_button("Save")
+    st.subheader("➕ Add Record")
 
-if submit:
-    new_row = pd.DataFrame([{
-        "Sr": sr,
-        "Name": name,
-        "Parentage": parentage,
-        "CNIC": cnic,
-        "Mobile": mobile,
-        "Address": address,
-        "Amount": amount,
-        "Received By": received_by,
-        "Branch": branch
-    }])
+    with st.form("add_form"):
+        sr = st.number_input("Sr", step=1)
+        name = st.text_input("Name")
+        parentage = st.text_input("Parentage")
+        cnic = st.text_input("CNIC")
+        mobile = st.text_input("Mobile")
+        address = st.text_input("Address")
+        amount = st.number_input("Amount", step=1)
+        received_by = st.text_input("Received By")
+        branch = st.text_input("Branch")
 
-    df = pd.concat([df, new_row], ignore_index=True)
-    save_data(df)
-    st.success("Saved to Firebase ☁")
+        submit = st.form_submit_button("Save")
 
-# ================= FILTER =================
-st.subheader("🔍 Search & Filter")
+    if submit:
+        new_row = pd.DataFrame([{
+            "Sr": sr,
+            "Name": name,
+            "Parentage": parentage,
+            "CNIC": cnic,
+            "Mobile": mobile,
+            "Address": address,
+            "Amount": amount,
+            "Received By": received_by,
+            "Branch": branch
+        }])
 
-branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
-branch = st.selectbox("Branch", branches)
+        df = pd.concat([df, new_row], ignore_index=True)
+        save_data(df)
+        st.success("Saved to Firebase ☁")
 
-search = st.text_input("Search")
+    # ================= FILTER =================
+    st.subheader("🔍 Search & Filter")
 
-filtered = df.copy()
+    branches = ["All"] + sorted(df["Branch"].dropna().unique().tolist()) if not df.empty else ["All"]
+    branch = st.selectbox("Branch", branches)
 
-if branch != "All":
-    filtered = filtered[filtered["Branch"] == branch]
+    search = st.text_input("Search")
 
-if search:
-    filtered = filtered[
-        filtered.astype(str).apply(
-            lambda row: row.str.contains(search, case=False).any(),
-            axis=1
-        )
-    ]
+    filtered = df.copy()
 
-# ================= RECORDS =================
-st.subheader("📋 Records")
-st.dataframe(filtered, use_container_width=True)
+    if branch != "All":
+        filtered = filtered[filtered["Branch"] == branch]
 
-# ================= DELETE =================
+    if search:
+        filtered = filtered[
+            filtered.astype(str).apply(
+                lambda row: row.str.contains(search, case=False).any(),
+                axis=1
+            )
+        ]
+
+    # ================= RECORDS =================
+    st.subheader("📋 Records")
+    st.dataframe(filtered, use_container_width=True)
+
+# ================= ALWAYS VISIBLE PART =================
+
 st.subheader("🗑 Delete Record")
 
 delete_cnic = st.text_input("Enter CNIC")
@@ -442,7 +430,6 @@ if st.button("Delete"):
     else:
         st.error("Wrong password ❌")
 
-# ================= DOWNLOAD =================
 def to_excel(dataframe):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -452,7 +439,7 @@ def to_excel(dataframe):
 
 st.download_button(
     "📥 Download Excel",
-    to_excel(filtered),
+    to_excel(df),
     "recovery.xlsx"
 )
 st.markdown("""
