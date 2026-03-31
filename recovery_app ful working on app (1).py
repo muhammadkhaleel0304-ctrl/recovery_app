@@ -1558,12 +1558,14 @@ import pandas as pd
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
+from fpdf import FPDF
+from io import BytesIO
+import requests
 
 # ================= PAGE =================
+st.title("💰 Smart Expense Tracker")
 
-st.title("💰 Daily Expense Tracker")
-
-# ================= SAFE RERUN FIX =================
+# ================= SAFE RERUN =================
 def safe_rerun():
     try:
         st.rerun()
@@ -1593,14 +1595,34 @@ def load_data():
         data.append(d)
     return pd.DataFrame(data)
 
+# -------- Translate + Image --------
+def get_item_details(item):
+    try:
+        url = f"https://api.mymemory.translated.net/get?q={item}&langpair=ur|en"
+        res = requests.get(url).json()
+        english = res['responseData']['translatedText']
+
+        image_url = f"https://source.unsplash.com/400x300/?{english}"
+
+        return english, image_url
+    except:
+        return item, None
+
 # ================= LOAD DATA =================
 df = load_data()
 
-# safe empty dataframe
 if df.empty:
     df = pd.DataFrame(columns=["Date", "Item", "Amount"])
 
 df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
+
+df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
+df["Month"] = df["Date"].dt.strftime("%B")
+
+# ================= MONTH FILTER =================
+if not df.empty:
+    selected_month = st.selectbox("📅 Select Month", df["Month"].dropna().unique())
+    df = df[df["Month"] == selected_month]
 
 # ================= SIDEBAR =================
 st.sidebar.header("➕ Add Expense")
@@ -1611,17 +1633,21 @@ with st.sidebar.form("expense_form"):
     date = datetime.now().strftime("%Y-%m-%d")
     item = st.text_input("Item Name")
     amount = st.number_input("Amount", min_value=0.0)
-
     submit = st.form_submit_button("Add Expense")
 
 if submit:
     if item:
+        eng, img = get_item_details(item)
+
         add_expense({
             "Date": date,
             "Item": item,
+            "Item_Eng": eng,
+            "Image": img,
             "Amount": amount
         })
-        st.success("Saved to Firebase ✅")
+
+        st.success("Saved with Image ✅")
         safe_rerun()
 
 # ================= CALCULATIONS =================
@@ -1643,28 +1669,32 @@ running_total = 0
 
 if not df.empty:
 
-    h1, h2, h3, h4, h5 = st.columns([2, 3, 2, 2, 1])
+    h1, h2, h3, h4, h5, h6 = st.columns([2, 3, 2, 2, 1, 2])
     h1.write("Date")
     h2.write("Item")
     h3.write("Amount")
     h4.write("Running Total")
     h5.write("Delete")
+    h6.write("Image")
 
     st.markdown("---")
 
     for _, row in df.iterrows():
         running_total += row["Amount"]
 
-        c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
+        c1, c2, c3, c4, c5, c6 = st.columns([2, 3, 2, 2, 1, 2])
 
         c1.write(row["Date"])
-        c2.write(row["Item"])
+        c2.write(f"{row['Item']} ({row.get('Item_Eng','')})")
         c3.write(row["Amount"])
         c4.write(running_total)
 
         if c5.button("❌", key=row["id"]):
             delete_expense(row["id"])
             safe_rerun()
+
+        if "Image" in row and row["Image"]:
+            c6.image(row["Image"], width=60)
 
 else:
     st.info("No expenses yet")
@@ -1674,5 +1704,50 @@ st.markdown("---")
 st.success(f"💰 Total Expense: {total}")
 st.info(f"📉 Remaining Budget: {remaining}")
 
+# ================= DOWNLOAD =================
+st.markdown("## 📥 Download Reports")
+
+summary = df.groupby("Item")["Amount"].sum().reset_index()
+
+# -------- PDF --------
+class PDF(FPDF):
+    def header(self):
+        self.set_font("Arial", "B", 14)
+        self.cell(0, 10, "Expense Summary Report", ln=True, align="C")
+
+pdf = PDF()
+pdf.add_page()
+
+pdf.set_font("Arial", "B", 12)
+pdf.cell(60, 10, "Item", border=1)
+pdf.cell(60, 10, "Amount", border=1)
+pdf.ln()
+
+pdf.set_font("Arial", "", 11)
+
+for _, row in summary.iterrows():
+    pdf.cell(60, 10, str(row["Item"]), border=1)
+    pdf.cell(60, 10, f"{row['Amount']:.0f}", border=1)
+    pdf.ln()
+
+pdf.cell(60, 10, "Total", border=1)
+pdf.cell(60, 10, f"{summary['Amount'].sum():.0f}", border=1)
+
+pdf_bytes = pdf.output(dest='S').encode('latin1')
+
+st.download_button("📄 Download PDF", pdf_bytes, "expense_summary.pdf")
+
+# -------- EXCEL --------
+output = BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    df.to_excel(writer, index=False, sheet_name="Data")
+    summary.to_excel(writer, index=False, sheet_name="Summary")
+
+st.download_button(
+    "📊 Download Excel",
+    data=output.getvalue(),
+    file_name="expense_report.xlsx"
+)
+
 # ================= FOOTER =================
-st.caption("Expense App • Streamlit + Firebase")
+st.caption("Smart Expense App • Streamlit + Firebase 🚀")
