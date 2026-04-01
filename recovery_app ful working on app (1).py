@@ -1567,7 +1567,6 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ================= PAGE =================
-st.set_page_config(page_title="Expense Tracker", layout="wide")
 st.title("💰 Smart Expense Tracker (No Image)")
 
 # ================= ADD EXPENSE =================
