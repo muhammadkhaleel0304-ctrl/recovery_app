@@ -1558,196 +1558,108 @@ import pandas as pd
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
-from fpdf import FPDF
-from io import BytesIO
-import requests
 
-# ================= PAGE =================
-st.title("💰 Smart Expense Tracker")
-
-# ================= SAFE RERUN =================
-def safe_rerun():
-    try:
-        st.rerun()
-    except:
-        st.experimental_rerun()
-
-# ================= FIREBASE =================
+# ================= FIREBASE INIT =================
 if not firebase_admin._apps:
-    cred = credentials.Certificate(st.secrets["gcp_service_account"])
+    cred = credentials.Certificate("serviceAccountKey.json")  # apni file ka path
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# ================= FUNCTIONS =================
-def add_expense(data):
-    db.collection("expenses").add(data)
+# ================= PAGE =================
+st.set_page_config(page_title="Expense Tracker", layout="wide")
+st.title("💰 Smart Expense Tracker (No Image)")
 
-def delete_expense(doc_id):
-    db.collection("expenses").document(doc_id).delete()
+# ================= ADD EXPENSE =================
+st.subheader("➕ Add Expense")
 
-def load_data():
-    docs = db.collection("expenses").stream()
-    data = []
-    for doc in docs:
-        d = doc.to_dict()
-        d["id"] = doc.id
-        data.append(d)
-    return pd.DataFrame(data)
+col1, col2, col3 = st.columns(3)
 
-# -------- Translate + Image --------
-def get_item_details(item):
-    try:
-        url = f"https://api.mymemory.translated.net/get?q={item}&langpair=ur|en"
-        res = requests.get(url).json()
-        english = res['responseData']['translatedText']
+with col1:
+    date = st.date_input("Date", datetime.today())
 
-        image_url = f"https://source.unsplash.com/400x300/?{english}"
+with col2:
+    item = st.text_input("Item")
 
-        return english, image_url
-    except:
-        return item, None
+with col3:
+    amount = st.number_input("Amount", min_value=0.0)
+
+if st.button("Add Expense"):
+    if item and amount > 0:
+        data = {
+            "date": str(date),
+            "item": item,
+            "amount": amount,
+            "timestamp": datetime.now()
+        }
+        db.collection("expenses").add(data)
+        st.success("Expense Added ✅")
+        st.rerun()
+    else:
+        st.warning("Please fill all fields")
 
 # ================= LOAD DATA =================
-df = load_data()
-
-if df.empty:
-    df = pd.DataFrame(columns=["Date", "Item", "Amount"])
-
-df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0)
-
-df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
-df["Month"] = df["Date"].dt.strftime("%B")
-
-# ================= MONTH FILTER =================
-if not df.empty:
-    selected_month = st.selectbox("📅 Select Month", df["Month"].dropna().unique())
-    df = df[df["Month"] == selected_month]
-
-# ================= SIDEBAR =================
-st.sidebar.header("➕ Add Expense")
-
-budget = st.sidebar.number_input("💵 Budget", min_value=0.0, value=9000.0)
-
-with st.sidebar.form("expense_form"):
-    date = datetime.now().strftime("%Y-%m-%d")
-    item = st.text_input("Item Name")
-    amount = st.number_input("Amount", min_value=0.0)
-    submit = st.form_submit_button("Add Expense")
-
-if submit:
-    if item:
-        eng, img = get_item_details(item)
-
-        add_expense({
-            "Date": date,
-            "Item": item,
-            "Item_Eng": eng,
-            "Image": img,
-            "Amount": amount
-        })
-
-        st.success("Saved with Image ✅")
-        safe_rerun()
-
-# ================= CALCULATIONS =================
-total = df["Amount"].sum()
-remaining = budget - total
-
-# ================= METRICS =================
-c1, c2, c3 = st.columns(3)
-c1.metric("💰 Budget", budget)
-c2.metric("💸 Total Expense", total)
-c3.metric("📊 Remaining", remaining)
-
-st.markdown("---")
-
-# ================= TABLE =================
 st.subheader("📋 Expense List")
 
-running_total = 0
+docs = db.collection("expenses").stream()
 
-if not df.empty:
+data_list = []
+for doc in docs:
+    d = doc.to_dict()
+    d["id"] = doc.id
+    data_list.append(d)
 
-    h1, h2, h3, h4, h5, h6 = st.columns([2, 3, 2, 2, 1, 2])
-    h1.write("Date")
-    h2.write("Item")
-    h3.write("Amount")
-    h4.write("Running Total")
-    h5.write("Delete")
-    h6.write("Image")
+if data_list:
+    df = pd.DataFrame(data_list)
 
-    st.markdown("---")
+    # Convert date
+    df["date"] = pd.to_datetime(df["date"])
 
-    for _, row in df.iterrows():
-        running_total += row["Amount"]
+    # Sort latest first
+    df = df.sort_values(by="date", ascending=False)
 
-        c1, c2, c3, c4, c5, c6 = st.columns([2, 3, 2, 2, 1, 2])
+    # ================= SUMMARY =================
+    total = df["amount"].sum()
+    st.metric("💸 Total Expense", total)
 
-        c1.write(row["Date"])
-        c2.write(f"{row['Item']} ({row.get('Item_Eng','')})")
-        c3.write(row["Amount"])
+    # ================= TABLE =================
+    for i, row in df.iterrows():
+        c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
+
+        c1.write(row["date"].date())
+        c2.write(row["item"])
+        c3.write(row["amount"])
+
+        running_total = df.loc[:i, "amount"].sum()
         c4.write(running_total)
 
         if c5.button("❌", key=row["id"]):
-            delete_expense(row["id"])
-            safe_rerun()
-
-        if "Image" in row and row["Image"]:
-            c6.image(row["Image"], width=60)
+            db.collection("expenses").document(row["id"]).delete()
+            st.warning("Deleted")
+            st.rerun()
 
 else:
-    st.info("No expenses yet")
+    st.info("No data found")
 
-# ================= TOTAL =================
-st.markdown("---")
-st.success(f"💰 Total Expense: {total}")
-st.info(f"📉 Remaining Budget: {remaining}")
+# ================= FILTER =================
+st.subheader("🔍 Filter")
 
-# ================= DOWNLOAD =================
-st.markdown("## 📥 Download Reports")
+search = st.text_input("Search Item")
 
-summary = df.groupby("Item")["Amount"].sum().reset_index()
+if search and data_list:
+    filtered_df = df[df["item"].str.contains(search, case=False)]
 
-# -------- PDF --------
-class PDF(FPDF):
-    def header(self):
-        self.set_font("Arial", "B", 14)
-        self.cell(0, 10, "Expense Summary Report", ln=True, align="C")
+    st.write("Filtered Results")
+    st.dataframe(filtered_df)
 
-pdf = PDF()
-pdf.add_page()
+# ================= MONTH SELECT =================
+st.subheader("📅 Monthly Summary")
 
-pdf.set_font("Arial", "B", 12)
-pdf.cell(60, 10, "Item", border=1)
-pdf.cell(60, 10, "Amount", border=1)
-pdf.ln()
+if data_list:
+    df["month"] = df["date"].dt.month
+    selected_month = st.selectbox("Select Month", sorted(df["month"].unique()))
 
-pdf.set_font("Arial", "", 11)
+    month_df = df[df["month"] == selected_month]
 
-for _, row in summary.iterrows():
-    pdf.cell(60, 10, str(row["Item"]), border=1)
-    pdf.cell(60, 10, f"{row['Amount']:.0f}", border=1)
-    pdf.ln()
-
-pdf.cell(60, 10, "Total", border=1)
-pdf.cell(60, 10, f"{summary['Amount'].sum():.0f}", border=1)
-
-pdf_bytes = pdf.output(dest='S').encode('latin1')
-
-st.download_button("📄 Download PDF", pdf_bytes, "expense_summary.pdf")
-
-# -------- EXCEL --------
-output = BytesIO()
-with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df.to_excel(writer, index=False, sheet_name="Data")
-    summary.to_excel(writer, index=False, sheet_name="Summary")
-
-st.download_button(
-    "📊 Download Excel",
-    data=output.getvalue(),
-    file_name="expense_report.xlsx"
-)
-
-# ================= FOOTER =================
-st.caption("Smart Expense App • Streamlit + Firebase 🚀")
+    st.write("Total:", month_df["amount"].sum())
+    st.dataframe(month_df)
