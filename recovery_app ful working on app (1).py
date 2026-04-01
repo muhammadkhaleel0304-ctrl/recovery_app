@@ -1594,15 +1594,6 @@ def load_data():
         data.append(d)
     return pd.DataFrame(data)
 
-# -------- SAFE IMAGE FUNCTION --------
-def get_item_details(item):
-    try:
-        english = item.strip().lower()
-        image_url = f"https://source.unsplash.com/featured/?{english}"
-        return english, image_url
-    except:
-        return item, ""
-
 # ================= LOAD DATA =================
 df = load_data()
 
@@ -1632,17 +1623,13 @@ with st.sidebar.form("expense_form"):
 
 if submit:
     if item:
-        eng, img = get_item_details(item)
-
         add_expense({
             "Date": date,
             "Item": item,
-            "Item_Eng": eng,
-            "Image": img,
             "Amount": amount
         })
 
-        st.success("Saved with Image ✅")
+        st.success("Saved ✅")
         safe_rerun()
 
 # ================= CALCULATIONS =================
@@ -1664,33 +1651,28 @@ running_total = 0
 
 if not df.empty:
 
-    h1, h2, h3, h4, h5, h6 = st.columns([2, 3, 2, 2, 1, 2])
+    h1, h2, h3, h4, h5 = st.columns([2, 3, 2, 2, 1])
     h1.write("Date")
     h2.write("Item")
     h3.write("Amount")
     h4.write("Running Total")
     h5.write("Delete")
-    h6.write("Image")
 
     st.markdown("---")
 
     for _, row in df.iterrows():
         running_total += row["Amount"]
 
-        c1, c2, c3, c4, c5, c6 = st.columns([2, 3, 2, 2, 1, 2])
+        c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
 
         c1.write(row["Date"])
-        c2.write(f"{row['Item']} ({row.get('Item_Eng','')})")
+        c2.write(row["Item"])
         c3.write(row["Amount"])
         c4.write(running_total)
 
         if c5.button("❌", key=row["id"]):
             delete_expense(row["id"])
             safe_rerun()
-
-        img = row.get("Image", "")
-        if img:
-            c6.image(img, width=60)
 
 else:
     st.info("No expenses yet")
