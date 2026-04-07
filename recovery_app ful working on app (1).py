@@ -1427,7 +1427,59 @@ if uploaded_files:
         )
 else:
     st.info("Please upload at least one CSV file to merge.")
+import streamlit as st
+import pandas as pd
+import re
 
+st.header("📂 Merge CSV / Excel Files (No Row Skip)")
+
+def clean_colname(name):
+    return re.sub(r'[^a-z0-9]', '', str(name).lower())
+
+# --- Upload CSV + Excel ---
+uploaded_files = st.file_uploader(
+    "Upload CSV or Excel files",
+    type=["csv", "xlsx"],
+    accept_multiple_files=True
+)
+
+merged_data = []
+
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        try:
+            # --- Read file (NO skiprows) ---
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+
+            # --- Clean column names ---
+            df.columns = [clean_colname(col) for col in df.columns]
+
+            # --- Add all files ---
+            merged_data.append(df)
+
+        except Exception as e:
+            st.error(f"Error reading {uploaded_file.name}: {e}")
+
+    # --- Merge all ---
+    if merged_data:
+        final_df = pd.concat(merged_data, ignore_index=True)
+
+        st.success(f"✅ Merged {len(merged_data)} files | Total rows: {len(final_df)}")
+
+        # --- Download ---
+        csv_download = final_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇ Download Merged File",
+            data=csv_download,
+            file_name="merged_file.csv",
+            mime="text/csv"
+        )
+
+else:
+    st.info("Please upload at least one file.")
 import streamlit as st
 import pandas as pd
 import os
