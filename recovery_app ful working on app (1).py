@@ -43,6 +43,17 @@ def load_locked():
 def save_locked(row):
     db.collection("locked_data").add(row.to_dict())
 
+def clear_locked():
+    docs = db.collection("locked_data").stream()
+    for d in docs:
+        d.reference.delete()
+
+# ================= RESTORE =================
+def restore_row(row):
+    df = load_data()
+    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+    save_data(df)
+
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
@@ -81,7 +92,7 @@ if not df.empty and "Branch Name" in df.columns:
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
-# ================= CLEAN REQUIRED COLUMNS =================
+# ================= CLEAN COLUMNS =================
 required_cols = [
     "Branch Name",
     "Member Name",
@@ -91,11 +102,7 @@ required_cols = [
 ]
 
 if not df.empty:
-
-    # ensure only required columns exist
     df = df[[col for col in required_cols if col in df.columns]]
-
-    # Sr add
     df = df.reset_index(drop=True)
     df.insert(0, "Sr", range(1, len(df) + 1))
 
@@ -132,15 +139,49 @@ if not df.empty:
 else:
     st.info("No data available")
 
-# ================= LOCKED =================
-st.subheader("🔒 Locked Records")
+# ================= LOCKED PANEL =================
+st.subheader("🔒 Locked Records (Admin Panel)")
+
+locked_list = load_locked()
 
 if locked_list:
-    st.dataframe(
-        pd.DataFrame(locked_list),
-        use_container_width=True,
-        height=300
-    )
+
+    locked_df = pd.DataFrame(locked_list)
+    st.dataframe(locked_df, use_container_width=True, height=300)
+
+    st.markdown("### ⚙️ Controls")
+
+    col1, col2 = st.columns(2)
+
+    # ================= DELETE ALL =================
+    with col1:
+        if st.button("🗑 Delete All Locked Data"):
+            clear_locked()
+            st.success("All locked data deleted ✅")
+            st.experimental_rerun()
+
+    # ================= UNLOCK =================
+    with col2:
+        idx = st.number_input("Row No", min_value=1, step=1)
+
+        if st.button("🔓 Unlock Row"):
+
+            if idx <= len(locked_df):
+
+                row = locked_df.iloc[idx - 1].to_dict()
+
+                restore_row(row)
+
+                # delete that locked record
+                docs = list(db.collection("locked_data").stream())
+                docs[idx - 1].reference.delete()
+
+                st.success("Unlocked Successfully ✅")
+                st.experimental_rerun()
+
+            else:
+                st.error("Invalid Row")
+
 else:
     st.info("No locked records yet")
 import streamlit as st
