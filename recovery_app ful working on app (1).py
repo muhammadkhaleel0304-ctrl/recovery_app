@@ -54,18 +54,26 @@ if file:
 st.subheader("🔍 Branch Filter")
 
 if not df.empty and "Branch Name" in df.columns:
+
+    df["Branch Name"] = df["Branch Name"].astype(str)
+
     branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
-    selected_branch = st.selectbox("Select Branch", branches)
+    selected_branch = st.selectbox("Select Branch", branches, key="branch")
 
     if selected_branch != "All":
         df = df[df["Branch Name"] == selected_branch]
 
-# ================= REMOVE BRANCH CODE =================
-if not df.empty and "Branch Code" in df.columns:
-    df = df.drop(columns=["Branch Code"])
+else:
+    st.warning("Branch Name column missing")
 
-# ================= RESET SR =================
+# ================= CLEAN DATA =================
 if not df.empty:
+
+    # Remove Branch Code if exists
+    if "Branch Code" in df.columns:
+        df = df.drop(columns=["Branch Code"])
+
+    # Reset SR
     df = df.reset_index(drop=True)
     df["Sr"] = range(1, len(df) + 1)
 
@@ -74,6 +82,7 @@ st.subheader("📋 Data List")
 
 if not df.empty:
 
+    # Column order fix
     cols = df.columns.tolist()
     if "Sr" in cols:
         cols.remove("Sr")
@@ -81,35 +90,21 @@ if not df.empty:
 
     df_view = df[cols]
 
-    # ================= SCROLL BOX =================
-    st.markdown("""
-        <style>
-        .table-box {
-            height: 480px;
-            overflow-y: auto;
-            border: 2px solid #6c5ce7;
-            border-radius: 10px;
-            background: white;
-            padding: 10px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # ================= CLEAN STREAMLIT TABLE =================
+    st.dataframe(
+        df_view,
+        use_container_width=True,
+        height=450
+    )
 
-    st.markdown('<div class="table-box">', unsafe_allow_html=True)
+    # ================= LOCK ACTIONS =================
+    st.markdown("### 🔒 Lock Actions")
 
-    # ================= HEADER =================
-    header = st.columns([1, 2, 2, 2, 2, 2, 1])
-    header[0].write("🔒")
-    for i, col in enumerate(df_view.columns[:6]):
-        header[i+1].write(col)
-
-    # ================= ROWS =================
     for i, row in df_view.iterrows():
 
-        cols = st.columns([1, 2, 2, 2, 2, 2, 1])
+        col1, col2 = st.columns([1, 10])
 
-        # LOCK BUTTON
-        if cols[0].button("🔒 OK", key=f"lock_{i}"):
+        if col1.button("🔒 OK", key=f"lock_{i}"):
 
             save_locked(row)
 
@@ -120,13 +115,7 @@ if not df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        # DATA DISPLAY
-        values = row.tolist()
-
-        for j in range(min(len(values), len(cols)-1)):
-            cols[j+1].write(values[j])
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        col2.write(f"Sr: {row.get('Sr','')}")
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
