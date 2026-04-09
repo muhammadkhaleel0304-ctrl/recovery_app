@@ -1786,7 +1786,6 @@ import streamlit as st
 import pandas as pd
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="Recovery MIS", layout="wide")
 
 st.title("📊 Recovery MIS")
 
