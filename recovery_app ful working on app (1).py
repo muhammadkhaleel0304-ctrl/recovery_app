@@ -1,3 +1,17 @@
+if st.button("🗑️ DELETE ALL FIREBASE DATA (RESET SYSTEM)"):
+
+    # main data delete
+    db.collection("main_data").document("all").delete()
+
+    # locked data delete
+    docs = db.collection("locked_data").stream()
+    for d in docs:
+        d.reference.delete()
+
+    st.cache_data.clear()
+
+    st.success("🔥 FULL SYSTEM RESET DONE")
+    st.rerun()
 import streamlit as st
 import pandas as pd
 import os
