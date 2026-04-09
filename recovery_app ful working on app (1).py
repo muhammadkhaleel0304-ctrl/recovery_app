@@ -3,15 +3,16 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ================= PAGE =================
+st.set_page_config(page_title="Recovery MIS", layout="wide")
+st.title("📊 Recovery MIS System")
+
 # ================= FIREBASE =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
-
-st.set_page_config(page_title="Recovery MIS", layout="wide")
-st.title("📊 Recovery MIS System")
 
 # ================= BRANCH MAP =================
 branch_map = {
@@ -63,12 +64,10 @@ if file:
 df = load_data()
 locked_list = load_locked()
 
-# ================= REMOVE LOCKED FROM MAIN =================
+# ================= REMOVE LOCKED =================
 if not df.empty and locked_list:
-
     locked_df = pd.DataFrame(locked_list)
 
-    # compare by CNIC (unique field)
     if "CNIC" in df.columns and "CNIC" in locked_df.columns:
         df = df[~df["CNIC"].isin(locked_df["CNIC"])]
 
@@ -89,15 +88,17 @@ if not df.empty:
 
     cols = df.columns.tolist()
 
-    header = st.columns([1] + [2] * len(cols))
-    header[0].write("🔒 Lock")
+    # HEADER (LEFT ALIGNED)
+    header = st.columns([1] + [3] * len(cols))
+    header[0].write("🔒")
 
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
+    # ROWS
     for i, row in df.iterrows():
 
-        row_ui = st.columns([1] + [2] * len(cols))
+        row_ui = st.columns([1] + [3] * len(cols))
 
         # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
@@ -108,15 +109,16 @@ if not df.empty:
             save_data(df)
 
             st.success("Locked ✅")
-            st.rerun()
+            st.experimental_rerun()
 
+        # DATA (LEFT SIDE PROPER FLOW)
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
 
 else:
     st.info("No data available")
 
-# ================= LOCKED TABLE =================
+# ================= LOCKED =================
 st.subheader("🔒 Locked Records")
 
 if locked_list:
