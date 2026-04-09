@@ -1787,6 +1787,9 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ================= PAGE CONFIG (MUST BE FIRST) =================
+st.set_page_config(page_title="Recovery MIS System", layout="wide")
+
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
@@ -1805,22 +1808,21 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= LOAD / SAVE =================
-def load_data(collection):
-    doc = db.collection(collection).document("all").get()
+# ================= LOAD DATA =================
+def load_data():
+    doc = db.collection("main_data").document("all").get()
     if doc.exists:
         return pd.DataFrame(doc.to_dict().get("data", []))
     return pd.DataFrame()
 
-def save_data(collection, df):
+def save_data(df):
     df = df.fillna("").astype(str)
-    db.collection(collection).document("all").set({
+    db.collection("main_data").document("all").set({
         "data": df.to_dict(orient="records")
     })
 
-# ================= SESSION FIX =================
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame()
+# ================= LOAD =================
+df = load_data()
 
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
@@ -1835,7 +1837,7 @@ if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # Auto Serial
+    # 🔥 FIX ORDER: Sr FIRST ALWAYS
     df.insert(0, "Sr", range(1, len(df) + 1))
 
     # Branch mapping
@@ -1843,12 +1845,8 @@ if file:
         df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
-    st.session_state.df = df
-    save_data("main_data", df)
-    st.success("Uploaded & Saved ✅")
-
-# ================= LOAD DATA =================
-df = load_data("main_data")
+    save_data(df)
+    st.success("Uploaded & Saved Successfully ✅")
 
 # ================= FILTER =================
 st.subheader("🔍 Filter")
@@ -1877,36 +1875,33 @@ if not filtered_df.empty:
     # HEADER
     header = st.columns([1] + [2] * len(cols))
     header[0].write("🔒 Lock")
+
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
-    # LIMIT ROWS (performance)
-    show_rows = filtered_df.head(2)
+    # 🔥 SCROLLABLE VIEW (LIMIT HEIGHT)
+    st.info("Scroll down for more records ↓")
 
-    for i, row in show_rows.iterrows():
+    show_df = filtered_df.copy()
+
+    for i, row in show_df.iterrows():
 
         row_ui = st.columns([1] + [2] * len(cols))
 
         # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
 
-            # save locked
             db.collection("locked_data").add(row.to_dict())
 
-            # remove from main df
             df = df.drop(i)
-            save_data("main_data", df)
+            save_data(df)
 
             st.success("Locked Successfully ✅")
-
             st.rerun()
 
-        # DATA ROW
+        # DATA (FIXED ORDER)
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
-
-    if len(filtered_df) > 2:
-        st.info(f"Showing 2 of {len(filtered_df)} records (scroll system)")
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
@@ -1919,8 +1914,8 @@ if locked_list:
 
     st.dataframe(
         locked_df,
-        use_container_width=True,
-        height=250
+        height=300,
+        use_container_width=True
     )
 else:
     st.info("No locked records yet")
