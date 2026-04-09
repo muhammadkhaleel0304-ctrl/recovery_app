@@ -1788,7 +1788,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
-st.set_page_config(page_title="Recovery MIS", layout="wide")
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE =================
