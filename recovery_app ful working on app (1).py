@@ -1788,7 +1788,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE CONFIG (MUST BE FIRST) =================
-st.set_page_config(page_title="Recovery MIS System", layout="wide")
 
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
