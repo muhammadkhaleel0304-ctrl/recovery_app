@@ -5,9 +5,9 @@ from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
 st.set_page_config(page_title="Recovery MIS", layout="wide")
-st.title("📊 Recovery MIS System")
+st.title("📊 Recovery MIS System (Optimized)")
 
-# ================= FIREBASE =================
+# ================= FIREBASE INIT =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
@@ -23,29 +23,43 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= SESSION TOGGLES =================
+# ================= SESSION STATE =================
 if "show_mis" not in st.session_state:
     st.session_state.show_mis = True
 
 if "show_locked" not in st.session_state:
     st.session_state.show_locked = True
 
+if "master_df" not in st.session_state:
+    st.session_state.master_df = None
+
+# ================= TOGGLES =================
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("👁 Hide/Show Recovery MIS"):
+    if st.button("👁 Hide/Show MIS"):
         st.session_state.show_mis = not st.session_state.show_mis
 
 with col2:
-    if st.button("🔒 Hide/Show Locked Data"):
+    if st.button("🔒 Hide/Show Locked"):
         st.session_state.show_locked = not st.session_state.show_locked
 
-# ================= FUNCTIONS =================
+
+# ================= FIREBASE FUNCTIONS (CACHE FIX) =================
+
+@st.cache_data(ttl=60)
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
         return pd.DataFrame(doc.to_dict().get("data", []))
     return pd.DataFrame()
+
+
+@st.cache_data(ttl=60)
+def load_locked():
+    docs = db.collection("locked_data").stream()
+    return [d.to_dict() for d in docs]
+
 
 def save_data(df):
     df = df.fillna("").astype(str)
@@ -53,33 +67,38 @@ def save_data(df):
         "data": df.to_dict(orient="records")
     })
 
-def load_locked():
-    docs = db.collection("locked_data").stream()
-    return [d.to_dict() for d in docs]
 
 def save_locked(row):
     db.collection("locked_data").add(row.to_dict())
+
 
 def clear_locked():
     docs = db.collection("locked_data").stream()
     for d in docs:
         d.reference.delete()
 
+
 def restore_row(row):
     df = load_data()
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     save_data(df)
 
+
 def rebuild_sr(df):
     df = df.copy()
-
     if "Sr" in df.columns:
         df = df.drop(columns=["Sr"])
-
     df = df.reset_index(drop=True)
     df.insert(0, "Sr", range(1, len(df) + 1))
-
     return df
+
+
+# ================= MASTER DATA (SESSION FIX - IMPORTANT) =================
+if st.session_state.master_df is None:
+    st.session_state.master_df = load_data()
+
+master_df = st.session_state.master_df
+
 
 # ================= MIS SECTION =================
 if st.session_state.show_mis:
@@ -99,30 +118,31 @@ if st.session_state.show_mis:
         df_upload = rebuild_sr(df_upload)
         save_data(df_upload)
 
+        st.session_state.master_df = df_upload
+        master_df = df_upload
+
         st.success("Uploaded Successfully ✅")
 
-    # ================= MASTER LOAD (IMPORTANT FIX) =================
-    master_df = load_data()
+    # ================= LOAD LOCKED =================
     locked_list = load_locked()
 
     # ================= REMOVE LOCKED =================
     df = master_df.copy()
 
-    if not master_df.empty and locked_list:
+    if not df.empty and locked_list:
         locked_df = pd.DataFrame(locked_list)
 
-        if "Sanction No" in master_df.columns and "Sanction No" in locked_df.columns:
-            df = master_df[~master_df["Sanction No"].isin(locked_df["Sanction No"])]
+        if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
+            df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
 
-    # ================= BRANCH DROPDOWN (FIXED) =================
-    if not master_df.empty and "Branch Name" in master_df.columns:
-        branches = ["All"] + sorted(master_df["Branch Name"].dropna().unique().tolist())
+    # ================= BRANCH FILTER =================
+    if not df.empty and "Branch Name" in df.columns:
+        branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
     else:
         branches = ["All"]
 
     selected = st.selectbox("Select Branch", branches)
 
-    # IMPORTANT: always re-apply from filtered df
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
@@ -131,26 +151,17 @@ if st.session_state.show_mis:
 
     if not df.empty:
 
-        cols = [
-            c for c in [
-                "Sr",
-                "Branch Name",
-                "Member Name",
-                "Parentage",
-                "Sanction No",
-                "Tranch Amount"
-            ] if c in df.columns
-        ]
+        cols = [c for c in ["Sr","Branch Name","Member Name","Parentage","Sanction No","Tranch Amount"] if c in df.columns]
 
-        header = st.columns([1] + [3] * len(cols))
+        header = st.columns([1] + [3]*len(cols))
         header[0].write("🔒")
 
         for i, c in enumerate(cols):
-            header[i + 1].write(f"**{c}**")
+            header[i+1].write(f"**{c}**")
 
         for i, row in df.iterrows():
 
-            row_ui = st.columns([1] + [3] * len(cols))
+            row_ui = st.columns([1] + [3]*len(cols))
 
             if row_ui[0].button("🔒", key=f"lock_{i}"):
 
@@ -158,19 +169,24 @@ if st.session_state.show_mis:
 
                 master_df = master_df.drop(master_df.index[i])
                 master_df = rebuild_sr(master_df)
+
                 save_data(master_df)
+                st.session_state.master_df = master_df
+
+                st.cache_data.clear()
 
                 st.success("Locked Successfully ✅")
-                st.experimental_rerun()
+                st.rerun()
 
             for j, col in enumerate(cols):
-                row_ui[j + 1].write(row.get(col, ""))
+                row_ui[j+1].write(row.get(col, ""))
 
     else:
         st.info("No data available")
 
 else:
-    st.info("📌 Recovery MIS Hidden")
+    st.info("📌 MIS Hidden")
+
 
 # ================= LOCKED SECTION =================
 if st.session_state.show_locked:
@@ -183,7 +199,6 @@ if st.session_state.show_locked:
 
         locked_df = pd.DataFrame(locked_list)
 
-        # FILTER LOCKED (always fresh)
         if "Branch Name" in locked_df.columns:
             branches_locked = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
         else:
@@ -201,25 +216,27 @@ if st.session_state.show_locked:
         with col1:
             if st.button("🗑 Delete All Locked"):
                 clear_locked()
-                st.success("All Locked Data Deleted ✅")
-                st.experimental_rerun()
+                st.cache_data.clear()
+                st.success("Deleted Successfully")
+                st.rerun()
 
         with col2:
             idx = st.number_input("Row No", min_value=1, step=1)
 
             if st.button("🔓 Unlock Row"):
-
                 if idx <= len(locked_df):
 
-                    row = locked_df.iloc[idx - 1].to_dict()
+                    row = locked_df.iloc[idx-1].to_dict()
 
                     restore_row(row)
 
                     docs = list(db.collection("locked_data").stream())
-                    docs[idx - 1].reference.delete()
+                    docs[idx-1].reference.delete()
 
-                    st.success("Unlocked Successfully ✅")
-                    st.experimental_rerun()
+                    st.cache_data.clear()
+
+                    st.success("Unlocked Successfully")
+                    st.rerun()
 
                 else:
                     st.error("Invalid Row No")
@@ -228,7 +245,7 @@ if st.session_state.show_locked:
         st.info("No locked records")
 
 else:
-    st.info("📌 Locked Section Hidden")
+    st.info("📌 Locked Hidden")
 import streamlit as st
 import pandas as pd
 import os
