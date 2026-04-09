@@ -1,131 +1,104 @@
 import streamlit as st
 import pandas as pd
-import firebase_admin
-from firebase_admin import credentials, firestore
 
-# ================= PAGE =================
-st.set_page_config(page_title="Recovery MIS", layout="wide")
-st.title("📊 Recovery MIS System")
+st.set_page_config(page_title="Shaparak System", layout="wide")
 
-# ================= FIREBASE =================
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
-    firebase_admin.initialize_app(cred)
+# ---------------- BRANCH MAP ----------------
+branch_map = {
+    "Bhau": "2905",
+    "Miani": "2909",
+    "Kallar Kahar": "2910",
+    "Dalelpur": "2917",
+    "Munara": "2934"
+}
 
-db = firestore.client()
+code_to_name = {v: k for k, v in branch_map.items()}
 
-# ================= LOAD DATA =================
-def load_data():
-    doc = db.collection("main_data").document("all").get()
-    if doc.exists:
-        return pd.DataFrame(doc.to_dict().get("data", []))
-    return pd.DataFrame()
+st.title("📊 Shaparak System (Firebase Ready)")
 
-def save_data(df):
-    df = df.fillna("").astype(str)
-    db.collection("main_data").document("all").set({
-        "data": df.to_dict(orient="records")
-    })
+# ---------------- FIREBASE DATA LOAD ----------------
+def load_firebase():
+    docs = db.collection("published_data").stream()
+    data = []
+    for d in docs:
+        data.append(d.to_dict())
+    return pd.DataFrame(data)
 
-def save_locked(row):
-    db.collection("locked_data").add(row.to_dict())
+firebase_df = load_firebase()
 
-# ================= SESSION =================
-if "df" not in st.session_state:
-    st.session_state.df = load_data()
+# ---------------- SESSION UPLOAD ----------------
+uploaded_file = st.file_uploader("📂 Excel / CSV Upload کریں", type=["xlsx", "csv"])
 
-df = st.session_state.df
+df = pd.DataFrame()
 
-# ================= UPLOAD =================
-st.subheader("📤 Upload Excel")
+if uploaded_file:
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith("xlsx") else pd.read_csv(uploaded_file)
 
-if file:
-    df = pd.read_excel(file)
-    df.columns = df.columns.str.strip()
+    df = df.copy()
 
-    st.session_state.df = df
-    save_data(df)
+    df.insert(0, "Serial No", range(1, len(df) + 1))
 
-    st.success("Uploaded Successfully ✅")
+    for col in ["Name", "Group No", "Transaction", "Branch"]:
+        if col not in df.columns:
+            df[col] = ""
 
-# ================= BRANCH FILTER =================
-st.subheader("🔍 Branch Filter")
+    df["Branch Code"] = df["Branch"].map(branch_map)
+    df["Branch Name"] = df["Branch Code"].map(code_to_name)
 
-if not df.empty and "Branch Name" in df.columns:
+    # ---------------- FILTER ----------------
+    branch_filter = st.selectbox("Branch Filter", ["All"] + list(branch_map.keys()))
 
-    df["Branch Name"] = df["Branch Name"].astype(str)
+    if branch_filter != "All":
+        df = df[df["Branch"] == branch_filter]
 
-    branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
-    selected_branch = st.selectbox("Select Branch", branches, key="branch")
+    st.subheader("📌 Uploaded Data")
+    st.dataframe(df, use_container_width=True)
 
-    if selected_branch != "All":
-        df = df[df["Branch Name"] == selected_branch]
+    # ---------------- SELECT ROWS ----------------
+    selected = st.multiselect("🔒 Lock Rows", df["Serial No"].tolist())
+
+    if st.button("🔒 Lock & Save"):
+
+        locked = df[df["Serial No"].isin(selected)].copy()
+        remaining = df[~df["Serial No"].isin(selected)].copy()
+
+        locked["Status"] = "Locked"
+
+        # ---------------- SAVE TO FIREBASE ----------------
+        for _, row in locked.iterrows():
+            db.collection("published_data").add(row.to_dict())
+
+        st.success("🔥 Saved to Firebase!")
+
+        df = remaining
+
+# ---------------- PUBLISHED DATA ----------------
+st.divider()
+st.subheader("📊 Published Data (Firebase)")
+
+firebase_df = load_firebase()
+
+if not firebase_df.empty:
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        b = st.selectbox("Branch", ["All"] + list(branch_map.keys()))
+
+    with col2:
+        c = st.selectbox("Code", ["All"] + list(branch_map.values()))
+
+    if b != "All":
+        firebase_df = firebase_df[firebase_df["Branch"] == b]
+
+    if c != "All":
+        firebase_df = firebase_df[firebase_df["Branch Code"] == c]
+
+    st.dataframe(firebase_df, use_container_width=True)
 
 else:
-    st.warning("Branch Name column missing")
-
-# ================= CLEAN DATA =================
-if not df.empty:
-
-    # Remove Branch Code if exists
-    if "Branch Code" in df.columns:
-        df = df.drop(columns=["Branch Code"])
-
-    # Reset SR
-    df = df.reset_index(drop=True)
-    df["Sr"] = range(1, len(df) + 1)
-
-# ================= TABLE =================
-st.subheader("📋 Data List")
-
-if not df.empty:
-
-    # Column order fix
-    cols = df.columns.tolist()
-    if "Sr" in cols:
-        cols.remove("Sr")
-        cols.insert(0, "Sr")
-
-    df_view = df[cols]
-
-    # ================= CLEAN STREAMLIT TABLE =================
-    st.dataframe(
-        df_view,
-        use_container_width=True,
-        height=450
-    )
-
-    # ================= LOCK ACTIONS =================
-    st.markdown("### 🔒 Lock Actions")
-
-    for i, row in df_view.iterrows():
-
-        col1, col2 = st.columns([1, 10])
-
-        if col1.button("🔒 OK", key=f"lock_{i}"):
-
-            save_locked(row)
-
-            df = df.drop(i).reset_index(drop=True)
-            st.session_state.df = df
-            save_data(df)
-
-            st.success("Locked Successfully 🔒")
-            st.rerun()
-
-        col2.write(f"Sr: {row.get('Sr','')}")
-
-# ================= LOCKED DATA =================
-st.subheader("🔒 Locked Records")
-
-locked_data = [doc.to_dict() for doc in db.collection("locked_data").stream()]
-
-if locked_data:
-    st.dataframe(pd.DataFrame(locked_data), height=300)
-else:
-    st.info("No locked records yet")
+    st.info("No published data yet")
 import streamlit as st
 import pandas as pd
 import os
