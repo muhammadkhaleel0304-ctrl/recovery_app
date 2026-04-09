@@ -1787,26 +1787,27 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ================= PAGE CONFIG =================
+# ================= PAGE =================
+
 st.title("📊 Recovery MIS System")
 
-# ================= FIREBASE INIT =================
+# ================= FIREBASE =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# ================= BRANCH MAP =================
-branch_map = {
-    "2905": "Bhaun",
-    "2909": "Miani",
-    "2910": "Kallar Kahar",
-    "2917": "Dalelpur",
-    "2934": "Munara"
-}
+# ================= LOAD LOCKED IDS =================
+def get_locked_ids():
+    docs = db.collection("locked_data").stream()
+    return set([doc.to_dict().get("unique_id") for doc in docs])
 
-# ================= LOAD =================
+# ================= SAVE LOCK =================
+def save_locked(row):
+    db.collection("locked_data").add(row.to_dict())
+
+# ================= DATA LOAD =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1828,52 +1829,36 @@ df = st.session_state.df
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader(
-    "Upload Excel File",
-    type=["xlsx"],
-    key="upload_unique_1"
-)
+file = st.file_uploader("Upload Excel", type=["xlsx"], key="upload_1")
 
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # Sr FIRST
-    df.insert(0, "Sr", range(1, len(df) + 1))
+    # unique id for lock tracking
+    df["unique_id"] = df.apply(lambda x: str(x.name) + str(x.to_dict()), axis=1)
 
-    # Branch mapping
-    if "Branch Code" in df.columns:
-        df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
-        df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
+    df.insert(0, "Sr", range(1, len(df) + 1))
 
     st.session_state.df = df
     save_data(df)
 
     st.success("Uploaded Successfully ✅")
 
+# ================= REMOVE LOCKED FROM MAIN =================
+locked_ids = get_locked_ids()
+
+if not df.empty and "unique_id" in df.columns:
+    df = df[~df["unique_id"].isin(locked_ids)]
+
 # ================= FILTER =================
-st.subheader("🔍 Filter")
+st.subheader("🔍 Data List")
 
-if not df.empty:
-    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
-
-    selected_branch = st.selectbox(
-        "Select Branch",
-        branches,
-        key="filter_unique"
-    )
-
-    filtered_df = df.copy()
-
-    if selected_branch != "All":
-        filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
-
-# ================= DATA TABLE =================
-st.subheader("📋 Data List")
+filtered_df = df.copy()
 
 if not filtered_df.empty:
 
-    # FIX COLUMN ORDER (LEFT → RIGHT)
+    # FIX ORDER
     cols = filtered_df.columns.tolist()
 
     if "Sr" in cols:
@@ -1882,55 +1867,28 @@ if not filtered_df.empty:
 
     df_view = filtered_df[cols]
 
-    # ================= SCROLL ONLY TABLE =================
-    st.markdown(
-        """
-        <style>
-        .table-box {
-            max-height: 350px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 5px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # ================= TABLE =================
+    st.dataframe(df_view, use_container_width=True, height=350)
 
-    st.markdown('<div class="table-box">', unsafe_allow_html=True)
-
-    st.dataframe(
-        df_view,
-        use_container_width=True,
-        height=350
-    )
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ================= LOCK BUTTONS ONLY =================
-    st.subheader("🔒 Lock Records")
+    # ================= LOCK BUTTON (ONLY IN ROW LOOP) =================
+    st.subheader("🔒 Lock Option")
 
     for i, row in df_view.iterrows():
 
-        if st.button(f"🔒 Lock Row {i}", key=f"lock_{i}"):
+        if st.button(f"🔒 Lock Sr {row['Sr']}", key=f"lock_{i}"):
 
-            db.collection("locked_data").add(row.to_dict())
-
-            df = df.drop(i)
-            st.session_state.df = df
-            save_data(df)
+            save_locked(row)
 
             st.success("Locked Successfully 🔒")
             st.rerun()
 
 # ================= LOCKED DATA =================
-st.subheader("🔒 Locked Data")
+st.subheader("🔒 Locked Records")
 
 locked_docs = db.collection("locked_data").stream()
 locked_list = [doc.to_dict() for doc in locked_docs]
 
 if locked_list:
-    st.dataframe(pd.DataFrame(locked_list), height=300, use_container_width=True)
+    st.dataframe(pd.DataFrame(locked_list), height=300)
 else:
     st.info("No locked records yet")
