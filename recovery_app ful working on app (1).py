@@ -1788,6 +1788,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
+st.set_page_config(page_title="Recovery MIS", layout="wide")
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE =================
@@ -1797,7 +1798,7 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD =================
+# ================= LOAD DATA =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1822,7 +1823,7 @@ df = st.session_state.df
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader("Upload Excel", type=["xlsx"], key="up_1")
+file = st.file_uploader("Upload Excel File", type=["xlsx"], key="upload_1")
 
 if file:
     df = pd.read_excel(file)
@@ -1838,75 +1839,66 @@ if file:
 # ================= FILTER =================
 st.subheader("🔍 Branch Filter")
 
-if not df.empty:
-    branches = ["All"] + df["Branch Name"].dropna().unique().tolist() if "Branch Name" in df.columns else ["All"]
+if not df.empty and "Branch Name" in df.columns:
+    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
+    selected = st.selectbox("Select Branch", branches, key="branch")
 
-    selected = st.selectbox("Select Branch", branches, key="branch_filter")
-
-    filtered_df = df.copy()
-
-    if selected != "All" and "Branch Name" in df.columns:
-        filtered_df = df[df["Branch Name"] == selected]
-
-else:
-    filtered_df = pd.DataFrame()
+    if selected != "All":
+        df = df[df["Branch Name"] == selected]
 
 # ================= REMOVE LOCKED =================
 locked_docs = db.collection("locked_data").stream()
-locked_ids = set([doc.to_dict().get("unique_id") for doc in locked_docs])
+locked_list = [doc.to_dict() for doc in locked_docs]
 
-if not filtered_df.empty:
-    if "unique_id" in filtered_df.columns:
-        filtered_df = filtered_df[~filtered_df["unique_id"].isin(locked_ids)]
+locked_keys = set()
+for x in locked_list:
+    if "Sr" in x:
+        locked_keys.add(x["Sr"])
 
-# ================= TABLE =================
+if not df.empty and "Sr" in df.columns:
+    df = df[~df["Sr"].astype(str).isin(locked_keys)]
+
+# ================= DATA TABLE =================
 st.subheader("📋 Data List")
 
-if not filtered_df.empty:
+if not df.empty:
 
-    cols = filtered_df.columns.tolist()
+    cols = df.columns.tolist()
     if "Sr" in cols:
         cols.remove("Sr")
         cols.insert(0, "Sr")
 
-    df_view = filtered_df[cols]
+    df_view = df[cols]
 
     # ================= FIXED SCROLL BOX =================
     st.markdown("""
         <style>
-        .scroll-container {
-            height: 420px;        /* FIX HEIGHT */
-            overflow-y: auto;     /* ONLY TABLE SCROLL */
+        .table-box {
+            height: 450px;
+            overflow-y: auto;
             border: 2px solid #6c5ce7;
             border-radius: 10px;
             padding: 8px;
-            background-color: #ffffff;
+            background: white;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
+    st.markdown('<div class="table-box">', unsafe_allow_html=True)
 
-    st.dataframe(
-        df_view,
-        use_container_width=True,
-        height=400
-    )
-
-    st.markdown('</div>', unsafe_allow_html=True)
     # HEADER
-    head_cols = st.columns([1, 1, 2, 2, 2, 2, 1])
-    head_cols[0].write("🔒")
+    header = st.columns([1, 1, 2, 2, 2, 2, 1])
+    header[0].write("🔒")
     for i, c in enumerate(df_view.columns[:6]):
-        head_cols[i+1].write(c)
+        header[i+1].write(c)
 
     # ROWS
     for i, row in df_view.iterrows():
 
-        cols_ui = st.columns([1, 1, 2, 2, 2, 2, 1])
+        cols = st.columns([1, 1, 2, 2, 2, 2, 1])
 
-        # LOCK BUTTON (LEFT SIDE)
-        if cols_ui[0].button("🔒", key=f"lock_{i}"):
+        # LOCK BUTTON LEFT
+        if cols[0].button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
 
@@ -1917,18 +1909,15 @@ if not filtered_df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        # SHOW DATA
+        # DATA
         vals = row.tolist()
         for j in range(min(6, len(vals))):
-            cols_ui[j+1].write(vals[j])
+            cols[j+1].write(vals[j])
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= LOCKED =================
+# ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
-
-locked_docs = db.collection("locked_data").stream()
-locked_list = [doc.to_dict() for doc in locked_docs]
 
 if locked_list:
     st.dataframe(pd.DataFrame(locked_list), height=300)
