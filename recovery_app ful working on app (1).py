@@ -23,6 +23,24 @@ branch_map = {
     "2934": "Munara"
 }
 
+# ================= SESSION TOGGLES =================
+if "show_mis" not in st.session_state:
+    st.session_state.show_mis = True
+
+if "show_locked" not in st.session_state:
+    st.session_state.show_locked = True
+
+# ================= TOGGLE BUTTONS =================
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("👁 Hide/Show Recovery MIS"):
+        st.session_state.show_mis = not st.session_state.show_mis
+
+with col2:
+    if st.button("🔒 Hide/Show Locked Data"):
+        st.session_state.show_locked = not st.session_state.show_locked
+
 # ================= FUNCTIONS =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
@@ -54,146 +72,159 @@ def restore_row(row):
     save_data(df)
 
 def rebuild_sr(df):
+    df = df.copy()
+
+    if "Sr" in df.columns:
+        df = df.drop(columns=["Sr"])
+
     df = df.reset_index(drop=True)
     df.insert(0, "Sr", range(1, len(df) + 1))
+
     return df
 
-# ================= UPLOAD =================
-st.subheader("📤 Upload Excel")
+# ================= MIS SECTION =================
+if st.session_state.show_mis:
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    st.subheader("📤 Upload Excel")
 
-if file:
-    df = pd.read_excel(file)
-    df.columns = df.columns.str.strip()
+    file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-    # Branch mapping
-    if "Branch Code" in df.columns:
-        df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
-        df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
+    if file:
+        df = pd.read_excel(file)
+        df.columns = df.columns.str.strip()
 
-    df = rebuild_sr(df)
-    save_data(df)
+        if "Branch Code" in df.columns:
+            df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
+            df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
-    st.success("Uploaded Successfully ✅")
+        df = rebuild_sr(df)
+        save_data(df)
 
-# ================= LOAD =================
-df = load_data()
-locked_list = load_locked()
+        st.success("Uploaded Successfully ✅")
 
-# ================= REMOVE LOCKED =================
-if not df.empty and locked_list:
-    locked_df = pd.DataFrame(locked_list)
+    # LOAD DATA
+    df = load_data()
+    locked_list = load_locked()
 
-    if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
-        df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
+    # REMOVE LOCKED
+    if not df.empty and locked_list:
+        locked_df = pd.DataFrame(locked_list)
 
-# ================= FILTER (MAIN) =================
-st.subheader("🔍 Branch Filter")
+        if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
+            df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
 
-if not df.empty and "Branch Name" in df.columns:
-    branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
-    selected = st.selectbox("Select Branch", branches)
+    # FILTER
+    st.subheader("🔍 Branch Filter")
 
-    if selected != "All":
-        df = df[df["Branch Name"] == selected]
+    if not df.empty and "Branch Name" in df.columns:
+        branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
+        selected = st.selectbox("Select Branch", branches)
 
-# ================= DATA LIST =================
-st.subheader("📋 Data List")
+        if selected != "All":
+            df = df[df["Branch Name"] == selected]
 
-if not df.empty:
+    # TABLE
+    st.subheader("📋 Data List")
 
-    df = df[[c for c in [
-        "Sr",
-        "Branch Name",
-        "Member Name",
-        "Parentage",
-        "Sanction No",
-        "Tranch Amount"
-    ] if c in df.columns]]
+    if not df.empty:
 
-    cols = df.columns.tolist()
+        cols = [
+            c for c in [
+                "Sr",
+                "Branch Name",
+                "Member Name",
+                "Parentage",
+                "Sanction No",
+                "Tranch Amount"
+            ] if c in df.columns
+        ]
 
-    header = st.columns([1] + [3] * len(cols))
-    header[0].write("🔒")
+        header = st.columns([1] + [3] * len(cols))
+        header[0].write("🔒")
 
-    for i, c in enumerate(cols):
-        header[i + 1].write(f"**{c}**")
+        for i, c in enumerate(cols):
+            header[i + 1].write(f"**{c}**")
 
-    for i, row in df.iterrows():
+        for i, row in df.iterrows():
 
-        row_ui = st.columns([1] + [3] * len(cols))
+            row_ui = st.columns([1] + [3] * len(cols))
 
-        if row_ui[0].button("🔒", key=f"lock_{i}"):
+            if row_ui[0].button("🔒", key=f"lock_{i}"):
 
-            save_locked(row)
+                save_locked(row)
 
-            df = df.drop(i)
-            df = rebuild_sr(df)
-            save_data(df)
+                df = df.drop(i)
+                df = rebuild_sr(df)
+                save_data(df)
 
-            st.success("Locked Successfully ✅")
-            st.experimental_rerun()
-
-        for j, col in enumerate(cols):
-            row_ui[j + 1].write(row.get(col, ""))
-
-else:
-    st.info("No data available")
-
-# ================= LOCKED =================
-st.subheader("🔒 Locked Records")
-
-locked_list = load_locked()
-
-if locked_list:
-
-    locked_df = pd.DataFrame(locked_list)
-
-    # Branch filter locked
-    if "Branch Name" in locked_df.columns:
-        branches = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
-        selected_locked = st.selectbox("Filter Locked Branch", branches)
-
-        if selected_locked != "All":
-            locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
-
-    st.dataframe(locked_df, use_container_width=True, height=300)
-
-    st.markdown("### ⚙️ Controls")
-
-    col1, col2 = st.columns(2)
-
-    # ================= DELETE ALL =================
-    with col1:
-        if st.button("🗑 Delete All Locked Data"):
-            clear_locked()
-            st.success("All Locked Data Deleted ✅")
-            st.experimental_rerun()
-
-    # ================= UNLOCK =================
-    with col2:
-        idx = st.number_input("Row No", min_value=1, step=1)
-
-        if st.button("🔓 Unlock Row"):
-
-            if idx <= len(locked_df):
-
-                row = locked_df.iloc[idx - 1].to_dict()
-
-                restore_row(row)
-
-                docs = list(db.collection("locked_data").stream())
-                docs[idx - 1].reference.delete()
-
-                st.success("Unlocked Successfully ✅")
+                st.success("Locked Successfully ✅")
                 st.experimental_rerun()
 
-            else:
-                st.error("Invalid Row")
+            for j, col in enumerate(cols):
+                row_ui[j + 1].write(row.get(col, ""))
+
+    else:
+        st.info("No data available")
 
 else:
-    st.info("No locked records")
+    st.info("📌 Recovery MIS Hidden")
+
+# ================= LOCKED SECTION =================
+if st.session_state.show_locked:
+
+    st.subheader("🔒 Locked Records")
+
+    locked_list = load_locked()
+
+    if locked_list:
+
+        locked_df = pd.DataFrame(locked_list)
+
+        # FILTER LOCKED
+        if "Branch Name" in locked_df.columns:
+            branches = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
+            selected_locked = st.selectbox("Filter Locked Branch", branches)
+
+            if selected_locked != "All":
+                locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
+
+        st.dataframe(locked_df, use_container_width=True, height=300)
+
+        st.markdown("### ⚙️ Controls")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("🗑 Delete All Locked"):
+                clear_locked()
+                st.success("All Locked Data Deleted ✅")
+                st.experimental_rerun()
+
+        with col2:
+            idx = st.number_input("Row No", min_value=1, step=1)
+
+            if st.button("🔓 Unlock Row"):
+
+                if idx <= len(locked_df):
+
+                    row = locked_df.iloc[idx - 1].to_dict()
+
+                    restore_row(row)
+
+                    docs = list(db.collection("locked_data").stream())
+                    docs[idx - 1].reference.delete()
+
+                    st.success("Unlocked Successfully ✅")
+                    st.experimental_rerun()
+
+                else:
+                    st.error("Invalid Row No")
+
+    else:
+        st.info("No locked records")
+
+else:
+    st.info("📌 Locked Section Hidden")
 import streamlit as st
 import pandas as pd
 import os
