@@ -91,38 +91,36 @@ st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
-    # 🔥 DIRECT SCROLL TABLE (NO HTML)
-    st.dataframe(
-        filtered_df,
-        use_container_width=True,
-        height=400   # 👈 scroll yahan se ayega
-    )
+    cols = filtered_df.columns.tolist()
 
-    # ================= LOCK =================
-    st.markdown("### 🔒 Lock Record")
+    # HEADER
+    header = st.columns([1] + [2] * len(cols))
+    header[0].write("🔒 Lock")
+    for i, c in enumerate(cols):
+        header[i + 1].write(f"**{c}**")
 
-    col1, col2 = st.columns(2)
+    # 🔥 FULL DATA (NO LIMIT - NO SCROLL BOX)
+    for i, row in filtered_df.iterrows():
 
-    with col1:
-        lock_sr = st.number_input("Enter Sr", min_value=1, step=1)
+        row_ui = st.columns([1] + [2] * len(cols))
 
-    with col2:
-        if st.button("🔒 Lock"):
+        # LOCK BUTTON (SAME AS BEFORE)
+        if row_ui[0].button("🔒", key=f"lock_{i}"):
 
-            if lock_sr <= len(filtered_df):
+            db.collection("locked_data").add(row.to_dict())
 
-                row = filtered_df.iloc[lock_sr - 1]
+            df = df.drop(i)
+            save_data("main_data", df)
 
-                db.collection("locked_data").add(row.to_dict())
+            st.success("Locked Successfully ✅")
+            st.rerun()
 
-                df = df.drop(row.name)
-                save_data("main_data", df)
+        # DATA
+        for j, col in enumerate(cols):
+            row_ui[j + 1].write(row.get(col, ""))
 
-                st.success("Locked Successfully ✅")
-                st.rerun()
-
-            else:
-                st.error("Invalid Sr")
+else:
+    st.info("No data available")
 import streamlit as st
 import pandas as pd
 import os
