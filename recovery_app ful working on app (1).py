@@ -1821,8 +1821,6 @@ def save_data(name, df):
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
