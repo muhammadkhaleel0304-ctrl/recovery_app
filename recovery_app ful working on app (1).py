@@ -1912,3 +1912,127 @@ st.download_button(
 
 # ================= FOOTER =================
 st.caption("Smart Expense App • Streamlit + Firebase 🚀")
+import streamlit as st
+import pandas as pd
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+st.title("📊 Recovery MIS System")
+
+# ================= BRANCH MAP =================
+branch_map = {
+    "2905": "Bhaun",
+    "2909": "Miani",
+    "2910": "Kallar Kahar",
+    "2917": "Dalelpur",
+    "2934": "Munara"
+}
+
+# ================= FUNCTIONS =================
+def load_data(name):
+    doc = db.collection(name).document("all").get()
+    if doc.exists:
+        return pd.DataFrame(doc.to_dict().get("data", []))
+    return pd.DataFrame()
+
+def save_data(name, df):
+    df = df.fillna("").astype(str)
+    db.collection(name).document("all").set({
+        "data": df.to_dict(orient="records")
+    })
+
+# ================= UPLOAD =================
+st.subheader("📤 Upload Excel")
+
+file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+if file:
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
+    # 🔥 KEEP ORIGINAL ORDER (NO CHANGE)
+
+    # 🔥 ADD SERIAL FIRST COLUMN
+    df.insert(0, "Sr", range(1, len(df)+1))
+
+    # 🔥 BRANCH NAME ADD (without breaking order)
+    if "Branch Code" in df.columns:
+        df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
+        df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
+
+    save_data("main_data", df)
+    st.success("Uploaded & Saved ✅")
+
+# ================= LOAD =================
+df = load_data("main_data")
+
+# ================= FILTER =================
+st.subheader("🔍 Filter")
+
+if not df.empty:
+
+    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
+    selected_branch = st.selectbox("Select Branch", branches)
+
+    filtered = df.copy()
+
+    if selected_branch != "All":
+        filtered = filtered[filtered["Branch Name"] == selected_branch]
+
+# ================= MAIN TABLE =================
+st.subheader("📋 Data List")
+
+if not df.empty:
+
+    # 🔥 HEADER
+    cols = filtered.columns.tolist()
+
+    header = st.columns([1] + [2]*len(cols))
+    header[0].write("🔒")
+    for i, c in enumerate(cols):
+        header[i+1].write(f"**{c}**")
+
+    # 🔥 SCROLL LIMIT (only show few rows)
+    show_df = filtered.head(2)
+
+    for i, row in show_df.iterrows():
+
+        row_ui = st.columns([1] + [2]*len(cols))
+
+        # 🔒 LOCK BUTTON
+        if row_ui[0].button("🔒", key=f"lock_{i}"):
+
+            db.collection("locked_data").add(row.to_dict())
+
+            new_df = df.drop(i)
+            save_data("main_data", new_df)
+
+            st.success("Locked ✅")
+            st.experimental_rerun()
+
+        # DATA
+        for j, col in enumerate(cols):
+            row_ui[j+1].write(row[col])
+
+    # 🔽 SCROLL INFO
+    if len(filtered) > 2:
+        st.info(f"Scroll to see more ({len(filtered)} records)")
+
+# ================= LOCKED =================
+st.subheader("🔒 Locked Records")
+
+locked_docs = db.collection("locked_data").stream()
+locked_list = [doc.to_dict() for doc in locked_docs]
+
+if locked_list:
+    locked_df = pd.DataFrame(locked_list)
+    st.dataframe(locked_df, height=200, use_container_width=True)
+else:
+    st.info("No locked records")
