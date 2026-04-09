@@ -1,54 +1,126 @@
 import streamlit as st
+import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
-import pandas as pd
 
-# 🔥 Firebase init
+# ================= PAGE =================
+st.set_page_config(page_title="Recovery MIS", layout="wide")
+st.title("📊 Recovery MIS System")
+
+# ================= FIREBASE =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-st.title("📂 File Upload + Firebase Auto Load System")
+# ================= LOAD DATA =================
+def load_data():
+    doc = db.collection("main_data").document("all").get()
+    if doc.exists:
+        return pd.DataFrame(doc.to_dict().get("data", []))
+    return pd.DataFrame()
 
-# 📦 session storage
+def save_data(df):
+    df = df.fillna("").astype(str)
+    db.collection("main_data").document("all").set({
+        "data": df.to_dict(orient="records")
+    })
+
+# ================= LOCK FUNCTION =================
+def save_locked(row):
+    db.collection("locked_data").add(row.to_dict())
+
+# ================= SESSION =================
 if "df" not in st.session_state:
-    st.session_state.df = None
+    st.session_state.df = load_data()
 
-# 📁 Upload file
-file = st.file_uploader("Upload Excel or CSV", type=["csv", "xlsx"])
+df = st.session_state.df
 
-# 🔵 If new file uploaded → save + store in Firebase
-if file is not None:
+# ================= UPLOAD =================
+st.subheader("📤 Upload Excel")
 
-    if file.name.endswith(".csv"):
-        df = pd.read_csv(file)
-    else:
-        df = pd.read_excel(file)
+file = st.file_uploader("Upload Excel", type=["xlsx"])
+
+if file:
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
+    df.insert(0, "Sr", range(1, len(df) + 1))
 
     st.session_state.df = df
+    save_data(df)
 
-    # 🔥 SAVE TO FIREBASE
-    for i, row in df.iterrows():
-        db.collection("uploaded_files").add(row.to_dict())
+    st.success("Uploaded Successfully ✅")
 
-    st.success("File saved to Firebase ✅")
+# ================= BRANCH FILTER =================
+st.subheader("🔍 Branch Filter")
 
-# 🔄 ALWAYS LOAD FROM FIREBASE (after refresh)
-docs = db.collection("uploaded_files").stream()
+if not df.empty and "Branch Name" in df.columns:
+    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
+    selected = st.selectbox("Select Branch", branches)
 
-data_list = []
-for doc in docs:
-    data_list.append(doc.to_dict())
+    if selected != "All":
+        df = df[df["Branch Name"] == selected]
 
-if data_list:
-    df_show = pd.DataFrame(data_list)
-    st.subheader("📊 Stored Data (Firebase)")
-    st.dataframe(df_show)
+# ================= REMOVE LOCKED =================
+locked_docs = db.collection("locked_data").stream()
+locked_sr = set()
+
+for doc in locked_docs:
+    data = doc.to_dict()
+    if "Sr" in data:
+        locked_sr.add(data["Sr"])
+
+if not df.empty and "Sr" in df.columns:
+    df = df[~df["Sr"].astype(str).isin(locked_sr)]
+
+# ================= DATA TABLE =================
+st.subheader("📋 Data List")
+
+if not df.empty:
+
+    cols = df.columns.tolist()
+    if "Sr" in cols:
+        cols.remove("Sr")
+        cols.insert(0, "Sr")
+
+    df_view = df[cols]
+
+    # ================= CLEAN SCROLL TABLE =================
+    st.dataframe(df_view, use_container_width=True, height=450)
+
+    st.markdown("### 🔒 Lock Actions")
+
+    for i, row in df_view.iterrows():
+
+        col1, col2 = st.columns([1, 10])
+
+        # LOCK BUTTON
+        if col1.button("🔒", key=f"lock_{i}"):
+
+            save_locked(row)
+
+            df = df.drop(i)
+            st.session_state.df = df
+            save_data(df)
+
+            st.success("Locked Successfully 🔒")
+            st.rerun()
+
+        col2.write(f"Sr: {row.get('Sr', '')}")
+
+# ================= LOCKED DATA =================
+st.subheader("🔒 Locked Records")
+
+locked_data = []
+for doc in db.collection("locked_data").stream():
+    locked_data.append(doc.to_dict())
+
+if locked_data:
+    st.dataframe(pd.DataFrame(locked_data), height=300)
 else:
-    st.warning("No data found in Firebase")
-
+    st.info("No locked records yet")
 import streamlit as st
 import pandas as pd
 import os
