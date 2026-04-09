@@ -1788,7 +1788,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
-
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE =================
@@ -1798,7 +1797,7 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD DATA =================
+# ================= LOAD =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1836,30 +1835,71 @@ if file:
 
     st.success("Uploaded Successfully ✅")
 
-# ================= DATA =================
-st.subheader("📋 Data List")
+# ================= FILTER =================
+st.subheader("🔍 Branch Filter")
 
 if not df.empty:
+    branches = ["All"] + df["Branch Name"].dropna().unique().tolist() if "Branch Name" in df.columns else ["All"]
 
-    # COLUMN ORDER FIX
-    cols = df.columns.tolist()
+    selected = st.selectbox("Select Branch", branches, key="branch_filter")
+
+    filtered_df = df.copy()
+
+    if selected != "All" and "Branch Name" in df.columns:
+        filtered_df = df[df["Branch Name"] == selected]
+
+else:
+    filtered_df = pd.DataFrame()
+
+# ================= REMOVE LOCKED =================
+locked_docs = db.collection("locked_data").stream()
+locked_ids = set([doc.to_dict().get("unique_id") for doc in locked_docs])
+
+if not filtered_df.empty:
+    if "unique_id" in filtered_df.columns:
+        filtered_df = filtered_df[~filtered_df["unique_id"].isin(locked_ids)]
+
+# ================= TABLE =================
+st.subheader("📋 Data List")
+
+if not filtered_df.empty:
+
+    # column order
+    cols = filtered_df.columns.tolist()
     if "Sr" in cols:
         cols.remove("Sr")
         cols.insert(0, "Sr")
 
-    df_view = df[cols]
+    df_view = filtered_df[cols]
 
-    st.dataframe(df_view, use_container_width=True, height=350)
+    # SCROLL BOX
+    st.markdown("""
+        <style>
+        .box {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # ================= LOCK BUTTONS LEFT SIDE =================
-    st.subheader("🔒 Lock Actions")
+    st.markdown('<div class="box">', unsafe_allow_html=True)
 
+    # HEADER
+    head_cols = st.columns([1, 1, 2, 2, 2, 2, 1])
+    head_cols[0].write("🔒")
+    for i, c in enumerate(df_view.columns[:6]):
+        head_cols[i+1].write(c)
+
+    # ROWS
     for i, row in df_view.iterrows():
 
-        col1, col2 = st.columns([1, 10])
+        cols_ui = st.columns([1, 1, 2, 2, 2, 2, 1])
 
-        # 🔒 LEFT ICON BUTTON
-        if col1.button("🔒", key=f"lock_{i}"):
+        # LOCK BUTTON (LEFT SIDE)
+        if cols_ui[0].button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
 
@@ -1870,9 +1910,14 @@ if not df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        col2.write(f"Sr {row['Sr']}")
+        # SHOW DATA
+        vals = row.tolist()
+        for j in range(min(6, len(vals))):
+            cols_ui[j+1].write(vals[j])
 
-# ================= LOCKED DATA =================
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ================= LOCKED =================
 st.subheader("🔒 Locked Records")
 
 locked_docs = db.collection("locked_data").stream()
