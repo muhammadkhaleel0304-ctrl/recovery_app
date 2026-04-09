@@ -1869,21 +1869,52 @@ if not df.empty:
 
     df_view = df[cols]
 
-    # ================= FIXED SCROLL BOX =================
+    # ================= ONLY ONE CLEAN SCROLL BOX =================
     st.markdown("""
         <style>
-        .table-box {
-            height: 450px;
+        .scroll-box {
+            max-height: 450px;
             overflow-y: auto;
             border: 2px solid #6c5ce7;
             border-radius: 10px;
-            padding: 8px;
             background: white;
+            padding: 8px;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="table-box">', unsafe_allow_html=True)
+    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
+
+    # HEADER
+    header = st.columns([1, 1, 2, 2, 2, 2, 1])
+    header[0].write("🔒")
+
+    for i, col in enumerate(df_view.columns[:6]):
+        header[i+1].write(col)
+
+    # ROWS
+    for i, row in df_view.iterrows():
+
+        cols = st.columns([1, 1, 2, 2, 2, 2, 1])
+
+        # LOCK BUTTON
+        if cols[0].button("🔒", key=f"lock_{i}"):
+
+            db.collection("locked_data").add(row.to_dict())
+
+            df_drop = df.drop(i)
+            st.session_state.df = df_drop
+            save_data(df_drop)
+
+            st.success("Locked Successfully 🔒")
+            st.rerun()
+
+        # DATA DISPLAY
+        values = row.tolist()
+        for j in range(min(6, len(values))):
+            cols[j+1].write(values[j])
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # HEADER
     header = st.columns([1, 1, 2, 2, 2, 2, 1])
