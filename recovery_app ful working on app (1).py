@@ -48,6 +48,125 @@ if data_list:
     st.dataframe(df_show)
 else:
     st.warning("No data found in Firebase")
+    import streamlit as st
+import pandas as pd
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+st.title("📊 Branch Recovery MIS System")
+
+# ================= BRANCH MAP =================
+branch_map = {
+    "2905": "Bhaun",
+    "2909": "Miani",
+    "2910": "Kallar Kahar",
+    "2917": "Dalelpur",
+    "2934": "Munara"
+}
+
+# ================= FUNCTIONS =================
+def load_data(name):
+    doc = db.collection(name).document("all").get()
+    if doc.exists:
+        return pd.DataFrame(doc.to_dict().get("data", []))
+    return pd.DataFrame()
+
+def save_data(name, df):
+    df = df.fillna("").astype(str)
+    db.collection(name).document("all").set({
+        "data": df.to_dict(orient="records")
+    })
+
+# ================= UPLOAD =================
+st.subheader("📤 Upload Excel")
+
+file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+if file:
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
+    # 🔥 AUTO SERIAL
+    df["Sr"] = range(1, len(df)+1)
+
+    # 🔥 BRANCH FIX
+    if "Branch Code" in df.columns:
+        df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
+        df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
+
+    save_data("upload_data", df)
+
+    st.success("Uploaded & Saved to Firebase ✅")
+
+# ================= LOAD =================
+upload_df = load_data("upload_data")
+publish_df = load_data("published_data")
+
+# ================= PUBLISH =================
+st.subheader("📋 Publish Data")
+
+if not upload_df.empty:
+
+    branches = ["All"] + upload_df["Branch Name"].dropna().unique().tolist()
+    selected_branch = st.selectbox("Select Branch", branches)
+
+    temp_df = upload_df.copy()
+
+    if selected_branch != "All":
+        temp_df = temp_df[temp_df["Branch Name"] == selected_branch]
+
+    st.dataframe(temp_df, use_container_width=True)
+
+    if st.button("🚀 Publish Selected"):
+        save_data("published_data", temp_df)
+        st.success("Published Successfully ✅")
+
+# ================= SHOW PUBLISHED =================
+st.subheader("📊 Published List")
+
+if not publish_df.empty:
+
+    for i, row in publish_df.iterrows():
+
+        col1, col2 = st.columns([8,2])
+
+        col1.write(
+            f"{row.get('Sr')} | {row.get('Name','')} | {row.get('Branch Name','')}"
+        )
+
+        if col2.button("🔒 Lock", key=f"lock_{i}"):
+
+            # save locked
+            db.collection("locked_data").add(row.to_dict())
+
+            # remove from published
+            new_df = publish_df.drop(i)
+            save_data("published_data", new_df)
+
+            st.success("Locked & Removed ✅")
+            st.rerun()
+
+# ================= LOCKED =================
+st.subheader("🔒 Locked Records")
+
+locked_docs = db.collection("locked_data").stream()
+
+locked_list = []
+for doc in locked_docs:
+    locked_list.append(doc.to_dict())
+
+if locked_list:
+    locked_df = pd.DataFrame(locked_list)
+    st.dataframe(locked_df, use_container_width=True)
+else:
+    st.info("No locked records")
 import streamlit as st
 import pandas as pd
 import os
