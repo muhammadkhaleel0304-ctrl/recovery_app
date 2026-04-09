@@ -77,37 +77,51 @@ if not df.empty and "Sr" in df.columns:
 # ================= DATA TABLE =================
 st.subheader("📋 Data List")
 
+st.subheader("📋 Data List")
+
 if not df.empty:
 
-    cols = df.columns.tolist()
-    if "Sr" in cols:
-        cols.remove("Sr")
-        cols.insert(0, "Sr")
+    # ================= REMOVE UNWANTED COLUMN =================
+    if "Branch Code" in df.columns:
+        df = df.drop(columns=["Branch Code"])
 
+    # ================= CLEAN SR (RESET PROPERLY) =================
+    df = df.reset_index(drop=True)
+    df["Sr"] = range(1, len(df) + 1)
+
+    # ================= COLUMN ORDER =================
+    cols = df.columns.tolist()
+    cols.remove("Sr")
+    cols.insert(0, "Sr")
     df_view = df[cols]
 
-    # ================= CLEAN SCROLL TABLE =================
-    st.dataframe(df_view, use_container_width=True, height=450)
+    # ================= TABLE HEADER =================
+    header = st.columns([1, 10])
+    header[0].write("🔒")
+    header[1].write("📋 Data Table")
 
-    st.markdown("### 🔒 Lock Actions")
-
+    # ================= ROWS (CLEAN INLINE LOCK) =================
     for i, row in df_view.iterrows():
 
-        col1, col2 = st.columns([1, 10])
+        cols_ui = st.columns([1, 2, 2, 2, 2, 2, 1])
 
-        # LOCK BUTTON
-        if col1.button("🔒", key=f"lock_{i}"):
+        # 🔒 LOCK BUTTON (INSIDE ROW - FIXED POSITION)
+        if cols_ui[0].button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
 
-            df = df.drop(i)
+            df = df.drop(i).reset_index(drop=True)
             st.session_state.df = df
             save_data(df)
 
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        col2.write(f"Sr: {row.get('Sr', '')}")
+        # DATA DISPLAY (NO OVERFLOW)
+        values = row.tolist()
+
+        for j in range(min(len(values), len(cols_ui)-1)):
+            cols_ui[j+1].write(values[j])
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
