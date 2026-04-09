@@ -86,11 +86,28 @@ if not df.empty:
         filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
 
 # ================= TABLE =================
+# ================= TABLE =================
 st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
     cols = filtered_df.columns.tolist()
+
+    # 🔥 SCROLL BOX CSS
+    st.markdown("""
+        <style>
+        .scroll-box {
+            height: 400px;
+            overflow-y: auto;
+            border: 2px solid #6c5ce7;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
 
     # HEADER
     header = st.columns([1] + [2] * len(cols))
@@ -98,33 +115,27 @@ if not filtered_df.empty:
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
-    # LIMIT ROWS (performance)
-    show_rows = filtered_df.head(2)
-
-    for i, row in show_rows.iterrows():
+    # 🔥 FULL DATA (NO LIMIT NOW)
+    for i, row in filtered_df.iterrows():
 
         row_ui = st.columns([1] + [2] * len(cols))
 
         # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
 
-            # save locked
             db.collection("locked_data").add(row.to_dict())
 
-            # remove from main df
             df = df.drop(i)
             save_data("main_data", df)
 
             st.success("Locked Successfully ✅")
-
             st.rerun()
 
         # DATA ROW
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
 
-    if len(filtered_df) > 2:
-        st.info(f"Showing 2 of {len(filtered_df)} records (scroll system)")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
