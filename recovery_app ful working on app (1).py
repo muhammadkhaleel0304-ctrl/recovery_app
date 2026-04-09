@@ -91,68 +91,38 @@ st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
-    cols = filtered_df.columns.tolist()
-
-    # 🔥 SCROLL BOX CSS
-    st.markdown("""
-        <style>
-        .scroll-box {
-            height: 400px;
-            overflow-y: auto;
-            border: 2px solid #6c5ce7;
-            border-radius: 10px;
-            padding: 10px;
-            background-color: #ffffff;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
-
-    # HEADER
-    header = st.columns([1] + [2] * len(cols))
-    header[0].write("🔒 Lock")
-    for i, c in enumerate(cols):
-        header[i + 1].write(f"**{c}**")
-
-    # 🔥 FULL DATA (NO LIMIT NOW)
-    for i, row in filtered_df.iterrows():
-
-        row_ui = st.columns([1] + [2] * len(cols))
-
-        # LOCK BUTTON
-        if row_ui[0].button("🔒", key=f"lock_{i}"):
-
-            db.collection("locked_data").add(row.to_dict())
-
-            df = df.drop(i)
-            save_data("main_data", df)
-
-            st.success("Locked Successfully ✅")
-            st.rerun()
-
-        # DATA ROW
-        for j, col in enumerate(cols):
-            row_ui[j + 1].write(row.get(col, ""))
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ================= LOCKED DATA =================
-st.subheader("🔒 Locked Records")
-
-locked_docs = db.collection("locked_data").stream()
-locked_list = [doc.to_dict() for doc in locked_docs]
-
-if locked_list:
-    locked_df = pd.DataFrame(locked_list)
-
+    # 🔥 DIRECT SCROLL TABLE (NO HTML)
     st.dataframe(
-        locked_df,
+        filtered_df,
         use_container_width=True,
-        height=250
+        height=400   # 👈 scroll yahan se ayega
     )
-else:
-    st.info("No locked records yet")
+
+    # ================= LOCK =================
+    st.markdown("### 🔒 Lock Record")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        lock_sr = st.number_input("Enter Sr", min_value=1, step=1)
+
+    with col2:
+        if st.button("🔒 Lock"):
+
+            if lock_sr <= len(filtered_df):
+
+                row = filtered_df.iloc[lock_sr - 1]
+
+                db.collection("locked_data").add(row.to_dict())
+
+                df = df.drop(row.name)
+                save_data("main_data", df)
+
+                st.success("Locked Successfully ✅")
+                st.rerun()
+
+            else:
+                st.error("Invalid Sr")
 import streamlit as st
 import pandas as pd
 import os
