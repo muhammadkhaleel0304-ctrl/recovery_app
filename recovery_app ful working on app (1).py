@@ -1864,7 +1864,6 @@ st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
-    # column order
     cols = filtered_df.columns.tolist()
     if "Sr" in cols:
         cols.remove("Sr")
@@ -1872,21 +1871,29 @@ if not filtered_df.empty:
 
     df_view = filtered_df[cols]
 
-    # SCROLL BOX
+    # ================= FIXED SCROLL BOX =================
     st.markdown("""
         <style>
-        .box {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 5px;
+        .scroll-container {
+            height: 420px;        /* FIX HEIGHT */
+            overflow-y: auto;     /* ONLY TABLE SCROLL */
+            border: 2px solid #6c5ce7;
+            border-radius: 10px;
+            padding: 8px;
+            background-color: #ffffff;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="box">', unsafe_allow_html=True)
+    st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
 
+    st.dataframe(
+        df_view,
+        use_container_width=True,
+        height=400
+    )
+
+    st.markdown('</div>', unsafe_allow_html=True)
     # HEADER
     head_cols = st.columns([1, 1, 2, 2, 2, 2, 1])
     head_cols[0].write("🔒")
