@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Shaparak System", layout="wide")
 
 # ---------------- BRANCH MAP ----------------
 branch_map = {
