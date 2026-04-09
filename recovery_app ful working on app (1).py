@@ -23,7 +23,7 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= LOAD / SAVE =================
+# ================= FUNCTIONS =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -48,11 +48,15 @@ def clear_locked():
     for d in docs:
         d.reference.delete()
 
-# ================= RESTORE =================
 def restore_row(row):
     df = load_data()
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     save_data(df)
+
+def rebuild_sr(df):
+    df = df.reset_index(drop=True)
+    df.insert(0, "Sr", range(1, len(df) + 1))
+    return df
 
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
@@ -68,7 +72,9 @@ if file:
         df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
+    df = rebuild_sr(df)
     save_data(df)
+
     st.success("Uploaded Successfully ✅")
 
 # ================= LOAD =================
@@ -82,7 +88,7 @@ if not df.empty and locked_list:
     if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
         df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
 
-# ================= FILTER =================
+# ================= FILTER (MAIN) =================
 st.subheader("🔍 Branch Filter")
 
 if not df.empty and "Branch Name" in df.columns:
@@ -92,24 +98,19 @@ if not df.empty and "Branch Name" in df.columns:
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
-# ================= CLEAN COLUMNS =================
-required_cols = [
-    "Branch Name",
-    "Member Name",
-    "Parentage",
-    "Sanction No",
-    "Tranch Amount"
-]
-
-if not df.empty:
-    df = df[[col for col in required_cols if col in df.columns]]
-    df = df.reset_index(drop=True)
-    df.insert(0, "Sr", range(1, len(df) + 1))
-
 # ================= DATA LIST =================
 st.subheader("📋 Data List")
 
 if not df.empty:
+
+    df = df[[c for c in [
+        "Sr",
+        "Branch Name",
+        "Member Name",
+        "Parentage",
+        "Sanction No",
+        "Tranch Amount"
+    ] if c in df.columns]]
 
     cols = df.columns.tolist()
 
@@ -128,6 +129,7 @@ if not df.empty:
             save_locked(row)
 
             df = df.drop(i)
+            df = rebuild_sr(df)
             save_data(df)
 
             st.success("Locked Successfully ✅")
@@ -139,14 +141,23 @@ if not df.empty:
 else:
     st.info("No data available")
 
-# ================= LOCKED PANEL =================
-st.subheader("🔒 Locked Records (Admin Panel)")
+# ================= LOCKED =================
+st.subheader("🔒 Locked Records")
 
 locked_list = load_locked()
 
 if locked_list:
 
     locked_df = pd.DataFrame(locked_list)
+
+    # Branch filter locked
+    if "Branch Name" in locked_df.columns:
+        branches = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
+        selected_locked = st.selectbox("Filter Locked Branch", branches)
+
+        if selected_locked != "All":
+            locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
+
     st.dataframe(locked_df, use_container_width=True, height=300)
 
     st.markdown("### ⚙️ Controls")
@@ -157,7 +168,7 @@ if locked_list:
     with col1:
         if st.button("🗑 Delete All Locked Data"):
             clear_locked()
-            st.success("All locked data deleted ✅")
+            st.success("All Locked Data Deleted ✅")
             st.experimental_rerun()
 
     # ================= UNLOCK =================
@@ -172,7 +183,6 @@ if locked_list:
 
                 restore_row(row)
 
-                # delete that locked record
                 docs = list(db.collection("locked_data").stream())
                 docs[idx - 1].reference.delete()
 
@@ -183,7 +193,7 @@ if locked_list:
                 st.error("Invalid Row")
 
 else:
-    st.info("No locked records yet")
+    st.info("No locked records")
 import streamlit as st
 import pandas as pd
 import os
