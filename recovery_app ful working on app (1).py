@@ -5,6 +5,7 @@ from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
 st.set_page_config(page_title="Recovery MIS", layout="wide")
+
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE =================
@@ -14,7 +15,16 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD =================
+# ================= LOAD LOCKED IDS =================
+def get_locked_ids():
+    docs = db.collection("locked_data").stream()
+    return set([doc.to_dict().get("unique_id") for doc in docs])
+
+# ================= SAVE LOCK =================
+def save_locked(row):
+    db.collection("locked_data").add(row.to_dict())
+
+# ================= DATA LOAD =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -27,9 +37,6 @@ def save_data(df):
         "data": df.to_dict(orient="records")
     })
 
-def save_locked(row):
-    db.collection("locked_data").add(row.to_dict())
-
 # ================= SESSION =================
 if "df" not in st.session_state:
     st.session_state.df = load_data()
@@ -39,92 +46,69 @@ df = st.session_state.df
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
+file = st.file_uploader("Upload Excel", type=["xlsx"], key="upload_1")
 
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
+
+    # unique id for lock tracking
+    df["unique_id"] = df.apply(lambda x: str(x.name) + str(x.to_dict()), axis=1)
+
+    df.insert(0, "Sr", range(1, len(df) + 1))
 
     st.session_state.df = df
     save_data(df)
 
     st.success("Uploaded Successfully ✅")
 
+# ================= REMOVE LOCKED FROM MAIN =================
+locked_ids = get_locked_ids()
+
+if not df.empty and "unique_id" in df.columns:
+    df = df[~df["unique_id"].isin(locked_ids)]
+
 # ================= FILTER =================
-st.subheader("🔍 Branch Filter")
+st.subheader("🔍 Data List")
 
-if not df.empty and "Branch Name" in df.columns:
+filtered_df = df.copy()
 
-    df["Branch Name"] = df["Branch Name"].astype(str)
+if not filtered_df.empty:
 
-    branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
-    selected_branch = st.selectbox("Select Branch", branches)
+    # FIX ORDER
+    cols = filtered_df.columns.tolist()
 
-    if selected_branch != "All":
-        df = df[df["Branch Name"] == selected_branch]
+    if "Sr" in cols:
+        cols.remove("Sr")
+        cols.insert(0, "Sr")
 
+    df_view = filtered_df[cols]
+
+    # ================= TABLE =================
+    st.dataframe(df_view, use_container_width=True, height=350)
+
+    # ================= LOCK BUTTON (ONLY IN ROW LOOP) =================
+    st.subheader("🔒 Lock Option")
+
+    for i, row in df_view.iterrows():
+
+        if st.button(f"🔒 Lock Sr {row['Sr']}", key=f"lock_{i}"):
+
+            save_locked(row)
+
+            st.success("Locked Successfully 🔒")
+            st.rerun()
+
+# ================= LOCKED DATA =================
+st.subheader("🔒 Locked Records")
+
+locked_docs = db.collection("locked_data").stream()
+locked_list = [doc.to_dict() for doc in locked_docs]
+
+if locked_list:
+    st.dataframe(pd.DataFrame(locked_list), height=300)
 else:
-    st.warning("Branch Name column missing")
-
-# ================= CLEAN =================
-if not df.empty:
-
-    # remove branch code only
-    if "Branch Code" in df.columns:
-        df = df.drop(columns=["Branch Code"])
-
-    # reset sr
-    df = df.reset_index(drop=True)
-    df["Sr"] = range(1, len(df) + 1)
-
-# ================= TABLE =================
-st.subheader("📋 Data List")
-
-if not df.empty:
-
-    cols = df.columns.tolist()
-    cols.remove("Sr")
-    cols.insert(0, "Sr")
-
-    df_view = df[cols]
-
-    st.dataframe(df_view, use_container_width=True, height=450)
-
-    # ================= LOCK =================
-    st.markdown("### 🔒 Lock Record")
-
-    col1, col2, col3 = st.columns([2,2,2])
-
-    with col1:
-        lock_sr = st.number_input("Enter Sr", min_value=1, step=1)
-
-    with col2:
-        action = st.selectbox("Action", ["Select", "Lock"])
-
-    with col3:
-        if st.button("Apply"):
-
-            if action == "Lock":
-
-                if lock_sr <= len(df):
-
-                    row = df.iloc[lock_sr - 1]
-
-                    save_locked(row)
-
-                    df = df.drop(lock_sr - 1).reset_index(drop=True)
-                    st.session_state.df = df
-                    save_data(df)
-
-                    st.success("✅ Locked Successfully")
-
-                    st.rerun()
-
-                else:
-                    st.error("Invalid Sr")
-
-else:
-    st.info("No data available")
+    st.info("No locked records yet")
 import streamlit as st
 import pandas as pd
 import os
