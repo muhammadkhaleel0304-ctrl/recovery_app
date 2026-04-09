@@ -58,7 +58,7 @@ if file:
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
     save_data(df)
-    st.success("Uploaded ✅")
+    st.success("Uploaded Successfully ✅")
 
 # ================= LOAD =================
 df = load_data()
@@ -68,8 +68,8 @@ locked_list = load_locked()
 if not df.empty and locked_list:
     locked_df = pd.DataFrame(locked_list)
 
-    if "CNIC" in df.columns and "CNIC" in locked_df.columns:
-        df = df[~df["CNIC"].isin(locked_df["CNIC"])]
+    if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
+        df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
 
 # ================= FILTER =================
 st.subheader("🔍 Branch Filter")
@@ -81,6 +81,24 @@ if not df.empty and "Branch Name" in df.columns:
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
+# ================= CLEAN REQUIRED COLUMNS =================
+required_cols = [
+    "Branch Name",
+    "Member Name",
+    "Parentage",
+    "Sanction No",
+    "Tranch Amount"
+]
+
+if not df.empty:
+
+    # ensure only required columns exist
+    df = df[[col for col in required_cols if col in df.columns]]
+
+    # Sr add
+    df = df.reset_index(drop=True)
+    df.insert(0, "Sr", range(1, len(df) + 1))
+
 # ================= DATA LIST =================
 st.subheader("📋 Data List")
 
@@ -88,19 +106,16 @@ if not df.empty:
 
     cols = df.columns.tolist()
 
-    # HEADER (LEFT ALIGNED)
     header = st.columns([1] + [3] * len(cols))
     header[0].write("🔒")
 
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
-    # ROWS
     for i, row in df.iterrows():
 
         row_ui = st.columns([1] + [3] * len(cols))
 
-        # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
@@ -108,10 +123,9 @@ if not df.empty:
             df = df.drop(i)
             save_data(df)
 
-            st.success("Locked ✅")
+            st.success("Locked Successfully ✅")
             st.experimental_rerun()
 
-        # DATA (LEFT SIDE PROPER FLOW)
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
 
@@ -122,10 +136,8 @@ else:
 st.subheader("🔒 Locked Records")
 
 if locked_list:
-    locked_df = pd.DataFrame(locked_list)
-
     st.dataframe(
-        locked_df,
+        pd.DataFrame(locked_list),
         use_container_width=True,
         height=300
     )
