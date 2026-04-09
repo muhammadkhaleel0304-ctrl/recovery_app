@@ -48,7 +48,7 @@ if data_list:
     st.dataframe(df_show)
 else:
     st.warning("No data found in Firebase")
-    import streamlit as st
+ import streamlit as st
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -93,16 +93,15 @@ if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # 🔥 AUTO SERIAL
+    # Auto Serial
     df["Sr"] = range(1, len(df)+1)
 
-    # 🔥 BRANCH FIX
+    # Branch Mapping
     if "Branch Code" in df.columns:
         df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
     save_data("upload_data", df)
-
     st.success("Uploaded & Saved to Firebase ✅")
 
 # ================= LOAD =================
@@ -133,15 +132,22 @@ st.subheader("📊 Published List")
 
 if not publish_df.empty:
 
+    cols = list(publish_df.columns)
+    display_cols = ["Sr"] + [c for c in cols if c != "Sr"]
+
+    # Header
+    header = st.columns([1] + [2]*len(display_cols))
+    header[0].write("🔒 Lock")
+    for i, col in enumerate(display_cols):
+        header[i+1].write(f"**{col}**")
+
+    # Rows
     for i, row in publish_df.iterrows():
 
-        col1, col2 = st.columns([8,2])
+        row_ui = st.columns([1] + [2]*len(display_cols))
 
-        col1.write(
-            f"{row.get('Sr')} | {row.get('Name','')} | {row.get('Branch Name','')}"
-        )
-
-        if col2.button("🔒 Lock", key=f"lock_{i}"):
+        # Lock button
+        if row_ui[0].button("🔒", key=f"lock_{i}"):
 
             # save locked
             db.collection("locked_data").add(row.to_dict())
@@ -150,21 +156,27 @@ if not publish_df.empty:
             new_df = publish_df.drop(i)
             save_data("published_data", new_df)
 
-            st.success("Locked & Removed ✅")
+            st.success("Locked & moved नीचे ✅")
             st.rerun()
+
+        # show row data
+        for j, col in enumerate(display_cols):
+            row_ui[j+1].write(row.get(col, ""))
 
 # ================= LOCKED =================
 st.subheader("🔒 Locked Records")
 
 locked_docs = db.collection("locked_data").stream()
-
-locked_list = []
-for doc in locked_docs:
-    locked_list.append(doc.to_dict())
+locked_list = [doc.to_dict() for doc in locked_docs]
 
 if locked_list:
     locked_df = pd.DataFrame(locked_list)
-    st.dataframe(locked_df, use_container_width=True)
+
+    cols = list(locked_df.columns)
+    display_cols = ["Sr"] + [c for c in cols if c != "Sr"]
+
+    st.dataframe(locked_df[display_cols], use_container_width=True)
+
 else:
     st.info("No locked records")
 import streamlit as st
