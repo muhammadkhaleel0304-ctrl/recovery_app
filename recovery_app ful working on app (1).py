@@ -1788,7 +1788,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE CONFIG =================
-
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE INIT =================
@@ -1807,7 +1806,7 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= LOAD DATA =================
+# ================= LOAD =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1832,14 +1831,14 @@ st.subheader("📤 Upload Excel")
 file = st.file_uploader(
     "Upload Excel File",
     type=["xlsx"],
-    key="upload_excel_1"
+    key="upload_unique_1"
 )
 
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # Sr first
+    # Sr FIRST
     df.insert(0, "Sr", range(1, len(df) + 1))
 
     # Branch mapping
@@ -1861,7 +1860,7 @@ if not df.empty:
     selected_branch = st.selectbox(
         "Select Branch",
         branches,
-        key="branch_filter_1"
+        key="filter_unique"
     )
 
     filtered_df = df.copy()
@@ -1869,16 +1868,12 @@ if not df.empty:
     if selected_branch != "All":
         filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
 
-# ================= LOCKED COLLECTION =================
-def save_locked(row):
-    db.collection("locked_data").add(row.to_dict())
-
-# ================= TABLE =================
+# ================= DATA TABLE =================
 st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
-    # FIX ORDER LEFT → RIGHT
+    # FIX COLUMN ORDER (LEFT → RIGHT)
     cols = filtered_df.columns.tolist()
 
     if "Sr" in cols:
@@ -1887,10 +1882,11 @@ if not filtered_df.empty:
 
     df_view = filtered_df[cols]
 
-    # ================= SCROLL BOX ONLY =================
-    st.markdown("""
+    # ================= SCROLL ONLY TABLE =================
+    st.markdown(
+        """
         <style>
-        .scroll-box {
+        .table-box {
             max-height: 350px;
             overflow-y: auto;
             border: 1px solid #ddd;
@@ -1898,24 +1894,28 @@ if not filtered_df.empty:
             padding: 5px;
         }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
+    st.markdown('<div class="table-box">', unsafe_allow_html=True)
 
-    st.dataframe(df_view, use_container_width=True, height=350)
+    st.dataframe(
+        df_view,
+        use_container_width=True,
+        height=350
+    )
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ================= ROW LOCK SYSTEM =================
-    st.markdown("### 🔒 Lock Records")
+    # ================= LOCK BUTTONS ONLY =================
+    st.subheader("🔒 Lock Records")
 
     for i, row in df_view.iterrows():
 
-        cols_btn = st.columns([1, 5])
+        if st.button(f"🔒 Lock Row {i}", key=f"lock_{i}"):
 
-        if cols_btn[0].button(f"Lock {i}", key=f"lock_{i}"):
-
-            save_locked(row)
+            db.collection("locked_data").add(row.to_dict())
 
             df = df.drop(i)
             st.session_state.df = df
@@ -1924,8 +1924,6 @@ if not filtered_df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        cols_btn[1].write(f"{row.to_dict()}")
-
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Data")
 
@@ -1933,6 +1931,6 @@ locked_docs = db.collection("locked_data").stream()
 locked_list = [doc.to_dict() for doc in locked_docs]
 
 if locked_list:
-    st.dataframe(pd.DataFrame(locked_list), height=300)
+    st.dataframe(pd.DataFrame(locked_list), height=300, use_container_width=True)
 else:
-    st.info("No locked data yet")
+    st.info("No locked records yet")
