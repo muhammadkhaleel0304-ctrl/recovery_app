@@ -3,7 +3,7 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ================= FIREBASE INIT =================
+# ================= FIREBASE =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
     firebase_admin.initialize_app(cred)
@@ -11,7 +11,6 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 st.set_page_config(page_title="Recovery MIS", layout="wide")
-
 st.title("📊 Recovery MIS System")
 
 # ================= BRANCH MAP =================
@@ -24,103 +23,112 @@ branch_map = {
 }
 
 # ================= LOAD / SAVE =================
-def load_data(collection):
-    doc = db.collection(collection).document("all").get()
+def load_data():
+    doc = db.collection("main_data").document("all").get()
     if doc.exists:
         return pd.DataFrame(doc.to_dict().get("data", []))
     return pd.DataFrame()
 
-def save_data(collection, df):
+def save_data(df):
     df = df.fillna("").astype(str)
-    db.collection(collection).document("all").set({
+    db.collection("main_data").document("all").set({
         "data": df.to_dict(orient="records")
     })
 
-# ================= SESSION FIX =================
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame()
+def load_locked():
+    docs = db.collection("locked_data").stream()
+    return [d.to_dict() for d in docs]
+
+def save_locked(row):
+    db.collection("locked_data").add(row.to_dict())
 
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader(
-    "Upload Excel File",
-    type=["xlsx"],
-    key="upload_excel_unique"
-)
+file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
-
-    # Auto Serial
-    df.insert(0, "Sr", range(1, len(df) + 1))
 
     # Branch mapping
     if "Branch Code" in df.columns:
         df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
-    st.session_state.df = df
-    save_data("main_data", df)
-    st.success("Uploaded & Saved ✅")
+    save_data(df)
+    st.success("Uploaded ✅")
 
-# ================= LOAD DATA =================
-df = load_data("main_data")
+# ================= LOAD =================
+df = load_data()
+locked_list = load_locked()
+
+# ================= REMOVE LOCKED FROM MAIN =================
+if not df.empty and locked_list:
+
+    locked_df = pd.DataFrame(locked_list)
+
+    # compare by CNIC (unique field)
+    if "CNIC" in df.columns and "CNIC" in locked_df.columns:
+        df = df[~df["CNIC"].isin(locked_df["CNIC"])]
 
 # ================= FILTER =================
-st.subheader("🔍 Filter")
+st.subheader("🔍 Branch Filter")
 
-if not df.empty:
-    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
+if not df.empty and "Branch Name" in df.columns:
+    branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
+    selected = st.selectbox("Select Branch", branches)
 
-    selected_branch = st.selectbox(
-        "Select Branch",
-        branches,
-        key="branch_filter_unique"
-    )
+    if selected != "All":
+        df = df[df["Branch Name"] == selected]
 
-    filtered_df = df.copy()
-
-    if selected_branch != "All":
-        filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
-
-# ================= TABLE =================
-# ================= TABLE =================
+# ================= DATA LIST =================
 st.subheader("📋 Data List")
 
-if not filtered_df.empty:
+if not df.empty:
 
-    cols = filtered_df.columns.tolist()
+    cols = df.columns.tolist()
 
-    # HEADER
     header = st.columns([1] + [2] * len(cols))
     header[0].write("🔒 Lock")
+
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
-    # 🔥 FULL DATA (NO LIMIT - NO SCROLL BOX)
-    for i, row in filtered_df.iterrows():
+    for i, row in df.iterrows():
 
         row_ui = st.columns([1] + [2] * len(cols))
 
-        # LOCK BUTTON (SAME AS BEFORE)
+        # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
 
-            db.collection("locked_data").add(row.to_dict())
+            save_locked(row)
 
             df = df.drop(i)
-            save_data("main_data", df)
+            save_data(df)
 
-            st.success("Locked Successfully ✅")
+            st.success("Locked ✅")
             st.rerun()
 
-        # DATA
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
 
 else:
     st.info("No data available")
+
+# ================= LOCKED TABLE =================
+st.subheader("🔒 Locked Records")
+
+if locked_list:
+    locked_df = pd.DataFrame(locked_list)
+
+    st.dataframe(
+        locked_df,
+        use_container_width=True,
+        height=300
+    )
+else:
+    st.info("No locked records yet")
 import streamlit as st
 import pandas as pd
 import os
