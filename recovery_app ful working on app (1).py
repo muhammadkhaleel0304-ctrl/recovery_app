@@ -30,7 +30,6 @@ if "show_mis" not in st.session_state:
 if "show_locked" not in st.session_state:
     st.session_state.show_locked = True
 
-# ================= TOGGLE BUTTONS =================
 col1, col2 = st.columns(2)
 
 with col1:
@@ -102,7 +101,7 @@ if st.session_state.show_mis:
 
         st.success("Uploaded Successfully ✅")
 
-    # LOAD DATA
+    # ================= LOAD DATA =================
     df = load_data()
     locked_list = load_locked()
 
@@ -113,17 +112,20 @@ if st.session_state.show_mis:
         if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
             df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
 
-    # FILTER
-    st.subheader("🔍 Branch Filter")
+    # ================= 🔥 FIXED BRANCH DROPDOWN =================
+    all_df = load_data()
 
-    if not df.empty and "Branch Name" in df.columns:
-        branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
-        selected = st.selectbox("Select Branch", branches)
+    if not all_df.empty and "Branch Name" in all_df.columns:
+        branches = ["All"] + sorted(all_df["Branch Name"].dropna().unique().tolist())
+    else:
+        branches = ["All"]
 
-        if selected != "All":
-            df = df[df["Branch Name"] == selected]
+    selected = st.selectbox("Select Branch", branches)
 
-    # TABLE
+    if selected != "All":
+        df = df[df["Branch Name"] == selected]
+
+    # ================= TABLE =================
     st.subheader("📋 Data List")
 
     if not df.empty:
@@ -189,8 +191,6 @@ if st.session_state.show_locked:
                 locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
 
         st.dataframe(locked_df, use_container_width=True, height=300)
-
-        st.markdown("### ⚙️ Controls")
 
         col1, col2 = st.columns(2)
 
