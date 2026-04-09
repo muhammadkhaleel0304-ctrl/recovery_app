@@ -1810,6 +1810,7 @@ def save_data(df):
         "data": df.to_dict(orient="records")
     })
 
+# ================= LOCK FUNCTION =================
 def save_locked(row):
     db.collection("locked_data").add(row.to_dict())
 
@@ -1822,7 +1823,7 @@ df = st.session_state.df
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"], key="upload_1")
+file = st.file_uploader("Upload Excel", type=["xlsx"])
 
 if file:
     df = pd.read_excel(file)
@@ -1835,27 +1836,27 @@ if file:
 
     st.success("Uploaded Successfully ✅")
 
-# ================= FILTER =================
+# ================= BRANCH FILTER =================
 st.subheader("🔍 Branch Filter")
 
 if not df.empty and "Branch Name" in df.columns:
     branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
-    selected = st.selectbox("Select Branch", branches, key="branch")
+    selected = st.selectbox("Select Branch", branches)
 
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
 # ================= REMOVE LOCKED =================
 locked_docs = db.collection("locked_data").stream()
-locked_list = [doc.to_dict() for doc in locked_docs]
+locked_sr = set()
 
-locked_keys = set()
-for x in locked_list:
-    if "Sr" in x:
-        locked_keys.add(x["Sr"])
+for doc in locked_docs:
+    data = doc.to_dict()
+    if "Sr" in data:
+        locked_sr.add(data["Sr"])
 
 if not df.empty and "Sr" in df.columns:
-    df = df[~df["Sr"].astype(str).isin(locked_keys)]
+    df = df[~df["Sr"].astype(str).isin(locked_sr)]
 
 # ================= DATA TABLE =================
 st.subheader("📋 Data List")
@@ -1869,66 +1870,17 @@ if not df.empty:
 
     df_view = df[cols]
 
-    # ================= ONLY ONE CLEAN SCROLL BOX =================
-    st.markdown("""
-        <style>
-        .scroll-box {
-            max-height: 450px;
-            overflow-y: auto;
-            border: 2px solid #6c5ce7;
-            border-radius: 10px;
-            background: white;
-            padding: 8px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # ================= CLEAN SCROLL TABLE =================
+    st.dataframe(df_view, use_container_width=True, height=450)
 
-    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
+    st.markdown("### 🔒 Lock Actions")
 
-    # HEADER
-    header = st.columns([1, 1, 2, 2, 2, 2, 1])
-    header[0].write("🔒")
-
-    for i, col in enumerate(df_view.columns[:6]):
-        header[i+1].write(col)
-
-    # ROWS
     for i, row in df_view.iterrows():
 
-        cols = st.columns([1, 1, 2, 2, 2, 2, 1])
+        col1, col2 = st.columns([1, 10])
 
         # LOCK BUTTON
-        if cols[0].button("🔒", key=f"lock_{i}"):
-
-            db.collection("locked_data").add(row.to_dict())
-
-            df_drop = df.drop(i)
-            st.session_state.df = df_drop
-            save_data(df_drop)
-
-            st.success("Locked Successfully 🔒")
-            st.rerun()
-
-        # DATA DISPLAY
-        values = row.tolist()
-        for j in range(min(6, len(values))):
-            cols[j+1].write(values[j])
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # HEADER
-    header = st.columns([1, 1, 2, 2, 2, 2, 1])
-    header[0].write("🔒")
-    for i, c in enumerate(df_view.columns[:6]):
-        header[i+1].write(c)
-
-    # ROWS
-    for i, row in df_view.iterrows():
-
-        cols = st.columns([1, 1, 2, 2, 2, 2, 1])
-
-        # LOCK BUTTON LEFT
-        if cols[0].button("🔒", key=f"lock_{i}"):
+        if col1.button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
 
@@ -1939,17 +1891,16 @@ if not df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        # DATA
-        vals = row.tolist()
-        for j in range(min(6, len(vals))):
-            cols[j+1].write(vals[j])
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        col2.write(f"Sr: {row.get('Sr', '')}")
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
 
-if locked_list:
-    st.dataframe(pd.DataFrame(locked_list), height=300)
+locked_data = []
+for doc in db.collection("locked_data").stream():
+    locked_data.append(doc.to_dict())
+
+if locked_data:
+    st.dataframe(pd.DataFrame(locked_data), height=300)
 else:
     st.info("No locked records yet")
