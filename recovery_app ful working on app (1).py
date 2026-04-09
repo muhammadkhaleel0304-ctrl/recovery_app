@@ -1784,92 +1784,34 @@ st.download_button(
 st.caption("Smart Expense App • Streamlit + Firebase 🚀")
 import streamlit as st
 import pandas as pd
-import firebase_admin
-from firebase_admin import credentials, firestore
 
-# ================= PAGE CONFIG (MUST FIRST) =================
-# ================= FIREBASE INIT =================
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
-    firebase_admin.initialize_app(cred)
+# ================= PAGE CONFIG =================
+st.set_page_config(page_title="Recovery MIS", layout="wide")
 
-db = firestore.client()
+st.title("📊 Recovery MIS")
 
-st.title("📊 Recovery MIS System")
-
-# ================= BRANCH MAP =================
-branch_map = {
-    "2905": "Bhaun",
-    "2909": "Miani",
-    "2910": "Kallar Kahar",
-    "2917": "Dalelpur",
-    "2934": "Munara"
+# ================= SAMPLE OR LOAD DATA =================
+# (Replace this with your Firebase / Excel load)
+data = {
+    "Branch Code": ["2905", "2909", "2910", "2917"],
+    "Name": ["Ali", "Ahmed", "Kashif", "Usman"],
+    "Parent": ["A", "B", "C", "D"]
 }
 
-# ================= LOAD / SAVE =================
-def load_data():
-    doc = db.collection("main_data").document("all").get()
-    if doc.exists:
-        return pd.DataFrame(doc.to_dict().get("data", []))
-    return pd.DataFrame()
+df = pd.DataFrame(data)
 
-def save_data(df):
-    df = df.fillna("").astype(str)
-    db.collection("main_data").document("all").set({
-        "data": df.to_dict(orient="records")
-    })
+# ================= SR COLUMN FIX =================
+df.insert(0, "Sr", range(1, len(df) + 1))
 
-# ================= LOAD DATA =================
-df = load_data()
+# ================= FILTER COPY =================
+filtered_df = df.copy()
 
-# ================= UPLOAD =================
-st.subheader("📤 Upload Excel")
-
-file = st.file_uploader(
-    "Upload Excel File",
-    type=["xlsx"],
-    key="upload_excel_unique"
-)
-
-if file:
-    df = pd.read_excel(file)
-    df.columns = df.columns.str.strip()
-
-    # 🔥 Sr ALWAYS FIRST (LEFT MOST)
-    df.insert(0, "Sr", range(1, len(df) + 1))
-
-    # Branch mapping
-    if "Branch Code" in df.columns:
-        df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
-        df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
-
-    save_data(df)
-    st.success("Uploaded & Saved Successfully ✅")
-
-# ================= FILTER =================
-st.subheader("🔍 Filter")
-
-if not df.empty:
-
-    branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
-
-    selected_branch = st.selectbox(
-        "Select Branch",
-        branches,
-        key="branch_filter_unique"
-    )
-
-    filtered_df = df.copy()
-
-    if selected_branch != "All":
-        filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
-
-# ================= TABLE (EXCEL + SCROLL FIX) =================
+# ================= DATA LIST =================
 st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
-    # 🔥 FORCE LEFT → RIGHT ORDER
+    # 🔥 LEFT → RIGHT FIX
     cols = filtered_df.columns.tolist()
 
     if "Sr" in cols:
@@ -1878,59 +1820,28 @@ if not filtered_df.empty:
 
     df_view = filtered_df[cols]
 
-    # ================= HEADER =================
-    header = st.columns([1] + [2] * len(cols))
-    header[0].write("🔒 Lock")
-
-    for i, c in enumerate(cols):
-        header[i + 1].write(f"**{c}**")
-
-    # ================= SCROLL BOX =================
+    # ================= SCROLL ONLY FOR TABLE =================
     st.markdown(
         """
         <style>
-        div[data-testid="stVerticalBlock"]{
+        .table-container {
             max-height: 350px;
             overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    # ================= ROWS =================
-    for i, row in df_view.iterrows():
-
-        row_ui = st.columns([1] + [2] * len(cols))
-
-        # LOCK BUTTON
-        if row_ui[0].button("🔒", key=f"lock_{i}"):
-
-            db.collection("locked_data").add(row.to_dict())
-
-            df = df.drop(i)
-            save_data(df)
-
-            st.success("Locked Successfully ✅")
-            st.rerun()
-
-        # DATA
-        for j, col in enumerate(cols):
-            row_ui[j + 1].write(row.get(col, ""))
-
-# ================= LOCKED DATA =================
-st.subheader("🔒 Locked Records")
-
-locked_docs = db.collection("locked_data").stream()
-locked_list = [doc.to_dict() for doc in locked_docs]
-
-if locked_list:
-    locked_df = pd.DataFrame(locked_list)
+    st.markdown('<div class="table-container">', unsafe_allow_html=True)
 
     st.dataframe(
-        locked_df,
-        height=300,
-        use_container_width=True
+        df_view,
+        use_container_width=True,
+        height=350
     )
-else:
-    st.info("No locked records yet")
+
+    st.markdown('</div>', unsafe_allow_html=True)
