@@ -1787,8 +1787,7 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ================= PAGE CONFIG (MUST BE FIRST) =================
-
+# ================= PAGE CONFIG (MUST FIRST) =================
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
@@ -1807,7 +1806,7 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= LOAD DATA =================
+# ================= LOAD / SAVE =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1820,7 +1819,7 @@ def save_data(df):
         "data": df.to_dict(orient="records")
     })
 
-# ================= LOAD =================
+# ================= LOAD DATA =================
 df = load_data()
 
 # ================= UPLOAD =================
@@ -1836,7 +1835,7 @@ if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # 🔥 FIX ORDER: Sr FIRST ALWAYS
+    # 🔥 Sr ALWAYS FIRST (LEFT MOST)
     df.insert(0, "Sr", range(1, len(df) + 1))
 
     # Branch mapping
@@ -1851,6 +1850,7 @@ if file:
 st.subheader("🔍 Filter")
 
 if not df.empty:
+
     branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
 
     selected_branch = st.selectbox(
@@ -1864,26 +1864,42 @@ if not df.empty:
     if selected_branch != "All":
         filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
 
-# ================= TABLE =================
+# ================= TABLE (EXCEL + SCROLL FIX) =================
 st.subheader("📋 Data List")
 
 if not filtered_df.empty:
 
+    # 🔥 FORCE LEFT → RIGHT ORDER
     cols = filtered_df.columns.tolist()
 
-    # HEADER
+    if "Sr" in cols:
+        cols.remove("Sr")
+        cols.insert(0, "Sr")
+
+    df_view = filtered_df[cols]
+
+    # ================= HEADER =================
     header = st.columns([1] + [2] * len(cols))
     header[0].write("🔒 Lock")
 
     for i, c in enumerate(cols):
         header[i + 1].write(f"**{c}**")
 
-    # 🔥 SCROLLABLE VIEW (LIMIT HEIGHT)
-    st.info("Scroll down for more records ↓")
+    # ================= SCROLL BOX =================
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stVerticalBlock"]{
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    show_df = filtered_df.copy()
-
-    for i, row in show_df.iterrows():
+    # ================= ROWS =================
+    for i, row in df_view.iterrows():
 
         row_ui = st.columns([1] + [2] * len(cols))
 
@@ -1898,7 +1914,7 @@ if not filtered_df.empty:
             st.success("Locked Successfully ✅")
             st.rerun()
 
-        # DATA (FIXED ORDER)
+        # DATA
         for j, col in enumerate(cols):
             row_ui[j + 1].write(row.get(col, ""))
 
