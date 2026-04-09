@@ -89,39 +89,40 @@ if st.session_state.show_mis:
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
     if file:
-        df = pd.read_excel(file)
-        df.columns = df.columns.str.strip()
+        df_upload = pd.read_excel(file)
+        df_upload.columns = df_upload.columns.str.strip()
 
-        if "Branch Code" in df.columns:
-            df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
-            df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
+        if "Branch Code" in df_upload.columns:
+            df_upload["Branch Code"] = df_upload["Branch Code"].astype(str).str.strip()
+            df_upload["Branch Name"] = df_upload["Branch Code"].map(branch_map).fillna("Unknown")
 
-        df = rebuild_sr(df)
-        save_data(df)
+        df_upload = rebuild_sr(df_upload)
+        save_data(df_upload)
 
         st.success("Uploaded Successfully ✅")
 
-    # ================= LOAD DATA =================
-    df = load_data()
+    # ================= MASTER LOAD (IMPORTANT FIX) =================
+    master_df = load_data()
     locked_list = load_locked()
 
-    # REMOVE LOCKED
-    if not df.empty and locked_list:
+    # ================= REMOVE LOCKED =================
+    df = master_df.copy()
+
+    if not master_df.empty and locked_list:
         locked_df = pd.DataFrame(locked_list)
 
-        if "Sanction No" in df.columns and "Sanction No" in locked_df.columns:
-            df = df[~df["Sanction No"].isin(locked_df["Sanction No"])]
+        if "Sanction No" in master_df.columns and "Sanction No" in locked_df.columns:
+            df = master_df[~master_df["Sanction No"].isin(locked_df["Sanction No"])]
 
-    # ================= 🔥 FIXED BRANCH DROPDOWN =================
-    all_df = load_data()
-
-    if not all_df.empty and "Branch Name" in all_df.columns:
-        branches = ["All"] + sorted(all_df["Branch Name"].dropna().unique().tolist())
+    # ================= BRANCH DROPDOWN (FIXED) =================
+    if not master_df.empty and "Branch Name" in master_df.columns:
+        branches = ["All"] + sorted(master_df["Branch Name"].dropna().unique().tolist())
     else:
         branches = ["All"]
 
     selected = st.selectbox("Select Branch", branches)
 
+    # IMPORTANT: always re-apply from filtered df
     if selected != "All":
         df = df[df["Branch Name"] == selected]
 
@@ -155,9 +156,9 @@ if st.session_state.show_mis:
 
                 save_locked(row)
 
-                df = df.drop(i)
-                df = rebuild_sr(df)
-                save_data(df)
+                master_df = master_df.drop(master_df.index[i])
+                master_df = rebuild_sr(master_df)
+                save_data(master_df)
 
                 st.success("Locked Successfully ✅")
                 st.experimental_rerun()
@@ -182,13 +183,16 @@ if st.session_state.show_locked:
 
         locked_df = pd.DataFrame(locked_list)
 
-        # FILTER LOCKED
+        # FILTER LOCKED (always fresh)
         if "Branch Name" in locked_df.columns:
-            branches = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
-            selected_locked = st.selectbox("Filter Locked Branch", branches)
+            branches_locked = ["All"] + sorted(locked_df["Branch Name"].dropna().unique().tolist())
+        else:
+            branches_locked = ["All"]
 
-            if selected_locked != "All":
-                locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
+        selected_locked = st.selectbox("Filter Locked Branch", branches_locked)
+
+        if selected_locked != "All":
+            locked_df = locked_df[locked_df["Branch Name"] == selected_locked]
 
         st.dataframe(locked_df, use_container_width=True, height=300)
 
