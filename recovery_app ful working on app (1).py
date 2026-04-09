@@ -1794,6 +1794,8 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+st.set_page_config(page_title="Recovery MIS", layout="wide")
+
 st.title("📊 Recovery MIS System")
 
 # ================= BRANCH MAP =================
@@ -1805,94 +1807,110 @@ branch_map = {
     "2934": "Munara"
 }
 
-# ================= FUNCTIONS =================
-def load_data(name):
-    doc = db.collection(name).document("all").get()
+# ================= LOAD / SAVE =================
+def load_data(collection):
+    doc = db.collection(collection).document("all").get()
     if doc.exists:
         return pd.DataFrame(doc.to_dict().get("data", []))
     return pd.DataFrame()
 
-def save_data(name, df):
+def save_data(collection, df):
     df = df.fillna("").astype(str)
-    db.collection(name).document("all").set({
+    db.collection(collection).document("all").set({
         "data": df.to_dict(orient="records")
     })
 
+# ================= SESSION FIX =================
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
+
 # ================= UPLOAD =================
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
+st.subheader("📤 Upload Excel")
+
+file = st.file_uploader(
+    "Upload Excel File",
+    type=["xlsx"],
+    key="upload_excel_unique"
+)
+
 if file:
     df = pd.read_excel(file)
     df.columns = df.columns.str.strip()
 
-    # 🔥 KEEP ORIGINAL ORDER (NO CHANGE)
+    # Auto Serial
+    df.insert(0, "Sr", range(1, len(df) + 1))
 
-    # 🔥 ADD SERIAL FIRST COLUMN
-    df.insert(0, "Sr", range(1, len(df)+1))
-
-    # 🔥 BRANCH NAME ADD (without breaking order)
+    # Branch mapping
     if "Branch Code" in df.columns:
         df["Branch Code"] = df["Branch Code"].astype(str).str.strip()
         df["Branch Name"] = df["Branch Code"].map(branch_map).fillna("Unknown")
 
+    st.session_state.df = df
     save_data("main_data", df)
     st.success("Uploaded & Saved ✅")
 
-# ================= LOAD =================
+# ================= LOAD DATA =================
 df = load_data("main_data")
 
 # ================= FILTER =================
 st.subheader("🔍 Filter")
 
 if not df.empty:
-
     branches = ["All"] + df["Branch Name"].dropna().unique().tolist()
-    selected_branch = st.selectbox("Select Branch", branches)
 
-    filtered = df.copy()
+    selected_branch = st.selectbox(
+        "Select Branch",
+        branches,
+        key="branch_filter_unique"
+    )
+
+    filtered_df = df.copy()
 
     if selected_branch != "All":
-        filtered = filtered[filtered["Branch Name"] == selected_branch]
+        filtered_df = filtered_df[filtered_df["Branch Name"] == selected_branch]
 
-# ================= MAIN TABLE =================
+# ================= TABLE =================
 st.subheader("📋 Data List")
 
-if not df.empty:
+if not filtered_df.empty:
 
-    # 🔥 HEADER
-    cols = filtered.columns.tolist()
+    cols = filtered_df.columns.tolist()
 
-    header = st.columns([1] + [2]*len(cols))
-    header[0].write("🔒")
+    # HEADER
+    header = st.columns([1] + [2] * len(cols))
+    header[0].write("🔒 Lock")
     for i, c in enumerate(cols):
-        header[i+1].write(f"**{c}**")
+        header[i + 1].write(f"**{c}**")
 
-    # 🔥 SCROLL LIMIT (only show few rows)
-    show_df = filtered.head(2)
+    # LIMIT ROWS (performance)
+    show_rows = filtered_df.head(2)
 
-    for i, row in show_df.iterrows():
+    for i, row in show_rows.iterrows():
 
-        row_ui = st.columns([1] + [2]*len(cols))
+        row_ui = st.columns([1] + [2] * len(cols))
 
-        # 🔒 LOCK BUTTON
+        # LOCK BUTTON
         if row_ui[0].button("🔒", key=f"lock_{i}"):
 
+            # save locked
             db.collection("locked_data").add(row.to_dict())
 
-            new_df = df.drop(i)
-            save_data("main_data", new_df)
+            # remove from main df
+            df = df.drop(i)
+            save_data("main_data", df)
 
-            st.success("Locked ✅")
-            st.experimental_rerun()
+            st.success("Locked Successfully ✅")
 
-        # DATA
+            st.rerun()
+
+        # DATA ROW
         for j, col in enumerate(cols):
-            row_ui[j+1].write(row[col])
+            row_ui[j + 1].write(row.get(col, ""))
 
-    # 🔽 SCROLL INFO
-    if len(filtered) > 2:
-        st.info(f"Scroll to see more ({len(filtered)} records)")
+    if len(filtered_df) > 2:
+        st.info(f"Showing 2 of {len(filtered_df)} records (scroll system)")
 
-# ================= LOCKED =================
+# ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
 
 locked_docs = db.collection("locked_data").stream()
@@ -1900,6 +1918,11 @@ locked_list = [doc.to_dict() for doc in locked_docs]
 
 if locked_list:
     locked_df = pd.DataFrame(locked_list)
-    st.dataframe(locked_df, height=200, use_container_width=True)
+
+    st.dataframe(
+        locked_df,
+        use_container_width=True,
+        height=250
+    )
 else:
-    st.info("No locked records")
+    st.info("No locked records yet")
