@@ -1794,8 +1794,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-st.set_page_config(page_title="Recovery MIS", layout="wide")
-
 st.title("📊 Recovery MIS System")
 
 # ================= BRANCH MAP =================
