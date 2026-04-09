@@ -16,3 +16,4 @@ google-cloud-firestore
 google-auth
 google-auth-oauthlib
 streamlit-autorefresh
+streamlit>=1.27.0
