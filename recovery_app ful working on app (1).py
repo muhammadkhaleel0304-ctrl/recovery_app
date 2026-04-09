@@ -1788,7 +1788,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ================= PAGE =================
-
+st.set_page_config(page_title="Recovery MIS", layout="wide")
 st.title("📊 Recovery MIS System")
 
 # ================= FIREBASE =================
@@ -1798,7 +1798,7 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ================= LOAD =================
+# ================= LOAD DATA =================
 def load_data():
     doc = db.collection("main_data").document("all").get()
     if doc.exists:
@@ -1811,7 +1811,6 @@ def save_data(df):
         "data": df.to_dict(orient="records")
     })
 
-# ================= LOCK SAVE =================
 def save_locked(row):
     db.collection("locked_data").add(row.to_dict())
 
@@ -1824,7 +1823,7 @@ df = st.session_state.df
 # ================= UPLOAD =================
 st.subheader("📤 Upload Excel")
 
-file = st.file_uploader("Upload Excel", type=["xlsx"], key="up1")
+file = st.file_uploader("Upload Excel", type=["xlsx"], key="up_1")
 
 if file:
     df = pd.read_excel(file)
@@ -1837,32 +1836,29 @@ if file:
 
     st.success("Uploaded Successfully ✅")
 
-# ================= FILTER =================
-st.subheader("🔍 Data List")
+# ================= DATA =================
+st.subheader("📋 Data List")
 
-filtered_df = df.copy()
+if not df.empty:
 
-if not filtered_df.empty:
-
-    cols = filtered_df.columns.tolist()
-
+    # COLUMN ORDER FIX
+    cols = df.columns.tolist()
     if "Sr" in cols:
         cols.remove("Sr")
         cols.insert(0, "Sr")
 
-    df_view = filtered_df[cols]
+    df_view = df[cols]
 
-    # ================= TABLE =================
     st.dataframe(df_view, use_container_width=True, height=350)
 
-    # ================= LOCK ICON LEFT SIDE =================
-    st.markdown("### 🔒 Lock Records")
+    # ================= LOCK BUTTONS LEFT SIDE =================
+    st.subheader("🔒 Lock Actions")
 
     for i, row in df_view.iterrows():
 
         col1, col2 = st.columns([1, 10])
 
-        # 🔒 ICON BUTTON LEFT SIDE
+        # 🔒 LEFT ICON BUTTON
         if col1.button("🔒", key=f"lock_{i}"):
 
             save_locked(row)
@@ -1874,7 +1870,7 @@ if not filtered_df.empty:
             st.success("Locked Successfully 🔒")
             st.rerun()
 
-        col2.write(f"Sr {row['Sr']} | {row.to_dict()}")
+        col2.write(f"Sr {row['Sr']}")
 
 # ================= LOCKED DATA =================
 st.subheader("🔒 Locked Records")
