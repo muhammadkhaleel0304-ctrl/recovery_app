@@ -1,5 +1,132 @@
 import streamlit as st
 import pandas as pd
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# ================= PAGE =================
+st.set_page_config(page_title="Recovery MIS", layout="wide")
+st.title("📊 Recovery MIS System")
+
+# ================= FIREBASE =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+# ================= LOAD =================
+def load_data():
+    doc = db.collection("main_data").document("all").get()
+    if doc.exists:
+        return pd.DataFrame(doc.to_dict().get("data", []))
+    return pd.DataFrame()
+
+def save_data(df):
+    df = df.fillna("").astype(str)
+    db.collection("main_data").document("all").set({
+        "data": df.to_dict(orient="records")
+    })
+
+def save_locked(row):
+    db.collection("locked_data").add(row.to_dict())
+
+# ================= SESSION =================
+if "df" not in st.session_state:
+    st.session_state.df = load_data()
+
+df = st.session_state.df
+
+# ================= UPLOAD =================
+st.subheader("📤 Upload Excel")
+
+file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+if file:
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
+    st.session_state.df = df
+    save_data(df)
+
+    st.success("Uploaded Successfully ✅")
+
+# ================= FILTER =================
+st.subheader("🔍 Branch Filter")
+
+if not df.empty and "Branch Name" in df.columns:
+
+    df["Branch Name"] = df["Branch Name"].astype(str)
+
+    branches = ["All"] + sorted(df["Branch Name"].dropna().unique().tolist())
+    selected_branch = st.selectbox("Select Branch", branches)
+
+    if selected_branch != "All":
+        df = df[df["Branch Name"] == selected_branch]
+
+else:
+    st.warning("Branch Name column missing")
+
+# ================= CLEAN =================
+if not df.empty:
+
+    # remove branch code only
+    if "Branch Code" in df.columns:
+        df = df.drop(columns=["Branch Code"])
+
+    # reset sr
+    df = df.reset_index(drop=True)
+    df["Sr"] = range(1, len(df) + 1)
+
+# ================= TABLE =================
+st.subheader("📋 Data List")
+
+if not df.empty:
+
+    cols = df.columns.tolist()
+    cols.remove("Sr")
+    cols.insert(0, "Sr")
+
+    df_view = df[cols]
+
+    st.dataframe(df_view, use_container_width=True, height=450)
+
+    # ================= LOCK =================
+    st.markdown("### 🔒 Lock Record")
+
+    col1, col2, col3 = st.columns([2,2,2])
+
+    with col1:
+        lock_sr = st.number_input("Enter Sr", min_value=1, step=1)
+
+    with col2:
+        action = st.selectbox("Action", ["Select", "Lock"])
+
+    with col3:
+        if st.button("Apply"):
+
+            if action == "Lock":
+
+                if lock_sr <= len(df):
+
+                    row = df.iloc[lock_sr - 1]
+
+                    save_locked(row)
+
+                    df = df.drop(lock_sr - 1).reset_index(drop=True)
+                    st.session_state.df = df
+                    save_data(df)
+
+                    st.success("✅ Locked Successfully")
+
+                    st.rerun()
+
+                else:
+                    st.error("Invalid Sr")
+
+else:
+    st.info("No data available")
+import streamlit as st
+import pandas as pd
 import os
 import io
 
