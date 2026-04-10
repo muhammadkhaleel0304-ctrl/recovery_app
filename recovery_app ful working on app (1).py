@@ -1,25 +1,52 @@
 import streamlit as st
-import pandas as pd
-if st.button("🗑️ FULL RESET (Delete All Data)"):
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-    # MAIN DATA DELETE
-    db.collection("main_data").document("all").delete()
+# ================= PAGE =================
+st.set_page_config(page_title="Recovery System", layout="wide")
+st.title("🔥 Recovery MIS System - Admin Panel")
 
-    # LOCKED DATA DELETE
-    docs = db.collection("locked_data").stream()
-    for d in docs:
-        d.reference.delete()
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["gcp_service_account"]))
+    firebase_admin.initialize_app(cred)
 
-    # RECOVERY SUMMARY DELETE
-    docs2 = db.collection("recovery_summary").stream()
-    for d in docs2:
-        d.reference.delete()
+db = firestore.client()
 
-    # CACHE CLEAR
-    st.cache_data.clear()
+# ================= FULL RESET BUTTON =================
+st.warning("⚠️ This will delete ALL Firebase data permanently")
 
-    st.success("🔥 System Reset Done - All Data Deleted")
-    st.rerun()
+if st.button("🗑️ FULL RESET SYSTEM"):
+
+    try:
+        # ---------------- MAIN DATA ----------------
+        docs = db.collection("main_data").stream()
+        for d in docs:
+            d.reference.delete()
+
+        # ---------------- LOCKED DATA ----------------
+        docs = db.collection("locked_data").stream()
+        for d in docs:
+            d.reference.delete()
+
+        # ---------------- RECOVERY SUMMARY ----------------
+        docs = db.collection("recovery_summary").stream()
+        for d in docs:
+            d.reference.delete()
+
+        # ---------------- OPTIONAL CLEAN DOC ----------------
+        try:
+            db.collection("main_data").document("all").delete()
+        except:
+            pass
+
+        st.cache_data.clear()
+
+        st.success("🔥 SYSTEM RESET COMPLETE - ALL DATA DELETED")
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Error: {e}")
 import streamlit as st
 import pandas as pd
 import os
