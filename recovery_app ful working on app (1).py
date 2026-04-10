@@ -22,6 +22,26 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+if st.button("🗑️ FULL RESET (Delete All Data)"):
+
+    # MAIN DATA DELETE
+    db.collection("main_data").document("all").delete()
+
+    # LOCKED DATA DELETE
+    docs = db.collection("locked_data").stream()
+    for d in docs:
+        d.reference.delete()
+
+    # RECOVERY SUMMARY DELETE
+    docs2 = db.collection("recovery_summary").stream()
+    for d in docs2:
+        d.reference.delete()
+
+    # CACHE CLEAR
+    st.cache_data.clear()
+
+    st.success("🔥 System Reset Done - All Data Deleted")
+    st.rerun()
 
 # ================= FIREBASE =================
 import firebase_admin
