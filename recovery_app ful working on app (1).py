@@ -1154,3 +1154,188 @@ if uploaded_cheque:
             "branches.zip",
             "application/zip"
         )
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, firestore
+from fpdf import FPDF
+from io import BytesIO
+
+# ================= PAGE =================
+st.title("💰 Smart Expense Tracker")
+
+# ================= SAFE RERUN =================
+def safe_rerun():
+    try:
+        st.rerun()
+    except:
+        st.experimental_rerun()
+
+# ================= FIREBASE INIT =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate(st.secrets["gcp_service_account"])
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+# ================= FIREBASE FUNCTIONS =================
+def add_expense(data):
+    db.collection("expenses").add(data)
+
+def delete_expense(doc_id):
+    db.collection("expenses").document(doc_id).delete()
+
+def delete_all():
+    docs = db.collection("expenses").stream()
+    for doc in docs:
+        doc.reference.delete()
+
+# ================= LOAD DATA (FIXED + FAST) =================
+@st.cache_data(ttl=60)
+def load_data():
+    docs = db.collection("expenses").limit(500).stream()
+    data = []
+
+    for doc in docs:
+        d = doc.to_dict()
+        d["id"] = doc.id
+        data.append(d)
+
+    return pd.DataFrame(data)
+
+df = load_data()
+
+# ================= EMPTY SAFE =================
+if df.empty:
+    df = pd.DataFrame(columns=["Date", "Item", "Amount", "id"])
+
+# ================= CLEAN DATA =================
+df["Amount"] = pd.to_numeric(df.get("Amount", 0), errors="coerce").fillna(0)
+df["Date"] = pd.to_datetime(df.get("Date", ""), errors='coerce')
+df["Month"] = df["Date"].dt.strftime("%B")
+
+# ================= DELETE ALL BUTTON =================
+st.sidebar.markdown("## ⚠️ Danger Zone")
+
+if st.sidebar.button("🗑️ DELETE ALL DATA"):
+    delete_all()
+    st.success("All data deleted ✅")
+    safe_rerun()
+
+# ================= MONTH FILTER =================
+if not df.empty and df["Month"].notna().any():
+    months = df["Month"].dropna().unique()
+    selected_month = st.selectbox("📅 Select Month", months)
+    df = df[df["Month"] == selected_month]
+
+# ================= SIDEBAR ADD =================
+st.sidebar.header("➕ Add Expense")
+
+budget = st.sidebar.number_input("💵 Budget", min_value=0.0, value=9000.0)
+
+with st.sidebar.form("expense_form"):
+    item = st.text_input("Item Name")
+    amount = st.number_input("Amount", min_value=0.0)
+    submit = st.form_submit_button("Add Expense")
+
+if submit and item:
+    add_expense({
+        "Date": datetime.now().strftime("%Y-%m-%d"),
+        "Item": item,
+        "Amount": amount
+    })
+    st.success("Saved ✅")
+    safe_rerun()
+
+# ================= CALCULATIONS =================
+total = df["Amount"].sum()
+remaining = budget - total
+
+# ================= METRICS =================
+c1, c2, c3 = st.columns(3)
+c1.metric("💰 Budget", budget)
+c2.metric("💸 Total Expense", total)
+c3.metric("📊 Remaining", remaining)
+
+st.markdown("---")
+
+# ================= TABLE =================
+st.subheader("📋 Expense List")
+
+running_total = 0
+
+if not df.empty:
+
+    h1, h2, h3, h4, h5 = st.columns([2, 3, 2, 2, 1])
+    h1.write("Date")
+    h2.write("Item")
+    h3.write("Amount")
+    h4.write("Running Total")
+    h5.write("Delete")
+
+    st.markdown("---")
+
+    for _, row in df.iterrows():
+        running_total += row["Amount"]
+
+        c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
+
+        c1.write(row["Date"])
+        c2.write(row["Item"])
+        c3.write(row["Amount"])
+        c4.write(running_total)
+
+        if c5.button("❌", key=str(row["id"])):
+            delete_expense(row["id"])
+            safe_rerun()
+
+else:
+    st.info("No expenses yet")
+
+# ================= TOTAL =================
+st.markdown("---")
+st.success(f"💰 Total Expense: {total}")
+st.info(f"📉 Remaining Budget: {remaining}")
+
+# ================= DOWNLOAD PDF =================
+summary = df.groupby("Item")["Amount"].sum().reset_index()
+
+class PDF(FPDF):
+    def header(self):
+        self.set_font("Arial", "B", 14)
+        self.cell(0, 10, "Expense Summary Report", ln=True, align="C")
+
+pdf = PDF()
+pdf.add_page()
+pdf.set_font("Arial", "B", 12)
+
+pdf.cell(60, 10, "Item", border=1)
+pdf.cell(60, 10, "Amount", border=1)
+pdf.ln()
+
+pdf.set_font("Arial", "", 11)
+
+for _, row in summary.iterrows():
+    pdf.cell(60, 10, str(row["Item"]), border=1)
+    pdf.cell(60, 10, str(row["Amount"]), border=1)
+    pdf.ln()
+
+pdf_bytes = pdf.output(dest='S').encode('latin1')
+
+st.download_button("📄 Download PDF", pdf_bytes, "expense.pdf")
+
+# ================= EXCEL =================
+output = BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    df.to_excel(writer, index=False, sheet_name="Data")
+    summary.to_excel(writer, index=False, sheet_name="Summary")
+
+st.download_button(
+    "📊 Download Excel",
+    output.getvalue(),
+    "expense.xlsx"
+)
+
+# ================= FOOTER =================
+st.caption("Smart Expense App • Streamlit + Firebase 🚀")
