@@ -1339,3 +1339,35 @@ st.download_button(
 
 # ================= FOOTER =================
 st.caption("Smart Expense App • Streamlit + Firebase 🚀")
+import streamlit as st
+import qrcode
+from PIL import Image
+import cv2
+from pyzbar.pyzbar import decode
+import numpy as np
+
+st.title("CNIC QR Code System")
+
+# 🔹 Input CNIC
+cnic = st.text_input("Enter CNIC Number")
+
+# 🔹 Generate QR
+if st.button("Generate QR"):
+    if cnic:
+        qr = qrcode.make(cnic)
+        qr.save("cnic_qr.png")
+        st.image("cnic_qr.png", caption="Your QR Code")
+    else:
+        st.warning("Please enter CNIC")
+
+# 🔹 Upload & Scan
+uploaded_file = st.file_uploader("Upload QR Code Image")
+
+if uploaded_file:
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
+
+    decoded = decode(img)
+
+    for obj in decoded:
+        st.success(f"CNIC Detected: {obj.data.decode('utf-8')}")
