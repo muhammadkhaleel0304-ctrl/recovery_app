@@ -19,4 +19,4 @@ qrcode
 pillow
 opencv-python-headless
 pyzbar
-
+numpy
