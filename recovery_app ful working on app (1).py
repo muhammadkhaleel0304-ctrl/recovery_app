@@ -1147,8 +1147,7 @@ if uploaded_cheque:
                 zipf.writestr(f"branch_{branch}.pdf",pdf.getvalue())
 
         zip_buffer.seek(0)
-
-        st.download_button(
+   st.download_button(
             "Download ZIP",
             zip_buffer.getvalue(),
             "branches.zip",
