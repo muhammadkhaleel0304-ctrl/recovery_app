@@ -15,5 +15,8 @@ firebase-admin
 google-cloud-firestore
 google-auth
 google-auth-oauthlib
-
+qrcode
+pillow
+opencv-python-headless
+pyzbar
 
