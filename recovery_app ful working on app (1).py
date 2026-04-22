@@ -1,6 +1,6 @@
 import streamlit as st
 import qrcode
-from io import BytesIO
+from PIL import Image
 
 st.set_page_config(page_title="QR Generator", page_icon="🔗")
 
@@ -11,21 +11,30 @@ text = st.text_input("Enter URL or Text")
 if st.button("Generate QR Code"):
     if text.strip():
 
-        # Generate QR
-        qr = qrcode.make(text)
+        # QR configuration (IMPORTANT FIX)
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
 
-        # Convert to bytes (IMPORTANT FIX)
-        buffer = BytesIO()
-        qr.save(buffer, format="PNG")
-        img_bytes = buffer.getvalue()
+        qr.add_data(text)
+        qr.make(fit=True)
 
-        # Show image from bytes (SAFE METHOD)
-        st.image(img_bytes, caption="Your QR Code", use_container_width=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
 
-        # Download button
+        # Show image (SAFE)
+        st.image(img, caption="Your QR Code", use_container_width=True)
+
+        # Download
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+
         st.download_button(
-            label="⬇ Download QR Code",
-            data=img_bytes,
+            "⬇ Download QR Code",
+            data=buf.getvalue(),
             file_name="qrcode.png",
             mime="image/png"
         )
