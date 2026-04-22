@@ -4,17 +4,17 @@ from io import BytesIO
 
 st.title("CNIC QR Generator")
 
-cnic = st.text_input("Enter CNIC")
+cnic = st.text_input("Enter 13-digit CNIC")
 
 if st.button("Generate QR"):
     if cnic:
 
-        # IMPORTANT: ensure full string goes inside QR
         data = str(cnic).strip()
 
+        # FORCE FULL DATA ENCODING
         qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            version=None,  # AUTO size (IMPORTANT FIX)
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
             box_size=10,
             border=4
         )
@@ -34,8 +34,8 @@ if st.button("Generate QR"):
         st.download_button(
             "Download QR",
             data=img_bytes,
-            file_name="cnic.png",
+            file_name="cnic_qr.png",
             mime="image/png"
         )
     else:
-        st.warning("Enter CNIC first")
+        st.warning("Enter CNIC")
