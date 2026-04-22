@@ -4,15 +4,19 @@ from io import BytesIO
 
 st.title("CNIC QR Generator")
 
-text = st.text_input("Enter CNIC (e.g. 37203-xxxxxxx-x)")
+cnic = st.text_input("Enter CNIC (with or without dashes)")
 
 if st.button("Generate QR"):
-    if text.strip():
+    if cnic.strip():
 
-        qr = qrcode.make(text.strip())
+        # REMOVE DASHES (IMPORTANT FIX)
+        clean_cnic = cnic.replace("-", "").strip()
+
+        qr = qrcode.make(clean_cnic)
 
         buf = BytesIO()
         qr.save(buf, format="PNG")
+
         img_bytes = buf.getvalue()
 
         st.image(img_bytes)
@@ -24,4 +28,4 @@ if st.button("Generate QR"):
             mime="image/png"
         )
     else:
-        st.warning("Please enter CNIC")
+        st.warning("Enter CNIC")
