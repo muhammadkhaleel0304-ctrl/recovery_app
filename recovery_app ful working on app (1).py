@@ -2,34 +2,26 @@ import streamlit as st
 import qrcode
 from io import BytesIO
 
-st.title("QR Generator")
+st.title("CNIC QR Generator")
 
-text = st.text_input("Enter text")
+text = st.text_input("Enter CNIC (e.g. 37203-xxxxxxx-x)")
 
-if st.button("Generate"):
-    if text:
+if st.button("Generate QR"):
+    if text.strip():
 
-        qr = qrcode.QRCode(
-            box_size=10,
-            border=4
-        )
+        qr = qrcode.make(text.strip())
 
-        qr.add_data(text)
-        qr.make(fit=True)
-
-        img = qr.make_image(fill_color="black", back_color="white")
-
-        # Convert to bytes (MOST COMPATIBLE METHOD)
         buf = BytesIO()
-        img.save(buf, format="PNG")
-        byte_img = buf.getvalue()
+        qr.save(buf, format="PNG")
+        img_bytes = buf.getvalue()
 
-        # ✅ SAFE DISPLAY (no st.image PIL issue)
-        st.image(byte_img)
+        st.image(img_bytes)
 
         st.download_button(
             "Download QR",
-            data=byte_img,
-            file_name="qr.png",
+            data=img_bytes,
+            file_name="cnic_qr.png",
             mime="image/png"
         )
+    else:
+        st.warning("Please enter CNIC")
