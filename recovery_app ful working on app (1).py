@@ -1,6 +1,12 @@
 import streamlit as st
 import qrcode
 from io import BytesIO
+import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import plotly.express as px
+from fpdf import FPDF
 
 st.title("CNIC QR Generator")
 
