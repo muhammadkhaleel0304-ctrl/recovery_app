@@ -47,7 +47,6 @@ if st.button("Generate QR"):
         st.warning("Enter CNIC")
 
 # ----------------- Page config MUST be first -----------------
-st.set_page_config(page_title="Recovery Portal", layout="wide")
 
 # ---------------- Session state init ----------------
 if "logged_in" not in st.session_state:
