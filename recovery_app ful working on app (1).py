@@ -45,12 +45,6 @@ if st.button("Generate QR"):
         )
     else:
         st.warning("Enter CNIC")
-import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import plotly.express as px
-from fpdf import FPDF
 
 # ----------------- Page config MUST be first -----------------
 st.set_page_config(page_title="Recovery Portal", layout="wide")
