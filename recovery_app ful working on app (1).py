@@ -23,7 +23,7 @@ PASSWORD = "12345"
 # --------- Show login ONLY if not logged in ----------
 if not st.session_state.logged_in:
 
-    st.title("🔒 Recovery App Login")
+    st.title("🔒QR Code & Recovery App Login")
 
     user_input = st.text_input("Username")
     pass_input = st.text_input("Password", type="password")
