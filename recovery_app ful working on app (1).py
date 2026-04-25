@@ -8,6 +8,38 @@ import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
 
+
+# ----------------- Page config MUST be first -----------------
+
+# ---------------- Session state init ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# ------------------ Login ------------------
+USERNAME = "Khaleel"
+PASSWORD = "12345"
+
+# --------- Show login ONLY if not logged in ----------
+if not st.session_state.logged_in:
+
+    st.title("🔒 Recovery App Login")
+
+    user_input = st.text_input("Username")
+    pass_input = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if user_input.strip().lower() == USERNAME.lower() and pass_input == PASSWORD:
+            st.session_state.logged_in = True
+            st.experimental_rerun()
+        else:
+            st.error("Invalid username or password!")
+            st.stop()
+
+    st.stop()   # app yahin ruk jay jab tak login na ho
+
+# ================= AFTER LOGIN =================
+st.success("Login successful! App is loading...")
+st.markdown("""
 st.title("CNIC QR Generator")
 
 cnic = st.text_input("Enter 13-digit CNIC")
@@ -46,37 +78,6 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
-# ----------------- Page config MUST be first -----------------
-
-# ---------------- Session state init ----------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-# ------------------ Login ------------------
-USERNAME = "Khaleel"
-PASSWORD = "12345"
-
-# --------- Show login ONLY if not logged in ----------
-if not st.session_state.logged_in:
-
-    st.title("🔒 Recovery App Login")
-
-    user_input = st.text_input("Username")
-    pass_input = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if user_input.strip().lower() == USERNAME.lower() and pass_input == PASSWORD:
-            st.session_state.logged_in = True
-            st.experimental_rerun()
-        else:
-            st.error("Invalid username or password!")
-            st.stop()
-
-    st.stop()   # app yahin ruk jay jab tak login na ho
-
-# ================= AFTER LOGIN =================
-st.success("Login successful! App is loading...")
-st.markdown("""
     <h1 style='text-align: center; color: White;'>📊 Welcome to Recovery Portal Created By:M.Khaleel</h1>
     <h3 style='text-align: center; color: Yellow;'>Recovery and Overdue Portal</h3>
     <hr style='border-top: 3px solid #bbb;'>
