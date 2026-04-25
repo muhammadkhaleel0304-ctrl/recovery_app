@@ -41,7 +41,7 @@ if not st.session_state.logged_in:
 # ================= AFTER LOGIN =================
 st.success("Login successful! App is loading...")
 st.markdown("""
-    <h1 style='text-align: center; color: White;'>📊 Welcome to Recovery Portal Created By:M.Khaleel</h1>
+    <h1 style='text-align: center; color: Yellow;'>📊 Welcome to Recovery Portal Created By:M.Khaleel</h1>
     <h3 style='text-align: center; color: Red;'>Recovery and Overdue Portal</h3>
     <hr style='border-top: 3px solid #bbb;'>
 """, unsafe_allow_html=True)
