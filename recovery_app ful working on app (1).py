@@ -9,91 +9,90 @@ import plotly.express as px
 from fpdf import FPDF
 import streamlit as st
 
-st.set_page_config(page_title="Login", layout="wide")
+st.set_page_config(layout="centered")
 
-# -------- SESSION --------
+# ---------- SESSION ----------
 if "login" not in st.session_state:
     st.session_state.login = False
 
-# -------- CSS (FIXED CENTER) --------
-st.markdown("""
-<style>
-
-/* Hide menu */
-#MainMenu, footer, header {visibility: hidden;}
-
-/* Remove spacing */
-.block-container {
-    padding: 0 !important;
-}
-
-/* FULL SCREEN CENTER */
-[data-testid="stAppViewContainer"] {
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-}
-
-/* LOGIN BOX (SMALL PERFECT) */
-.login-box {
-    width: 300px;
-    padding: 25px;
-    border-radius: 15px;
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 0 25px rgba(0,0,0,0.5);
-    text-align: center;
-}
-
-/* Inputs */
-.stTextInput input {
-    border-radius: 8px;
-    border: 1px solid #00c6ff;
-    padding: 10px;
-}
-
-/* Button */
-.stButton button {
-    width: 100%;
-    border-radius: 8px;
-    background: linear-gradient(90deg,#00c6ff,#0072ff);
-    color: white;
-}
-
-/* Text */
-h1,h2,h3,label {
-    color: white !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -------- LOGIN --------
+# ---------- LOGIN PAGE ----------
 if not st.session_state.login:
 
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    st.markdown("""
+    <style>
 
-    st.markdown("### 🔐 Login")
+    /* Hide default space */
+    .block-container {
+        padding-top: 0rem;
+    }
 
-    user = st.text_input("Email or Username")
+    /* Background */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    }
+
+    /* Center everything */
+    .login-wrapper {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* ACTUAL LOGIN BOX */
+    .login-card {
+        width: 280px;
+        padding: 25px;
+        border-radius: 15px;
+        background: rgba(255,255,255,0.10);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 0 25px rgba(0,0,0,0.5);
+        text-align: center;
+    }
+
+    /* Inputs */
+    .stTextInput input {
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid #00c6ff;
+    }
+
+    /* Button */
+    .stButton button {
+        width: 100%;
+        border-radius: 8px;
+        background: linear-gradient(90deg,#00c6ff,#0072ff);
+        color: white;
+    }
+
+    h2, label {
+        color: white !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="login-wrapper"><div class="login-card">', unsafe_allow_html=True)
+
+    st.markdown("## 🔐 Login")
+
+    user = st.text_input("Username")
     pwd = st.text_input("Password", type="password")
 
-    if st.button("Sign In"):
+    if st.button("Login"):
         if user == "admin" and pwd == "1234":
             st.session_state.login = True
             st.rerun()
         else:
-            st.error("Wrong Username/Password")
+            st.error("Wrong login ❌")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-    st.stop()   # 🚨 IMPORTANT
+    st.stop()
 
-# -------- DASHBOARD --------
+# ---------- DASHBOARD ----------
 st.title("📊 Dashboard")
-st.write("Login ke baad hi ye show ho raha hai ✔")
+st.write("Login successful ✔")
 
 if st.button("Logout"):
     st.session_state.login = False
