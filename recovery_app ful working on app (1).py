@@ -8,9 +8,6 @@ import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
 
-import streamlit as st
-
-st.set_page_config(page_title="Login", layout="centered")
 
 # ----------- CSS (Glass Effect) -----------
 st.markdown("""
