@@ -33,7 +33,7 @@ if not st.session_state.login:
 
     /* Center everything */
     .login-wrapper {
-        height: 100vh;
+        height: 40vh;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -41,7 +41,7 @@ if not st.session_state.login:
 
     /* ACTUAL LOGIN BOX */
     .login-card {
-        width: 280px;
+        width: 100px;
         padding: 25px;
         border-radius: 15px;
         background: rgba(255,255,255,0.10);
@@ -59,7 +59,7 @@ if not st.session_state.login:
 
     /* Button */
     .stButton button {
-        width: 50%;
+        width: 30%;
         border-radius: 8px;
         background: linear-gradient(90deg,#00c6ff,#0072ff);
         color: white;
