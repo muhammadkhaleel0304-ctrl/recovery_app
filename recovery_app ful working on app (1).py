@@ -22,30 +22,34 @@ st.markdown("""
 /* Hide menu */
 #MainMenu, footer, header {visibility: hidden;}
 
-/* Remove padding */
-.block-container {padding: 0 !important;}
-
-/* Full screen background */
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+/* Remove all spacing */
+.block-container {
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
-/* Center container */
-.center-box {
+/* Full screen center */
+[data-testid="stAppViewContainer"] > .main {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
 }
 
-/* Glass card */
+/* Background */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
+
+/* Login Card */
 .login-card {
-    width: 350px;
-    padding: 40px;
-    border-radius: 20px;
+    width: 320px;
+    padding: 30px;
+    border-radius: 15px;
     background: rgba(255,255,255,0.08);
     backdrop-filter: blur(20px);
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    text-align: center;
 }
 
 /* Inputs */
@@ -64,7 +68,9 @@ st.markdown("""
 }
 
 /* Text */
-h2,label {color: white !important;}
+h1,h2,h3,label {
+    color: white !important;
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -72,9 +78,9 @@ h2,label {color: white !important;}
 # ---------- LOGIN ----------
 if not st.session_state.login:
 
-    st.markdown('<div class="center-box"><div class="login-card">', unsafe_allow_html=True)
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-    st.markdown("## 🔐 Please Log In")
+    st.markdown("### 🔐 Please Log In")
 
     user = st.text_input("Email or Username")
     pwd = st.text_input("Password", type="password")
@@ -84,15 +90,15 @@ if not st.session_state.login:
             st.session_state.login = True
             st.rerun()
         else:
-            st.error("Invalid login")
+            st.error("Invalid login ❌")
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.stop()   # 🔥 VERY IMPORTANT
+    st.stop()   # 🔥 IMPORTANT (dashboard hide karega)
 
 # ---------- DASHBOARD ----------
 st.title("📊 Dashboard")
-st.write("Ab yahan tumhara system ayega")
+st.write("Ab sirf login ke baad ye show hoga")
 
 if st.button("Logout"):
     st.session_state.login = False
