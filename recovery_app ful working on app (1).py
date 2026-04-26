@@ -15,69 +15,68 @@ st.set_page_config(layout="wide")
 if "login" not in st.session_state:
     st.session_state.login = False
 
-# ---------- CSS ----------
+# ---------- CSS (FULL CONTROL) ----------
 st.markdown("""
 <style>
 
-/* Hide sidebar & menu */
-#MainMenu, footer, header {
-    visibility: hidden;
-}
+/* Hide everything */
+#MainMenu, footer, header {visibility: hidden;}
 
-/* Remove top spacing */
-.block-container {
-    padding-top: 0rem;
-}
+/* Remove padding */
+.block-container {padding: 0 !important;}
 
-/* Center full screen */
-html, body, [data-testid="stApp"] {
-    height: 100%;
-}
-
-.main {
+/* Full screen center */
+[data-testid="stAppViewContainer"] {
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 
-/* Glass box */
+/* Glass Login Box */
 .login-box {
-    backdrop-filter: blur(15px);
-    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.08);
     padding: 40px;
     border-radius: 20px;
     width: 350px;
     text-align: center;
-    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
 }
 
 /* Inputs */
 .stTextInput input {
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1px solid #00c6ff;
-    padding: 10px;
+    padding: 12px;
+    background: transparent;
+    color: white;
 }
 
 /* Button */
 .stButton button {
     width: 100%;
-    border-radius: 10px;
+    border-radius: 12px;
     background: linear-gradient(90deg,#00c6ff,#0072ff);
     color: white;
+    font-weight: bold;
 }
+
+/* Text color */
+h1,h2,h3,label {color: white !important;}
 
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- LOGIN ----------
+# ---------- LOGIN SCREEN ----------
 if not st.session_state.login:
 
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
 
-    st.markdown("## 🔐 Please Login")
+    st.markdown("## 🔐 Please Log In")
 
-    user = st.text_input("Username")
+    user = st.text_input("Email or Username")
     pwd = st.text_input("Password", type="password")
 
     if st.button("Sign In"):
@@ -85,18 +84,20 @@ if not st.session_state.login:
             st.session_state.login = True
             st.rerun()
         else:
-            st.error("Wrong login")
+            st.error("Invalid Login ❌")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------- DASHBOARD ----------
-else:
-    st.title("📊 Dashboard")
-    st.write("Ab yahan tumhara system ayega")
+# ---------- STOP EVERYTHING HERE ----------
+    st.stop()
 
-    if st.button("Logout"):
-        st.session_state.login = False
-        st.rerun()
+# ---------- DASHBOARD (AFTER LOGIN ONLY) ----------
+st.title("📊 Dashboard")
+st.write("Ab sirf login ke baad hi ye dikhega")
+
+if st.button("Logout"):
+    st.session_state.login = False
+    st.rerun()
 # -------------------
 st.title("CNIC QR Generator")
 
