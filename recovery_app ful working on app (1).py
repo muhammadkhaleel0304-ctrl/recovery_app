@@ -15,64 +15,64 @@ st.set_page_config(layout="wide")
 if "login" not in st.session_state:
     st.session_state.login = False
 
-# ---------- CSS (FULL CONTROL) ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
 
-/* Hide everything */
+/* Hide menu */
 #MainMenu, footer, header {visibility: hidden;}
 
 /* Remove padding */
 .block-container {padding: 0 !important;}
 
-/* Full screen center */
+/* Full screen background */
 [data-testid="stAppViewContainer"] {
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 
-/* Glass Login Box */
-.login-box {
-    backdrop-filter: blur(20px);
-    background: rgba(255,255,255,0.08);
+/* Center container */
+.center-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Glass card */
+.login-card {
+    width: 350px;
     padding: 40px;
     border-radius: 20px;
-    width: 350px;
-    text-align: center;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
     box-shadow: 0 0 40px rgba(0,0,0,0.5);
 }
 
 /* Inputs */
 .stTextInput input {
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid #00c6ff;
-    padding: 12px;
-    background: transparent;
-    color: white;
+    padding: 10px;
 }
 
 /* Button */
 .stButton button {
     width: 100%;
-    border-radius: 12px;
+    border-radius: 10px;
     background: linear-gradient(90deg,#00c6ff,#0072ff);
     color: white;
-    font-weight: bold;
 }
 
-/* Text color */
-h1,h2,h3,label {color: white !important;}
+/* Text */
+h2,label {color: white !important;}
 
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- LOGIN SCREEN ----------
+# ---------- LOGIN ----------
 if not st.session_state.login:
 
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    st.markdown('<div class="center-box"><div class="login-card">', unsafe_allow_html=True)
 
     st.markdown("## 🔐 Please Log In")
 
@@ -84,16 +84,15 @@ if not st.session_state.login:
             st.session_state.login = True
             st.rerun()
         else:
-            st.error("Invalid Login ❌")
+            st.error("Invalid login")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ---------- STOP EVERYTHING HERE ----------
-    st.stop()
+    st.stop()   # 🔥 VERY IMPORTANT
 
-# ---------- DASHBOARD (AFTER LOGIN ONLY) ----------
+# ---------- DASHBOARD ----------
 st.title("📊 Dashboard")
-st.write("Ab sirf login ke baad hi ye dikhega")
+st.write("Ab yahan tumhara system ayega")
 
 if st.button("Logout"):
     st.session_state.login = False
