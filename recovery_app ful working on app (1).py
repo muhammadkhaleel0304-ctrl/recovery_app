@@ -9,36 +9,94 @@ import plotly.express as px
 from fpdf import FPDF
 import streamlit as st
 
-st.set_page_config(page_title="My App")
+st.set_page_config(layout="wide")
 
-# ---------- Session State ----------
+# ---------- SESSION ----------
 if "login" not in st.session_state:
-    st.session_state["login"] = False
+    st.session_state.login = False
 
-# ---------- LOGIN PAGE ----------
-if not st.session_state["login"]:
-    st.title("🔐 Login Page")
+# ---------- CSS ----------
+st.markdown("""
+<style>
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+/* Hide sidebar & menu */
+#MainMenu, footer, header {
+    visibility: hidden;
+}
 
-    if st.button("Login"):
-        if username == "admin" and password == "1234":
-            st.session_state["login"] = True
-            st.rerun()   # 🔥 VERY IMPORTANT
+/* Remove top spacing */
+.block-container {
+    padding-top: 0rem;
+}
+
+/* Center full screen */
+html, body, [data-testid="stApp"] {
+    height: 100%;
+}
+
+.main {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Glass box */
+.login-box {
+    backdrop-filter: blur(15px);
+    background: rgba(255,255,255,0.1);
+    padding: 40px;
+    border-radius: 20px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+}
+
+/* Inputs */
+.stTextInput input {
+    border-radius: 10px;
+    border: 1px solid #00c6ff;
+    padding: 10px;
+}
+
+/* Button */
+.stButton button {
+    width: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg,#00c6ff,#0072ff);
+    color: white;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- LOGIN ----------
+if not st.session_state.login:
+
+    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+
+    st.markdown("## 🔐 Please Login")
+
+    user = st.text_input("Username")
+    pwd = st.text_input("Password", type="password")
+
+    if st.button("Sign In"):
+        if user == "admin" and pwd == "1234":
+            st.session_state.login = True
+            st.rerun()
         else:
-            st.error("Wrong login ❌")
+            st.error("Wrong login")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------- DASHBOARD ----------
 else:
-    st.title("🎉 Dashboard")
-
-    st.write("Yahan tumhara poora system ayega")
+    st.title("📊 Dashboard")
+    st.write("Ab yahan tumhara system ayega")
 
     if st.button("Logout"):
-        st.session_state["login"] = False
+        st.session_state.login = False
         st.rerun()
-    
 # -------------------
 st.title("CNIC QR Generator")
 
