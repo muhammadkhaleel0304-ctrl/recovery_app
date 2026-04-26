@@ -35,8 +35,8 @@ if not st.session_state.login:
     .login-wrapper {
         height: 20vh;
         display: flex;
-        justify-content: Max center;
-        align-items:Max center;
+        justify-content: center;
+        align-items:center;
     }
 
     /* ACTUAL LOGIN BOX */
@@ -47,7 +47,7 @@ if not st.session_state.login:
         background: rgba(255,255,255,0.10);
         backdrop-filter: blur(20px);
         box-shadow: 0 0 25px rgba(0,0,0,0.5);
-        text-align: Left;
+        text-align: Center;
     }
 
     /* Inputs */
