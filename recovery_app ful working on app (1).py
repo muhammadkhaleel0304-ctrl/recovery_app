@@ -7,82 +7,37 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
+import streamlit as st
 
+st.set_page_config(page_title="My App")
 
-# ----------- CSS (Glass Effect) -----------
-st.markdown("""
-<style>
+# ---------- Session State ----------
+if "login" not in st.session_state:
+    st.session_state["login"] = False
 
-body {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-}
+# ---------- LOGIN PAGE ----------
+if not st.session_state["login"]:
+    st.title("🔐 Login Page")
 
-.main {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-.login-box {
-    backdrop-filter: blur(15px);
-    background: rgba(255, 255, 255, 0.1);
-    padding: 40px;
-    border-radius: 20px;
-    width: 350px;
-    text-align: center;
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
-}
+    if st.button("Login"):
+        if username == "admin" and password == "1234":
+            st.session_state["login"] = True
+            st.rerun()   # 🔥 VERY IMPORTANT
+        else:
+            st.error("Wrong login ❌")
 
-input {
-    background: transparent !important;
-    color: white !important;
-}
+# ---------- DASHBOARD ----------
+else:
+    st.title("🎉 Dashboard")
 
-.stTextInput>div>div>input {
-    border: 1px solid #00c6ff;
-    border-radius: 10px;
-    padding: 10px;
-}
+    st.write("Yahan tumhara poora system ayega")
 
-.stButton>button {
-    background: linear-gradient(90deg, #00c6ff, #0072ff);
-    color: white;
-    border-radius: 10px;
-    width: 100%;
-}
-
-h2 {
-    color: white;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ----------- Login UI -----------
-st.markdown('<div class="login-box">', unsafe_allow_html=True)
-
-st.markdown("## 🔐 Please Login")
-
-username = st.text_input("Email or Username")
-password = st.text_input("Password", type="password")
-
-login_btn = st.button("Sign In")
-
-# ----------- Simple Login Logic -----------
-if login_btn:
-    if username == "admin" and password == "1234":
-        st.success("Login Successful ✅")
-        st.session_state["login"] = True
-    else:
-        st.error("Invalid Username or Password ❌")
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# ----------- After Login -----------
-if st.session_state.get("login"):
-    st.title("🎉 Welcome to Dashboard")
-    st.write("Yahan tum apni app show kar sakte ho")
-st.markdown("""
+    if st.button("Logout"):
+        st.session_state["login"] = False
+        st.rerun()
     <h1 style='text-align: center; color: Yellow;'>📊 Welcome to Recovery Portal Created By:M.Khaleel</h1>
     <h3 style='text-align: center; color: Red;'>Recovery and Overdue Portal</h3>
     <hr style='border-top: 3px solid #bbb;'>
