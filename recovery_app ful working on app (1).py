@@ -41,7 +41,7 @@ if not st.session_state.login:
 
     /* ACTUAL LOGIN BOX */
     .login-card {
-        width: 70px;
+        width: 40px;
         padding: 15px;
         border-radius: 10px;
         background: rgba(255,255,255,0.10);
