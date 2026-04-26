@@ -59,7 +59,7 @@ if not st.session_state.login:
 
     /* Button */
     .stButton button {
-        width: 100%;
+        width: 80%;
         border-radius: 8px;
         background: linear-gradient(90deg,#00c6ff,#0072ff);
         color: white;
