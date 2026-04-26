@@ -41,19 +41,19 @@ if not st.session_state.login:
 
     /* ACTUAL LOGIN BOX */
     .login-card {
-        width: 100px;
-        padding: 25px;
-        border-radius: 15px;
+        width: 70px;
+        padding: 15px;
+        border-radius: 10px;
         background: rgba(255,255,255,0.10);
         backdrop-filter: blur(20px);
         box-shadow: 0 0 25px rgba(0,0,0,0.5);
-        text-align: center;
+        text-align: Left;
     }
 
     /* Inputs */
     .stTextInput input {
         border-radius: 8px;
-        padding: 10px;
+        padding: 5px;
         border: 1px solid #00c6ff;
     }
 
