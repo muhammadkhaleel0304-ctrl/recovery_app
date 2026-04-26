@@ -38,8 +38,7 @@ else:
     if st.button("Logout"):
         st.session_state["login"] = False
         st.rerun()
-       <h3 style='text-align: center; color: Red;'>Recovery and Overdue Portal</h3>
-    <hr style='border-top: 3px solid #bbb;'>
+    
 """, unsafe_allow_html=True)
 # -------------------
 st.title("CNIC QR Generator")
