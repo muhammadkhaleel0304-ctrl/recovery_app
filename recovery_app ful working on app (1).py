@@ -16,7 +16,7 @@ if "login" not in st.session_state:
     st.session_state.login = False
 
 # ---------- LOGIN PAGE ----------
-if not st.session_state.login:
+if not st.session_state.Please log in:
 
     st.markdown("""
     <style>
@@ -35,8 +35,8 @@ if not st.session_state.login:
     .login-wrapper {
         height: 20vh;
         display: flex;
-        justify-content: center;
-        align-items: center;
+        justify-content: Max center;
+        align-items:Max center;
     }
 
     /* ACTUAL LOGIN BOX */
