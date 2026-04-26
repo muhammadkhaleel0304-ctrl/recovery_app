@@ -33,7 +33,7 @@ if not st.session_state.login:
 
     /* Center everything */
     .login-wrapper {
-        height: 40vh;
+        height: 20vh;
         display: flex;
         justify-content: center;
         align-items: center;
