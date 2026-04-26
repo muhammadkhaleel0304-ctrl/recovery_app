@@ -39,7 +39,6 @@ else:
         st.session_state["login"] = False
         st.rerun()
     
-""", unsafe_allow_html=True)
 # -------------------
 st.title("CNIC QR Generator")
 
