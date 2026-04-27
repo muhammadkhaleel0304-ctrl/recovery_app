@@ -20,78 +20,33 @@ if not st.session_state.login:
 
     st.markdown("""
     <style>
-
-    /* Remove top space */
-    .block-container {
-        padding-top: 2rem;
-    }
-
-    /* Background */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     }
 
-    /* Center whole content */
-    .main {
-        display: flex;
-        justify-content: center;
-    }
-
-    /* Input container center */
-    div[data-testid="stTextInput"] > div {
-        width: 250px;
-        margin: auto;
-    }
-
-    /* Input styling */
-    div[data-testid="stTextInput"] input {
-        text-align: center;
-        padding: 8px;
-        border-radius: 8px;
-        border: 1px solid #00c6ff;
-    }
-
-    /* Center button */
-    div[data-testid="stButton"] {
-        display: flex;
-        justify-content: center;
-    }
-
-    /* Button same width */
-    .stButton button {
-        width: 250px;
-        border-radius: 8px;
-        background: linear-gradient(90deg,#00c6ff,#0072ff);
-        color: white;
-    }
-
-    /* Center title */
-    h2 {
-        text-align: center;
-        color: white;
-    }
-
-    /* Center labels */
-    label {
-        text-align: center !important;
-        display: block;
+    h2, label {
         color: white !important;
+        text-align: center;
     }
 
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("## 🔐 Login")
+    # 🔥 CENTER USING COLUMNS
+    col1, col2, col3 = st.columns([1,2,1])
 
-    user = st.text_input("Username")
-    pwd = st.text_input("Password", type="password")
+    with col2:
+        st.markdown("## 🔐 Login")
 
-    if st.button("Login"):
-        if user == "admin" and pwd == "1234":
-            st.session_state.login = True
-            st.rerun()
-        else:
-            st.error("Wrong login ❌")
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+
+        if st.button("Login", use_container_width=True):
+            if user == "admin" and pwd == "1234":
+                st.session_state.login = True
+                st.rerun()
+            else:
+                st.error("Wrong login ❌")
 
     st.stop()
 
@@ -102,7 +57,6 @@ st.write("Login successful ✔")
 if st.button("Logout"):
     st.session_state.login = False
     st.rerun()
-
     
 # -------------------
 st.title("CNIC QR Generator")
