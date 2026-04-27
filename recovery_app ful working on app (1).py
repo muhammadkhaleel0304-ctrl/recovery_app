@@ -56,7 +56,7 @@ st.write("Login successful ✔")
 
 if st.button("Logout"):
     st.session_state.login = False
-   st.experimental_rerun()
+   st.rerun()
     
 # -------------------
 st.title("CNIC QR Generator")
