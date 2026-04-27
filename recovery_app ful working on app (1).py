@@ -21,9 +21,9 @@ if not st.session_state.login:
     st.markdown("""
     <style>
 
-    /* Hide default space */
+    /* Remove top space */
     .block-container {
-        padding-top: 0rem;
+        padding-top: 2rem;
     }
 
     /* Background */
@@ -31,48 +31,55 @@ if not st.session_state.login:
         background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     }
 
-    /* Center everything */
-    .login-wrapper {
-        height: 20vh;
+    /* Center whole content */
+    .main {
         display: flex;
         justify-content: center;
-        align-items:center;
     }
 
-    /* ACTUAL LOGIN BOX */
-    .login-card {
-        width: 400px;
-        padding: 15px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.10);
-        backdrop-filter: blur(20px);
-        box-shadow: 0 0 25px rgba(0,0,0,0.5);
-        text-align: Center;
+    /* Input container center */
+    div[data-testid="stTextInput"] > div {
+        width: 250px;
+        margin: auto;
     }
 
-    /* Inputs */
-    .stTextInput input {
+    /* Input styling */
+    div[data-testid="stTextInput"] input {
+        text-align: center;
+        padding: 8px;
         border-radius: 8px;
-        padding: 5px;
         border: 1px solid #00c6ff;
     }
 
-    /* Button */
+    /* Center button */
+    div[data-testid="stButton"] {
+        display: flex;
+        justify-content: center;
+    }
+
+    /* Button same width */
     .stButton button {
-        width: 30%;
+        width: 250px;
         border-radius: 8px;
         background: linear-gradient(90deg,#00c6ff,#0072ff);
         color: white;
     }
 
-    h2, label {
+    /* Center title */
+    h2 {
+        text-align: center;
+        color: white;
+    }
+
+    /* Center labels */
+    label {
+        text-align: center !important;
+        display: block;
         color: white !important;
     }
 
     </style>
     """, unsafe_allow_html=True)
-
-    st.markdown('<div class="login-wrapper"><div class="login-card">', unsafe_allow_html=True)
 
     st.markdown("## 🔐 Login")
 
@@ -86,8 +93,6 @@ if not st.session_state.login:
         else:
             st.error("Wrong login ❌")
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
     st.stop()
 
 # ---------- DASHBOARD ----------
@@ -97,6 +102,8 @@ st.write("Login successful ✔")
 if st.button("Logout"):
     st.session_state.login = False
     st.rerun()
+
+    
 # -------------------
 st.title("CNIC QR Generator")
 
