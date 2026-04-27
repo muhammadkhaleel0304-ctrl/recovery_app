@@ -44,7 +44,7 @@ if not st.session_state.login:
         if st.button("Login", use_container_width=True):
             if user == "admin" and pwd == "1234":
                 st.session_state.login = True
-                st.rerun()
+               st.experimental_rerun()
             else:
                 st.error("Wrong login ❌")
 
