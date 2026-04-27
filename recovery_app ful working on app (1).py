@@ -11,9 +11,24 @@ import streamlit as st
 
 st.set_page_config(layout="centered")
 
+# ---------- USERS ----------
+USERS = {
+    "admin": "1234",
+    "user": "1111"
+}
+
 # ---------- SESSION ----------
 if "login" not in st.session_state:
     st.session_state.login = False
+
+
+# ---------- SAFE RERUN (important fix) ----------
+def safe_rerun():
+    try:
+        st.rerun()  # new version
+    except:
+        st.experimental_rerun()  # old version
+
 
 # ---------- LOGIN PAGE ----------
 if not st.session_state.login:
@@ -29,10 +44,20 @@ if not st.session_state.login:
         text-align: center;
     }
 
+    .stButton>button {
+        background: #00c6ff;
+        color: white;
+        border-radius: 10px;
+        height: 40px;
+        font-weight: bold;
+    }
+
+    .stButton>button:hover {
+        background: #0072ff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # 🔥 CENTER USING COLUMNS
     col1, col2, col3 = st.columns([1,2,1])
 
     with col2:
@@ -42,22 +67,22 @@ if not st.session_state.login:
         pwd = st.text_input("Password", type="password")
 
         if st.button("Login", use_container_width=True):
-            if user == "admin" and pwd == "1234":
+            if USERS.get(user) == pwd:
                 st.session_state.login = True
-               st.experimental_rerun()
+                safe_rerun()
             else:
-                st.error("Wrong login ❌")
+                st.error("❌ Invalid username or password")
 
     st.stop()
 
+
 # ---------- DASHBOARD ----------
 st.title("📊 Dashboard")
-st.write("Login successful ✔")
+st.success("Login successful ✔")
 
 if st.button("Logout"):
     st.session_state.login = False
-   st.rerun()
-    
+    safe_rerun()
 # -------------------
 st.title("CNIC QR Generator")
 
