@@ -22,14 +22,6 @@ if "login" not in st.session_state:
     st.session_state.login = False
 
 
-# ---------- SAFE RERUN (important fix) ----------
-def safe_rerun():
-    try:
-        st.rerun()  # new version
-    except:
-        st.experimental_rerun()  # old version
-
-
 # ---------- LOGIN PAGE ----------
 if not st.session_state.login:
 
@@ -66,10 +58,11 @@ if not st.session_state.login:
         user = st.text_input("Username")
         pwd = st.text_input("Password", type="password")
 
-        if st.button("Login", use_container_width=True):
+        login_btn = st.button("Login", use_container_width=True)
+
+        if login_btn:
             if USERS.get(user) == pwd:
                 st.session_state.login = True
-                safe_rerun()
             else:
                 st.error("❌ Invalid username or password")
 
@@ -80,9 +73,10 @@ if not st.session_state.login:
 st.title("📊 Dashboard")
 st.success("Login successful ✔")
 
-if st.button("Logout"):
+logout_btn = st.button("Logout")
+
+if logout_btn:
     st.session_state.login = False
-    safe_rerun()
 # -------------------
 st.title("CNIC QR Generator")
 
