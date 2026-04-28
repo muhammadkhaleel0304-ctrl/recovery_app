@@ -54,8 +54,7 @@ if not st.session_state.login:
 
     with col2:
         st.markdown("## 🔐Please Login")
-        st.markdown("### 🔐 Please Login")
-        user = st.text_input("Username")
+                user = st.text_input("Username")
         pwd = st.text_input("Password", type="password")
 
         login_btn = st.button("Login", use_container_width=True)
