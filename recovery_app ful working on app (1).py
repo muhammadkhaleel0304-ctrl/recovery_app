@@ -19,7 +19,7 @@ USERS = {
 
 # ---------- SESSION ----------
 if "login" not in st.session_state:
-    st.session_state.login = False
+st.session_state.login = False
 
 
 # ---------- LOGIN PAGE ----------
