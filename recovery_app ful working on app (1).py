@@ -13,7 +13,7 @@ st.set_page_config(layout="centered")
 
 # ---------- USERS ----------
 USERS = {
-    "admin": "1234",
+    "Admin": "1234",
     "user": "1111"
 }
 
