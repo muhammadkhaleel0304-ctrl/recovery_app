@@ -46,7 +46,6 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
-st.set_page_config(layout="centered")
 
 # ---------- USERS ----------
 USERS = {
