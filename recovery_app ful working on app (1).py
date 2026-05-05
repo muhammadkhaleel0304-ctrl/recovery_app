@@ -46,6 +46,65 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
+# ====== URDU OCR SECTION START ======
+
+import streamlit as st
+from PIL import Image
+import pytesseract
+from docx import Document
+
+st.markdown("## 🧾 Urdu Image to Text")
+
+uploaded_file = st.file_uploader("📤 Urdu text wali image upload karein", type=["png", "jpg", "jpeg"])
+
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    st.info("⏳ Text extract ho raha hai...")
+
+    # OCR (Urdu)
+    try:
+        text = pytesseract.image_to_string(image, lang='urd')
+    except:
+        text = pytesseract.image_to_string(image)
+
+    st.success("✅ Text extract ho gaya")
+
+    # Show text
+    st.subheader("📄 Extracted Text")
+    st.text_area("Result", text, height=200)
+
+    # -------- DOWNLOAD OPTIONS --------
+    st.markdown("### ⬇️ Download Options")
+
+    # TXT
+    st.download_button(
+        label="📄 TXT Download",
+        data=text,
+        file_name="urdu_text.txt",
+        mime="text/plain"
+    )
+
+    # WORD
+    doc = Document()
+    doc.add_paragraph(text)
+    doc.save("urdu_text.docx")
+
+    with open("urdu_text.docx", "rb") as f:
+        st.download_button(
+            label="📘 Word Download",
+            data=f,
+            file_name="urdu_text.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+    # -------- INPAGE COPY --------
+    st.markdown("### 📋 InPage ke liye copy karein")
+    st.text_area("Is text ko copy karke InPage me paste karein", text, height=200)
+
+# ====== URDU OCR SECTION END ======
 
 # ---------- USERS ----------
 USERS = {
