@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
-import streamlit as st
 st.title("CNIC QR Generator")
 
 cnic = st.text_input("Enter 13-digit CNIC")
