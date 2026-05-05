@@ -20,3 +20,5 @@ pillow
 opencv-python-headless
 pyzbar
 numpy
+pytesseract
+python-docx
