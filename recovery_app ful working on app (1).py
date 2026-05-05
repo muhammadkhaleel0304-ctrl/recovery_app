@@ -52,8 +52,6 @@ from docx import Document
 from google.cloud import vision
 import io
 
-st.title("🧾 Urdu Image to Text")
-
 uploaded_file = st.file_uploader("📤 Image upload karein", type=["png", "jpg", "jpeg"])
 
 def extract_text(image_file):
