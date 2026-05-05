@@ -46,64 +46,50 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
-# ====== URDU OCR SECTION START ======
-
 import streamlit as st
 from PIL import Image
-import pytesseract
 from docx import Document
+from google.cloud import vision
+import io
 
+st.title("🧾 Urdu Image to Text")
 
-uploaded_file = st.file_uploader("📤 Urdu text wali image upload karein", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("📤 Image upload karein", type=["png", "jpg", "jpeg"])
+
+def extract_text(image_file):
+    client = vision.ImageAnnotatorClient()
+    content = image_file.read()
+    image = vision.Image(content=content)
+
+    response = client.text_detection(image=image)
+
+    if response.text_annotations:
+        return response.text_annotations[0].description
+    else:
+        return "No text found"
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
+    st.image(image)
 
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    st.info("⏳ Processing...")
 
-    st.info("⏳ Text extract ho raha hai...")
+    text = extract_text(uploaded_file)
 
-    # OCR (Urdu)
-    try:
-        text = pytesseract.image_to_string(image, lang='urd')
-    except:
-        text = pytesseract.image_to_string(image)
+    st.success("✅ Done")
 
-    st.success("✅ Text extract ho gaya")
+    st.text_area("📄 Extracted Text", text, height=200)
 
-    # Show text
-    st.subheader("📄 Extracted Text")
-    st.text_area("Result", text, height=200)
+    # TXT Download
+    st.download_button("📄 TXT Download", text, "urdu.txt")
 
-    # -------- DOWNLOAD OPTIONS --------
-    st.markdown("### ⬇️ Download Options")
-
-    # TXT
-    st.download_button(
-        label="📄 TXT Download",
-        data=text,
-        file_name="urdu_text.txt",
-        mime="text/plain"
-    )
-
-    # WORD
+    # Word Download
     doc = Document()
     doc.add_paragraph(text)
-    doc.save("urdu_text.docx")
+    doc.save("urdu.docx")
 
-    with open("urdu_text.docx", "rb") as f:
-        st.download_button(
-            label="📘 Word Download",
-            data=f,
-            file_name="urdu_text.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-
-    # -------- INPAGE COPY --------
-    st.markdown("### 📋 InPage ke liye copy karein")
-    st.text_area("Is text ko copy karke InPage me paste karein", text, height=200)
-
-# ====== URDU OCR SECTION END ======
+    with open("urdu.docx", "rb") as f:
+        st.download_button("📘 Word Download", f, "urdu.docx")
 
 # ---------- USERS ----------
 USERS = {
