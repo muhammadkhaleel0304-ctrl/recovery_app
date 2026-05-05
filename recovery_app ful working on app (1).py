@@ -46,48 +46,6 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
-import streamlit as st
-from PIL import Image
-from docx import Document
-from google.cloud import vision
-import io
-
-uploaded_file = st.file_uploader("📤 Image upload karein", type=["png", "jpg", "jpeg"])
-
-def extract_text(image_file):
-    client = vision.ImageAnnotatorClient()
-    content = image_file.read()
-    image = vision.Image(content=content)
-
-    response = client.text_detection(image=image)
-
-    if response.text_annotations:
-        return response.text_annotations[0].description
-    else:
-        return "No text found"
-
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image)
-
-    st.info("⏳ Processing...")
-
-    text = extract_text(uploaded_file)
-
-    st.success("✅ Done")
-
-    st.text_area("📄 Extracted Text", text, height=200)
-
-    # TXT Download
-    st.download_button("📄 TXT Download", text, "urdu.txt")
-
-    # Word Download
-    doc = Document()
-    doc.add_paragraph(text)
-    doc.save("urdu.docx")
-
-    with open("urdu.docx", "rb") as f:
-        st.download_button("📘 Word Download", f, "urdu.docx")
 
 # ---------- USERS ----------
 USERS = {
