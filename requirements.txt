@@ -22,3 +22,7 @@ pyzbar
 numpy
 pytesseract
 python-docx
+streamlit
+pillow
+python-docx
+google-cloud-vision
