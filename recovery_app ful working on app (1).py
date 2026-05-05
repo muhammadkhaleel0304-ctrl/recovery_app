@@ -53,7 +53,6 @@ from PIL import Image
 import pytesseract
 from docx import Document
 
-st.markdown("## 🧾 Urdu Image to Text")
 
 uploaded_file = st.file_uploader("📤 Urdu text wali image upload karein", type=["png", "jpg", "jpeg"])
 
