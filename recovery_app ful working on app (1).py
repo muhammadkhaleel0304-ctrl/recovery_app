@@ -48,7 +48,7 @@ if st.button("Generate QR"):
 
 # ---------- USERS ----------
 USERS = {
-    "Admin": "112341",
+    "Khaleel": "11234",
     "user": "1111"
 }
 
