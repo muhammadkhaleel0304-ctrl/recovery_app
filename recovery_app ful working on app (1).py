@@ -320,7 +320,6 @@ if merge_file and branch_file:
 
 else:
     merge_table_placeholder.info("Upload both Merge File and Branch File to generate merged report.")
-F(FPDF):
         def header(self):
 import streamlit as st
 import pandas as pd
