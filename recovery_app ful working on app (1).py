@@ -382,6 +382,7 @@ if uploaded_file:
 
     # Pivot Table
     st.subheader("📌 Pivot Table (Branch → Project → Date)")
+
     pivot_df = df.groupby(['branch_id', 'project', 'recovery_date']).agg(
         Receipts=('receipt_no', 'count'),
         Amount=('amount', 'sum')
@@ -402,7 +403,7 @@ if uploaded_file:
     # =========================
     # PDF DOWNLOAD SECTION
     # =========================
-    st.subheader("📥 Download Branch-wise Pivot Table PDFs")
+    st.subheader("📥 Download Branch-wise PDFs")
 
     for branch, branch_df in pivot_df.groupby('branch_id'):
 
@@ -416,15 +417,18 @@ if uploaded_file:
         branch_total_amount = 0
         branch_total_receipts = 0
 
+        # =========================
+        # PROJECT WISE
+        # =========================
         for project, proj_df in branch_df.groupby('project'):
 
             branch_pdf.set_font("Arial", 'B', 12)
             branch_pdf.cell(0, 8, f"Project: {project}", ln=True)
 
             branch_pdf.set_font("Arial", 'B', 10)
-            branch_pdf.cell(40, 8, "Date", border=1, align='C')
-            branch_pdf.cell(40, 8, "Receipts", border=1, align='C')
-            branch_pdf.cell(40, 8, "Amount", border=1, align='C')
+            branch_pdf.cell(40, 8, "Date", border=1)
+            branch_pdf.cell(40, 8, "Receipts", border=1)
+            branch_pdf.cell(40, 8, "Amount", border=1)
             branch_pdf.ln()
 
             project_total_amount = 0
@@ -433,7 +437,7 @@ if uploaded_file:
             branch_pdf.set_font("Arial", '', 10)
 
             for _, row in proj_df.iterrows():
-                date_str = row['recovery_date'].strftime('%Y-%m-%d') if pd.notnull(row['recovery_date']) else ''
+                date_str = row['recovery_date'].strftime('%Y-%m-%d')
 
                 branch_pdf.cell(40, 8, date_str, border=1)
                 branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
@@ -443,7 +447,6 @@ if uploaded_file:
                 project_total_receipts += row['Receipts']
                 project_total_amount += row['Amount']
 
-            # Project total
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Project Total", border=1)
             branch_pdf.cell(40, 8, str(project_total_receipts), border=1, align='C')
@@ -454,7 +457,35 @@ if uploaded_file:
             branch_total_amount += project_total_amount
 
         # =========================
-        # FINAL BRANCH SUMMARY (ONLY PDF)
+        # DATE WISE SUMMARY (NEW)
+        # =========================
+        branch_pdf.ln(5)
+        branch_pdf.set_font("Arial", 'B', 12)
+        branch_pdf.cell(0, 10, "DATE-WISE SUMMARY", ln=True)
+
+        date_summary = branch_df.groupby('recovery_date').agg(
+            Receipts=('receipt_no', 'count'),
+            Amount=('Amount', 'sum')
+        ).reset_index()
+
+        branch_pdf.set_font("Arial", 'B', 10)
+        branch_pdf.cell(40, 8, "Date", border=1)
+        branch_pdf.cell(40, 8, "Receipts", border=1)
+        branch_pdf.cell(40, 8, "Amount", border=1)
+        branch_pdf.ln()
+
+        branch_pdf.set_font("Arial", '', 10)
+
+        for _, row in date_summary.iterrows():
+            date_str = row['recovery_date'].strftime('%Y-%m-%d')
+
+            branch_pdf.cell(40, 8, date_str, border=1)
+            branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
+            branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
+            branch_pdf.ln()
+
+        # =========================
+        # BRANCH SUMMARY
         # =========================
         branch_pdf.ln(5)
         branch_pdf.set_font("Arial", 'B', 12)
