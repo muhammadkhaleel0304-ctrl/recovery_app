@@ -320,11 +320,17 @@ if merge_file and branch_file:
 
 else:
     merge_table_placeholder.info("Upload both Merge File and Branch File to generate merged report.")
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from fpdf import FPDF
+
 # Upload Recovery File
 uploaded_file = st.file_uploader("📁 Upload Recovery File (Excel)", type=["xlsx"])
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
+
     df['recovery_date'] = pd.to_datetime(df['recovery_date'], errors='coerce')
     df.dropna(subset=['recovery_date'], inplace=True)
     df['day'] = df['recovery_date'].dt.day
@@ -361,10 +367,15 @@ if uploaded_file:
 
     # Chart
     st.subheader("📈 Recovery Chart by Date Range")
-    fig = px.bar(summary, x='branch_id', y='amount', color='range',
-                 barmode='group',
-                 text=summary['percentage'].apply(lambda x: f"{x:.1f}%"),
-                 labels={'amount': 'Amount Recovered', 'branch_id': 'Branch'})
+    fig = px.bar(
+        summary,
+        x='branch_id',
+        y='amount',
+        color='range',
+        barmode='group',
+        text=summary['percentage'].apply(lambda x: f"{x:.1f}%"),
+        labels={'amount': 'Amount Recovered', 'branch_id': 'Branch'}
+    )
     fig.update_traces(textposition='outside')
     fig.update_layout(xaxis_title="Branch", yaxis_title="Amount", legend_title="Date Range")
     st.plotly_chart(fig, use_container_width=True)
@@ -377,6 +388,36 @@ if uploaded_file:
     ).reset_index()
 
     st.dataframe(pivot_df)
+
+    # ==============================
+    # NEW FEATURE: Date-wise Summary
+    # ==============================
+    st.subheader("📅 Date-wise Overall Recovery Summary (All Projects Combined)")
+
+    date_summary = df.groupby('recovery_date').agg(
+        Receipts=('receipt_no', 'count'),
+        Amount=('amount', 'sum')
+    ).reset_index()
+
+    date_summary = date_summary.sort_values('recovery_date')
+
+    grand_total = pd.DataFrame({
+        'recovery_date': ['Grand Total'],
+        'Receipts': [date_summary['Receipts'].sum()],
+        'Amount': [date_summary['Amount'].sum()]
+    })
+
+    date_summary_display = date_summary.copy()
+    date_summary_display['recovery_date'] = date_summary_display['recovery_date'].dt.strftime('%Y-%m-%d')
+
+    date_summary_display = pd.concat([date_summary_display, grand_total], ignore_index=True)
+
+    st.dataframe(
+        date_summary_display.style.format({
+            'Amount': 'Rs {:,.0f}'
+        }),
+        use_container_width=True
+    )
 
     # PDF Class
     class PDF(FPDF):
@@ -401,7 +442,6 @@ if uploaded_file:
             branch_pdf.set_font("Arial", 'B', 12)
             branch_pdf.cell(0, 8, f"Project: {project}", ln=True)
 
-            # Table Header
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Date", border=1, align='C')
             branch_pdf.cell(40, 8, "Receipts", border=1, align='C')
@@ -421,7 +461,6 @@ if uploaded_file:
                 project_total_receipts += row['Receipts']
                 project_total_amount += row['Amount']
 
-            # Project total
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Project Total", border=1)
             branch_pdf.cell(40, 8, str(project_total_receipts), border=1, align='C')
@@ -431,13 +470,13 @@ if uploaded_file:
             branch_total_receipts += project_total_receipts
             branch_total_amount += project_total_amount
 
-        # Branch total
         branch_pdf.set_font("Arial", 'B', 11)
         branch_pdf.cell(40, 8, "Branch Total", border=1)
         branch_pdf.cell(40, 8, str(branch_total_receipts), border=1, align='C')
         branch_pdf.cell(40, 8, f"Rs {branch_total_amount:,.0f}", border=1, align='R')
 
         pdf_bytes = branch_pdf.output(dest='S').encode('latin1')
+
         st.download_button(
             label=f"📥 Download PDF for Branch {branch}",
             data=pdf_bytes,
