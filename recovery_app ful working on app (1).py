@@ -325,14 +325,18 @@ import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
 
-# Upload Recovery File
+# =========================
+# UPLOAD FILE
+# =========================
 uploaded_file = st.file_uploader("📁 Upload Recovery File (Excel)", type=["xlsx"])
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
+    # DATE FIX
     df['recovery_date'] = pd.to_datetime(df['recovery_date'], errors='coerce')
     df.dropna(subset=['recovery_date'], inplace=True)
+
     df['day'] = df['recovery_date'].dt.day
 
     def get_range(day):
@@ -346,10 +350,15 @@ if uploaded_file:
 
     df['range'] = df['day'].apply(get_range)
 
+    # =========================
+    # SHOW DATA
+    # =========================
     st.write("### 📄 Complete Recovery Data")
     st.dataframe(df)
 
-    # Summary
+    # =========================
+    # SUMMARY
+    # =========================
     summary = df.groupby(['branch_id', 'range']).agg({
         'amount': 'sum',
         'receipt_no': 'count'
@@ -365,8 +374,11 @@ if uploaded_file:
         'percentage': '{:.2f}%'
     }))
 
-    # Chart
+    # =========================
+    # CHART
+    # =========================
     st.subheader("📈 Recovery Chart by Date Range")
+
     fig = px.bar(
         summary,
         x='branch_id',
@@ -376,12 +388,14 @@ if uploaded_file:
         text=summary['percentage'].apply(lambda x: f"{x:.1f}%"),
         labels={'amount': 'Amount Recovered', 'branch_id': 'Branch'}
     )
+
     fig.update_traces(textposition='outside')
-    fig.update_layout(xaxis_title="Branch", yaxis_title="Amount", legend_title="Date Range")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Pivot Table
-    st.subheader("📌 Pivot Table (Branch → Project → Date)")
+    # =========================
+    # PIVOT
+    # =========================
+    st.subheader("📌 Pivot Table")
 
     pivot_df = df.groupby(['branch_id', 'project', 'recovery_date']).agg(
         Receipts=('receipt_no', 'count'),
@@ -401,7 +415,7 @@ if uploaded_file:
             pass
 
     # =========================
-    # PDF DOWNLOAD SECTION
+    # PDF DOWNLOAD
     # =========================
     st.subheader("📥 Download Branch-wise PDFs")
 
@@ -428,7 +442,7 @@ if uploaded_file:
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Date", border=1)
             branch_pdf.cell(40, 8, "Receipts", border=1)
-            branch_pdf.cell(40, 8, "amount", border=1)
+            branch_pdf.cell(40, 8, "Amount", border=1)
             branch_pdf.ln()
 
             project_total_amount = 0
@@ -441,11 +455,11 @@ if uploaded_file:
 
                 branch_pdf.cell(40, 8, date_str, border=1)
                 branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
-                branch_pdf.cell(40, 8, f"Rs {row['amount']:,.0f}", border=1, align='R')
+                branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
                 branch_pdf.ln()
 
                 project_total_receipts += row['Receipts']
-                project_total_amount += row['amount']
+                project_total_amount += row['Amount']
 
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Project Total", border=1)
@@ -457,38 +471,35 @@ if uploaded_file:
             branch_total_amount += project_total_amount
 
         # =========================
-       # ==========================
-# DATE-WISE SUMMARY (SAFE FIX)
-# ==========================
-branch_pdf.ln(5)
-branch_pdf.set_font("Arial", 'B', 12)
-branch_pdf.cell(0, 10, "DATE-WISE SUMMARY", ln=True)
+        # DATE WISE SUMMARY (FIXED)
+        # =========================
+        branch_pdf.ln(5)
+        branch_pdf.set_font("Arial", 'B', 12)
+        branch_pdf.cell(0, 10, "DATE-WISE SUMMARY", ln=True)
 
-date_summary = branch_df.groupby('recovery_date').agg(
-    Receipts=('receipt_no', 'count'),
-    Amount=('amount', 'sum')
-).reset_index()
+        date_summary = branch_df.groupby('recovery_date').agg(
+            Receipts=('receipt_no', 'count'),
+            Amount=('amount', 'sum')
+        ).reset_index()
 
-# safety fix (null dates remove)
-date_summary = date_summary.dropna(subset=['recovery_date'])
+        date_summary = date_summary.dropna(subset=['recovery_date'])
+        date_summary = date_summary.sort_values('recovery_date')
 
-date_summary = date_summary.sort_values('recovery_date')
+        branch_pdf.set_font("Arial", 'B', 10)
+        branch_pdf.cell(40, 8, "Date", border=1)
+        branch_pdf.cell(40, 8, "Receipts", border=1)
+        branch_pdf.cell(40, 8, "Amount", border=1)
+        branch_pdf.ln()
 
-branch_pdf.set_font("Arial", 'B', 10)
-branch_pdf.cell(40, 8, "Date", border=1)
-branch_pdf.cell(40, 8, "Receipts", border=1)
-branch_pdf.cell(40, 8, "Amount", border=1)
-branch_pdf.ln()
+        branch_pdf.set_font("Arial", '', 10)
 
-branch_pdf.set_font("Arial", '', 10)
+        for _, row in date_summary.iterrows():
+            date_str = row['recovery_date'].strftime('%Y-%m-%d')
 
-for _, row in date_summary.iterrows():
-    date_str = row['recovery_date'].strftime('%Y-%m-%d')
-
-    branch_pdf.cell(40, 8, date_str, border=1)
-    branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
-    branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
-    branch_pdf.ln()
+            branch_pdf.cell(40, 8, date_str, border=1)
+            branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
+            branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
+            branch_pdf.ln()
 
         # =========================
         # BRANCH SUMMARY
@@ -499,7 +510,7 @@ for _, row in date_summary.iterrows():
 
         branch_pdf.set_font("Arial", '', 11)
         branch_pdf.cell(0, 8, f"Total Receipts: {branch_total_receipts}", ln=True)
-        branch_pdf.cell(0, 8, f"Total amount: Rs {branch_total_amount:,.0f}", ln=True)
+        branch_pdf.cell(0, 8, f"Total Amount: Rs {branch_total_amount:,.0f}", ln=True)
 
         pdf_bytes = branch_pdf.output(dest='S').encode('latin1')
 
