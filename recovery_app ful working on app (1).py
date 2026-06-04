@@ -428,7 +428,7 @@ if uploaded_file:
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Date", border=1)
             branch_pdf.cell(40, 8, "Receipts", border=1)
-            branch_pdf.cell(40, 8, "Amount", border=1)
+            branch_pdf.cell(40, 8, "amount", border=1)
             branch_pdf.ln()
 
             project_total_amount = 0
@@ -441,11 +441,11 @@ if uploaded_file:
 
                 branch_pdf.cell(40, 8, date_str, border=1)
                 branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
-                branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
+                branch_pdf.cell(40, 8, f"Rs {row['amount']:,.0f}", border=1, align='R')
                 branch_pdf.ln()
 
                 project_total_receipts += row['Receipts']
-                project_total_amount += row['Amount']
+                project_total_amount += row['amount']
 
             branch_pdf.set_font("Arial", 'B', 10)
             branch_pdf.cell(40, 8, "Project Total", border=1)
@@ -465,13 +465,13 @@ if uploaded_file:
 
         date_summary = branch_df.groupby('recovery_date').agg(
             Receipts=('receipt_no', 'count'),
-            Amount=('Amount', 'sum')
+            Amount=('amount', 'sum')
         ).reset_index()
 
         branch_pdf.set_font("Arial", 'B', 10)
         branch_pdf.cell(40, 8, "Date", border=1)
         branch_pdf.cell(40, 8, "Receipts", border=1)
-        branch_pdf.cell(40, 8, "Amount", border=1)
+        branch_pdf.cell(40, 8, "amount", border=1)
         branch_pdf.ln()
 
         branch_pdf.set_font("Arial", '', 10)
@@ -481,7 +481,7 @@ if uploaded_file:
 
             branch_pdf.cell(40, 8, date_str, border=1)
             branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
-            branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
+            branch_pdf.cell(40, 8, f"Rs {row['amount']:,.0f}", border=1, align='R')
             branch_pdf.ln()
 
         # =========================
@@ -493,7 +493,7 @@ if uploaded_file:
 
         branch_pdf.set_font("Arial", '', 11)
         branch_pdf.cell(0, 8, f"Total Receipts: {branch_total_receipts}", ln=True)
-        branch_pdf.cell(0, 8, f"Total Amount: Rs {branch_total_amount:,.0f}", ln=True)
+        branch_pdf.cell(0, 8, f"Total amount: Rs {branch_total_amount:,.0f}", ln=True)
 
         pdf_bytes = branch_pdf.output(dest='S').encode('latin1')
 
