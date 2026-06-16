@@ -87,8 +87,35 @@ if not st.session_state.login:
 
     col1, col2, col3 = st.columns([1,2,1])
 
+   import streamlit as st
+import pandas as pd
+import calendar
+from io import BytesIO
+import os
+
+# ================= CONFIG =================
+st.set_page_config(
+    page_title="Recovery Month Wise Summary",
+    layout="wide"
+)
+
+# ================= USERS =================
+USERS = {
+    "admin": "1234",
+    "user": "pass"
+}
+
+# ================= LOGIN SYSTEM =================
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+if not st.session_state.login:
+
+    col1, col2 = st.columns(2)
+
     with col2:
-        st.markdown("## 🔐Please Login")
+        st.markdown("## 🔐 Please Login")
+
         user = st.text_input("Username")
         pwd = st.text_input("Password", type="password")
 
@@ -97,42 +124,33 @@ if not st.session_state.login:
         if login_btn:
             if USERS.get(user) == pwd:
                 st.session_state.login = True
+                st.success("Login successful ✔")
+                st.rerun()
             else:
                 st.error("❌ Invalid username or password")
 
     st.stop()
 
-
-# ---------- DASHBOARD ----------
-st.title("📊 Dashboard")
-st.success("Login successful ✔")
+# ================= DASHBOARD =================
+st.title("📊 Recovery Month Wise & Branch Wise Summary")
 
 logout_btn = st.button("Logout")
 if logout_btn:
-  st.session_state.login = False
-import streamlit as st
-import pandas as pd
-import calendar
-from io import BytesIO
-import os
-
-page_title="Recovery Month Wise Summary",
-
-)
-
-st.title("📊 Recovery Month Wise & Branch Wise Summary")
+    st.session_state.login = False
+    st.rerun()
 
 # ================= STORAGE =================
-
 os.makedirs("data", exist_ok=True)
 LOCAL_FILE = "data/recovery.xlsx"
 
 # ================= UPLOAD =================
-
 uploaded = st.file_uploader(
     "Upload Recovery File",
     type=["xlsx", "csv"]
 )
+
+if uploaded:
+    st.success("File uploaded successfully ✔")
 
 if uploaded:
 
