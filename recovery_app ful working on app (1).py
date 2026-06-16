@@ -93,12 +93,6 @@ import calendar
 from io import BytesIO
 import os
 
-# ================= CONFIG =================
-
-    page_title="Recovery Month Wise Summary",
-    layout="wide"
-)
-
 # ================= USERS =================
 USERS = {
     "admin": "1234",
