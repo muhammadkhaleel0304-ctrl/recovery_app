@@ -56,7 +56,8 @@ USERS = {
 
 # ---------- SESSION ----------
 if "login" not in st.session_state:
-    st.session_state.login = False 
+    st.session_state.login = False
+
 # ---------- LOGIN PAGE ----------
 if not st.session_state.login:
 
@@ -87,6 +88,23 @@ if not st.session_state.login:
 
     col1, col2, col3 = st.columns([1,2,1])
 
+    with col2:
+        st.markdown("## 🔐 Login")
+
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+
+        login_btn = st.button("Login", use_container_width=True)
+
+        if login_btn:
+            if USERS.get(user) == pwd:
+                st.session_state.login = True
+                st.success("Login successful ✔")
+                st.rerun()
+            else:
+                st.error("❌ Invalid username or password")
+
+    st.stop()
 import streamlit as st
 import pandas as pd
 import calendar
