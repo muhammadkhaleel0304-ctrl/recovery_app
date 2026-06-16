@@ -250,7 +250,6 @@ from io import BytesIO
 import os
     page_title="Recovery Month Wise Summary",
     layout="wide"
-)
 
 st.title("📊 Recovery Month Wise & Branch Wise Summary")
 
