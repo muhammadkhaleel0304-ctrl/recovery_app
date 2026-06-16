@@ -110,18 +110,14 @@ st.success("Login successful ✔")
 logout_btn = st.button("Logout")
 if logout_btn:
   st.session_state.login = False
-
-# MDP Section with G/P and Grand Total
-# -------------------
-
 import streamlit as st
 import pandas as pd
 import calendar
 from io import BytesIO
 import os
 
-    page_title="Recovery Month Wise Summary",
-    layout="wide"
+page_title="Recovery Month Wise Summary",
+layout="wide"
 )
 
 st.title("📊 Recovery Month Wise & Branch Wise Summary")
