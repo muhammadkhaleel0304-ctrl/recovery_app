@@ -109,7 +109,7 @@ st.success("Login successful ✔")
 
 logout_btn = st.button("Logout")
 if logout_btn:
-st.session_state.login = False
+  st.session_state.login = False
 
 # MDP Section with G/P and Grand Total
 # -------------------
