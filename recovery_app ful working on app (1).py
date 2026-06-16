@@ -116,132 +116,458 @@ if logout_btn:
 
 import streamlit as st
 import pandas as pd
+import calendar
 from io import BytesIO
+import os
 
-st.markdown("---")
-st.subheader("📊 MDP Report (Bottom Section)")
+st.set_page_config(
+    page_title="Recovery Month Wise Summary",
+    layout="wide"
+)
 
-# --- File Upload ---
-col1, col2 = st.columns(2)
-with col1:
-    active_file = st.file_uploader("Upload Active Sheet", type=["xlsx","xls","csv"], key="mdp_active_upload")
-with col2:
-    mdp_file = st.file_uploader("Upload MDP Sheet", type=["xlsx","xls","csv"], key="mdp_mdp_upload")
+st.title("📊 Recovery Month Wise & Branch Wise Summary")
 
-# --- Placeholders ---
-table_placeholder = st.empty()
-overall_download_placeholder = st.empty()
-area_dropdown_placeholder = st.empty()
-area_download_placeholder = st.empty()
+# ================= STORAGE =================
 
-# --- Show info if files not uploaded ---
-if not active_file or not mdp_file:
-    table_placeholder.info("Upload both Active and MDP sheets to generate the MDP report and download options.")
+os.makedirs("data", exist_ok=True)
+LOCAL_FILE = "data/recovery.xlsx"
 
-if active_file and mdp_file:
-    try:
-        active_df = pd.read_csv(active_file) if active_file.name.endswith(".csv") else pd.read_excel(active_file)
-        mdp_df = pd.read_csv(mdp_file) if mdp_file.name.endswith(".csv") else pd.read_excel(mdp_file)
-    except Exception as e:
-        table_placeholder.error(f"Error reading files: {e}")
-        st.stop()
+# ================= UPLOAD =================
 
-    # --- Clean columns ---
-    active_df.columns = active_df.columns.str.strip()
-    mdp_df.columns = mdp_df.columns.str.strip()
+uploaded = st.file_uploader(
+    "Upload Recovery File",
+    type=["xlsx", "csv"]
+)
 
-    # --- Check required columns ---
-    for col in ['branch_id','Due Amount','Sanction No']:
-        if col not in active_df.columns and col != 'Due Amount':
-            st.error(f"Active Sheet missing column: {col}")
-            st.stop()
-    for col in ['area_id','branch_id','sanction_no','Due Amount']:
-        if col not in mdp_df.columns:
-            st.error(f"MDP Sheet missing column: {col}")
-            st.stop()
+if uploaded:
 
-    # --- Pivot Calculation ---
-    report_data = []
+    if uploaded.name.endswith(".csv"):
+        df = pd.read_csv(uploaded)
+    else:
+        df = pd.read_excel(uploaded)
 
-    for (area, branch), group in mdp_df.groupby(['area_id','branch_id']):
-        due_count = len(active_df[active_df['branch_id']==branch])
-        amount_sum = group['Due Amount'].sum()
-        active_sanctions = active_df[active_df['branch_id']==branch]['Sanction No'].tolist()
-        g_by_count = sum([1 for x in active_sanctions if x in group['sanction_no'].values])
-        n_a_count = due_count - g_by_count
-        p_b = round((g_by_count/due_count)*100,2) if due_count!=0 else 0
-        n_p = round((n_a_count/due_count)*100,2) if due_count!=0 else 0
-        g_p = p_b  # G/P = same as % of counted borrowers
+    st.session_state["df"] = df
+    df.to_excel(LOCAL_FILE, index=False)
 
-        report_data.append({
-            'Area': area,
-            'Branch': branch,
-            'Active': '',
-            'Due': due_count,
-            'Amount': amount_sum,
-            'G/BY': g_by_count,
-            'G/P %': g_p,
-            'P/B %': p_b,
-            'N/A': n_a_count,
-            'N/P %': n_p
+elif "df" in st.session_state:
+
+    df = st.session_state["df"]
+
+elif os.path.exists(LOCAL_FILE):
+
+    df = pd.read_excel(LOCAL_FILE)
+    st.session_state["df"] = df
+
+else:
+
+    st.info("Upload file first")
+    st.stop()
+
+# ================= REQUIRED COLUMNS =================
+
+required_cols = [
+    "branch_id",
+    "recovery_date",
+    "receipt_no"
+]
+
+missing = [
+    c for c in required_cols
+    if c not in df.columns
+]
+
+if missing:
+
+    st.error(f"Missing Columns: {missing}")
+    st.stop()
+
+# ================= DATE =================
+
+df["recovery_date"] = pd.to_datetime(
+    df["recovery_date"],
+    errors="coerce"
+)
+
+df = df.dropna(subset=["recovery_date"])
+
+# ================= MONTH & DAY =================
+
+df["Month"] = df["recovery_date"].dt.strftime("%Y-%b")
+
+df["Day"] = df["recovery_date"].dt.day
+
+# ================= RANGE =================
+
+def get_range(day):
+
+    if day <= 10:
+        return "1-10"
+
+    elif day <= 20:
+        return "11-20"
+
+    else:
+        return "21-31"
+
+df["Range"] = df["Day"].apply(get_range)
+
+# ================= SUMMARY =================
+
+summary_rows = []
+
+for branch in sorted(df["branch_id"].unique()):
+
+    branch_df = df[
+        df["branch_id"] == branch
+    ]
+
+    for month in sorted(branch_df["Month"].unique()):
+
+        month_df = branch_df[
+            branch_df["Month"] == month
+        ]
+
+        rec_1_10 = len(
+            month_df[
+                month_df["Range"] == "1-10"
+            ]
+        )
+
+        rec_11_20 = len(
+            month_df[
+                month_df["Range"] == "11-20"
+            ]
+        )
+
+        rec_21_31 = len(
+            month_df[
+                month_df["Range"] == "21-31"
+            ]
+        )
+
+        total = len(month_df)
+
+        if total == 0:
+            continue
+
+        pct_1_10 = round(
+            rec_1_10 / total * 100,
+            2
+        )
+
+        pct_11_20 = round(
+            rec_11_20 / total * 100,
+            2
+        )
+
+        pct_21_31 = round(
+            rec_21_31 / total * 100,
+            2
+        )
+
+        last_date = (
+            month_df["recovery_date"]
+            .max()
+        )
+
+        last_day = last_date.day
+
+        year = last_date.year
+        month_no = last_date.month
+
+        month_last_day = calendar.monthrange(
+            year,
+            month_no
+        )[1]
+
+        close_rate = round(
+            last_day / month_last_day * 100,
+            2
+        )
+
+        summary_rows.append({
+
+            "Branch": branch,
+
+            "Month": month,
+
+            "Recovery 1-10":
+            rec_1_10,
+
+            "1-10 %":
+            pct_1_10,
+
+            "Recovery 11-20":
+            rec_11_20,
+
+            "11-20 %":
+            pct_11_20,
+
+            "Recovery 21-31":
+            rec_21_31,
+
+            "21-31 %":
+            pct_21_31,
+
+            "Total Slips":
+            total,
+
+            "Last Recovery Date":
+            last_date.strftime(
+                "%Y-%b-%d"
+            ),
+
+            "Close Rate %":
+            close_rate
+
         })
 
-    report_df = pd.DataFrame(report_data)
+summary_df = pd.DataFrame(
+    summary_rows
+)
 
-    # --- Add Grand Total Row ---
-    grand_total = {
-        'Area': 'Grand Total',
-        'Branch': '',
-        'Active': '',
-        'Due': report_df['Due'].sum(),
-        'Amount': report_df['Amount'].sum(),
-        'G/BY': report_df['G/BY'].sum(),
-        'G/P %': round((report_df['G/BY'].sum()/report_df['Due'].sum())*100,2) if report_df['Due'].sum()!=0 else 0,
-        'P/B %': round((report_df['G/BY'].sum()/report_df['Due'].sum())*100,2) if report_df['Due'].sum()!=0 else 0,
-        'N/A': report_df['N/A'].sum(),
-        'N/P %': round((report_df['N/A'].sum()/report_df['Due'].sum())*100,2) if report_df['Due'].sum()!=0 else 0
+st.subheader(
+    "Month Wise Branch Summary"
+)
+
+st.dataframe(
+    summary_df,
+    use_container_width=True
+)
+# ================= GRAND TOTAL =================
+
+if not summary_df.empty:
+
+    grand_row = {
+
+        "Branch": "Grand Total",
+        "Month": "",
+
+        "Recovery 1-10":
+        summary_df["Recovery 1-10"].sum(),
+
+        "1-10 %":
+        round(
+            summary_df["Recovery 1-10"].sum()
+            /
+            summary_df["Total Slips"].sum()
+            * 100,
+            2
+        ),
+
+        "Recovery 11-20":
+        summary_df["Recovery 11-20"].sum(),
+
+        "11-20 %":
+        round(
+            summary_df["Recovery 11-20"].sum()
+            /
+            summary_df["Total Slips"].sum()
+            * 100,
+            2
+        ),
+
+        "Recovery 21-31":
+        summary_df["Recovery 21-31"].sum(),
+
+        "21-31 %":
+        round(
+            summary_df["Recovery 21-31"].sum()
+            /
+            summary_df["Total Slips"].sum()
+            * 100,
+            2
+        ),
+
+        "Total Slips":
+        summary_df["Total Slips"].sum(),
+
+        "Last Recovery Date":
+        "",
+
+        "Close Rate %":
+        round(
+            summary_df["Close Rate %"].mean(),
+            2
+        )
     }
 
-    report_df = pd.concat([report_df, pd.DataFrame([grand_total])], ignore_index=True)
-
-    # --- Display Table ---
-    table_placeholder.dataframe(report_df)
-
-    # --- Excel Helper ---
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='MDP_Report')
-        return output.getvalue()
-
-    # --- Overall Download ---
-    excel_data = to_excel(report_df)
-    overall_download_placeholder.download_button(
-        label="📥 Download Overall Report",
-        data=excel_data,
-        file_name="MDP_Report_Overall.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key="mdp_overall_download"
+    summary_df = pd.concat(
+        [
+            summary_df,
+            pd.DataFrame([grand_row])
+        ],
+        ignore_index=True
     )
 
-    # --- Area-wise Dropdown & Download ---
-    areas = report_df['Area'].unique().tolist()
-    areas = [x for x in areas if x!='Grand Total']
-    areas.sort()
-    areas.insert(0,"All Areas")
+# ================= EXCEL DOWNLOAD =================
 
-    selected_area = area_dropdown_placeholder.selectbox("Select Area", areas, key="mdp_area_dropdown")
-    df_to_download = report_df if selected_area=="All Areas" else report_df[report_df['Area']==selected_area]
-    excel_data_area = to_excel(df_to_download)
+excel_buffer = BytesIO()
 
-    area_download_placeholder.download_button(
-        label=f"📥 Download {selected_area} Report",
-        data=excel_data_area,
-        file_name=f"MDP_Report_{selected_area}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key="mdp_area_download"
+with pd.ExcelWriter(
+    excel_buffer,
+    engine="openpyxl"
+) as writer:
+
+    summary_df.to_excel(
+        writer,
+        sheet_name="Summary",
+        index=False
     )
 
+excel_data = excel_buffer.getvalue()
+
+st.download_button(
+    label="📊 Download Excel",
+    data=excel_data,
+    file_name="Recovery_Month_Wise.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# ================= PDF DOWNLOAD =================
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape
+from reportlab.lib.pagesizes import A4
+
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle
+)
+
+pdf_buffer = BytesIO()
+
+doc = SimpleDocTemplate(
+    pdf_buffer,
+    pagesize=landscape(A4)
+)
+
+table_data = (
+    [summary_df.columns.tolist()]
+    +
+    summary_df.values.tolist()
+)
+
+pdf_table = Table(table_data)
+
+pdf_table.setStyle(
+
+    TableStyle([
+
+        ('GRID',
+         (0,0),
+         (-1,-1),
+         1,
+         colors.black),
+
+        ('BACKGROUND',
+         (0,0),
+         (-1,0),
+         colors.lightgrey),
+
+        ('ALIGN',
+         (0,0),
+         (-1,-1),
+         'CENTER'),
+
+        ('FONTSIZE',
+         (0,0),
+         (-1,-1),
+         8)
+
+    ])
+
+)
+
+doc.build([pdf_table])
+
+pdf_bytes = pdf_buffer.getvalue()
+
+st.download_button(
+    label="📄 Download PDF",
+    data=pdf_bytes,
+    file_name="Recovery_Month_Wise.pdf",
+    mime="application/pdf"
+)
+
+# ================= BRANCH PDF ZIP =================
+
+import zipfile
+
+zip_buffer = BytesIO()
+
+with zipfile.ZipFile(
+    zip_buffer,
+    "w",
+    zipfile.ZIP_DEFLATED
+) as zipf:
+
+    branches = (
+        summary_df["Branch"]
+        .dropna()
+        .unique()
+    )
+
+    for branch in branches:
+
+        if branch == "Grand Total":
+            continue
+
+        branch_df = summary_df[
+            summary_df["Branch"] == branch
+        ]
+
+        branch_pdf = BytesIO()
+
+        doc = SimpleDocTemplate(
+            branch_pdf,
+            pagesize=landscape(A4)
+        )
+
+        data = (
+            [branch_df.columns.tolist()]
+            +
+            branch_df.values.tolist()
+        )
+
+        tbl = Table(data)
+
+        tbl.setStyle(
+            TableStyle([
+                ('GRID',(0,0),(-1,-1),1,colors.black),
+                ('BACKGROUND',(0,0),(-1,0),colors.lightgrey),
+                ('ALIGN',(0,0),(-1,-1),'CENTER'),
+                ('FONTSIZE',(0,0),(-1,-1),8),
+            ])
+        )
+
+        doc.build([tbl])
+
+        zipf.writestr(
+            f"{branch}.pdf",
+            branch_pdf.getvalue()
+        )
+
+zip_bytes = zip_buffer.getvalue()
+
+st.download_button(
+    label="📦 Download Branch PDFs ZIP",
+    data=zip_bytes,
+    file_name="Branch_Wise_PDFs.zip",
+    mime="application/zip"
+)
+
+# ================= FINAL TABLE =================
+
+st.subheader(
+    "Final Recovery Summary"
+)
+
+st.dataframe(
+    summary_df,
+    use_container_width=True
+)
 import streamlit as st
 import pandas as pd
 from io import BytesIO
