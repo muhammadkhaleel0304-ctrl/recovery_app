@@ -108,7 +108,6 @@ st.title("📊 Dashboard")
 st.success("Login successful ✔")
 
 logout_btn = st.button("Logout")
-
 if logout_btn:
 st.session_state.login = False
 
