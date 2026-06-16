@@ -87,14 +87,14 @@ if not st.session_state.login:
 
     col1, col2, col3 = st.columns([1,2,1])
 
-   import streamlit as st
+import streamlit as st
 import pandas as pd
 import calendar
 from io import BytesIO
 import os
 
 # ================= CONFIG =================
-st.set_page_config(
+
     page_title="Recovery Month Wise Summary",
     layout="wide"
 )
