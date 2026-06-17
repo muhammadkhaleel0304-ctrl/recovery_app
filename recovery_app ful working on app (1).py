@@ -217,7 +217,7 @@ df = df.dropna(subset=["recovery_date"])
 
 # ================= MONTH & DAY =================
 
-df["Month"] = df["recovery_date"].dt.strftime("%Y-%b")
+df["Month"] = df["recovery_date"].dt.to_period("M")
 
 df["Day"] = df["recovery_date"].dt.day
 
