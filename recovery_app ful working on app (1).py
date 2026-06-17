@@ -327,6 +327,44 @@ st.dataframe(
     summary_df,
     use_container_width=True
 )
+detailed_rows = []
+
+for month in sorted(df["Month"].unique()):
+
+    month_df = df[df["Month"] == month]
+
+    for branch in sorted(month_df["branch_id"].unique()):
+
+        branch_df = month_df[month_df["branch_id"] == branch]
+
+        rec_1_10 = len(branch_df[branch_df["Range"] == "1-10"])
+        rec_11_20 = len(branch_df[branch_df["Range"] == "11-20"])
+        rec_21_31 = len(branch_df[branch_df["Range"] == "21-31"])
+        total = len(branch_df)
+
+        if total == 0:
+            continue
+
+        last_date = branch_df["recovery_date"].max()
+        last_day = last_date.day
+
+        year = last_date.year
+        month_no = last_date.month
+        month_last_day = calendar.monthrange(year, month_no)[1]
+
+        close_rate = round(last_day / month_last_day * 100, 2)
+
+        detailed_rows.append({
+            "Month": month,
+            "Branch": branch,
+            "Recovery 1-10": rec_1_10,
+            "Recovery 11-20": rec_11_20,
+            "Recovery 21-31": rec_21_31,
+            "Total Slips": total,
+            "Close Rate %": close_rate
+        })
+
+detailed_summary_df = pd.DataFrame(detailed_rows)
 branch_month_summary = (
     df.groupby(["Month", "branch_id"])
     .size()
@@ -425,6 +463,11 @@ with pd.ExcelWriter(
         sheet_name="Branch_Month_Summary",
         index=False
     )
+    detailed_summary_df.to_excel(
+    writer,
+    sheet_name="Detailed_Month_Branch",
+    index=False
+)
 
 excel_data = excel_buffer.getvalue()
 
