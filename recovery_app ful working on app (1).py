@@ -295,20 +295,14 @@ for branch in sorted(df["branch_id"].unique()):
             .max()
         )
 
-        last_day = last_date.day
+       DUE_DAY = 10
 
-        year = last_date.year
-        month_no = last_date.month
+last_day = last_date.day
 
-        month_last_day = calendar.monthrange(
-            year,
-            month_no
-        )[1]
-
-        close_rate = round(
-            last_day / month_last_day * 100,
-            2
-        )
+close_rate = round(
+    min(last_day, DUE_DAY) / DUE_DAY * 100,
+    2
+)
 
         summary_rows.append({
 
