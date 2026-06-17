@@ -350,7 +350,15 @@ for branch in sorted(df["branch_id"].unique()):
 summary_df = pd.DataFrame(
     summary_rows
 )
+summary_df = pd.DataFrame(summary_rows)
 
+summary_df = summary_df.sort_values(
+    ["Branch", "Month"]
+).reset_index(drop=True)
+
+summary_df["Month"] = pd.to_datetime(
+    summary_df["Month"].astype(str)
+).dt.strftime("%b-%Y")
 st.subheader(
     "Month Wise Branch Summary"
 )
