@@ -207,9 +207,13 @@ for branch in sorted(df["branch_id"].unique()):
         df["branch_id"] == branch
     ]
    for month in sorted(df["Month_sort"].unique()):
-        month_df = branch_df[
-            branch_df["Month"] == month
-        ]
+
+    month_df = df[df["Month_sort"] == month]
+    display_month = str(month)
+
+    for branch in sorted(month_df["branch_id"].unique()):
+
+        branch_df = month_df[month_df["branch_id"] == branch]
 
         rec_1_10 = len(
             month_df[
