@@ -327,6 +327,18 @@ st.dataframe(
     summary_df,
     use_container_width=True
 )
+branch_month_summary = (
+    df.groupby(["Month", "branch_id"])
+    .size()
+    .reset_index(name="Total Slips")
+)
+
+branch_month_summary = branch_month_summary.sort_values(
+    ["Month", "branch_id"]
+)
+
+st.subheader("📌 Branch Wise Month Summary")
+st.dataframe(branch_month_summary, use_container_width=True)
 # ================= GRAND TOTAL =================
 
 if not summary_df.empty:
@@ -404,7 +416,13 @@ with pd.ExcelWriter(
 
     summary_df.to_excel(
         writer,
-        sheet_name="Summary",
+        sheet_name="Month_Wise_Summary",
+        index=False
+    )
+
+    branch_month_summary.to_excel(
+        writer,
+        sheet_name="Branch_Month_Summary",
         index=False
     )
 
