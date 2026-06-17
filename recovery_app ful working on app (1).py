@@ -111,58 +111,24 @@ import calendar
 from io import BytesIO
 import os
 
-# ================= USERS =================
-USERS = {
-    "admin": "1234",
-    "user": "pass"
-}
+st.set_page_config(
+    page_title="Recovery Month Wise Summary",
+    layout="wide"
+)
 
-# ================= LOGIN SYSTEM =================
-if "login" not in st.session_state:
-    st.session_state.login = False
-
-if not st.session_state.login:
-
-    col1, col2 = st.columns(2)
-
-    with col2:
-        st.markdown("## 🔐 Please Login")
-
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-
-        login_btn = st.button("Login", use_container_width=True)
-
-        if login_btn:
-            if USERS.get(user) == pwd:
-                st.session_state.login = True
-                st.success("Login successful ✔")
-                st.rerun()
-            else:
-                st.error("❌ Invalid username or password")
-
-    st.stop()
-
-# ================= DASHBOARD =================
 st.title("📊 Recovery Month Wise & Branch Wise Summary")
 
-logout_btn = st.button("Logout")
-if logout_btn:
-    st.session_state.login = False
-    st.rerun()
-
 # ================= STORAGE =================
+
 os.makedirs("data", exist_ok=True)
 LOCAL_FILE = "data/recovery.xlsx"
 
 # ================= UPLOAD =================
+
 uploaded = st.file_uploader(
     "Upload Recovery File",
     type=["xlsx", "csv"]
 )
-
-if uploaded:
-    st.success("File uploaded successfully ✔")
 
 if uploaded:
 
@@ -217,7 +183,7 @@ df = df.dropna(subset=["recovery_date"])
 
 # ================= MONTH & DAY =================
 
-df["Month"] = df["recovery_date"].dt.to_period("M")
+df["Month"] = df["recovery_date"].dt.strftime("%Y-%b")
 
 df["Day"] = df["recovery_date"].dt.day
 
@@ -252,7 +218,7 @@ for branch in sorted(df["branch_id"].unique()):
             branch_df["Month"] == month
         ]
 
-      rec_1_10 = len(
+        rec_1_10 = len(
             month_df[
                 month_df["Range"] == "1-10"
             ]
@@ -290,9 +256,25 @@ for branch in sorted(df["branch_id"].unique()):
             2
         )
 
-        last_date = month_df["recovery_date"].max()
+        last_date = (
+            month_df["recovery_date"]
+            .max()
+        )
 
-    
+        last_day = last_date.day
+
+        year = last_date.year
+        month_no = last_date.month
+
+        month_last_day = calendar.monthrange(
+            year,
+            month_no
+        )[1]
+
+        close_rate = round(
+            last_day / month_last_day * 100,
+            2
+        )
 
         summary_rows.append({
 
@@ -322,23 +304,19 @@ for branch in sorted(df["branch_id"].unique()):
             total,
 
             "Last Recovery Date":
-            last_date.strftime("%d-%b-%Y"),
+            last_date.strftime(
+                "%Y-%b-%d"
+            ),
 
-        
+            "Close Rate %":
+            close_rate
 
         })
+
 summary_df = pd.DataFrame(
     summary_rows
 )
-summary_df = pd.DataFrame(summary_rows)
 
-summary_df = summary_df.sort_values(
-    ["Branch", "Month"]
-).reset_index(drop=True)
-
-summary_df["Month"] = pd.to_datetime(
-    summary_df["Month"].astype(str)
-).dt.strftime("%b-%Y")
 st.subheader(
     "Month Wise Branch Summary"
 )
@@ -398,7 +376,11 @@ if not summary_df.empty:
         "Last Recovery Date":
         "",
 
-    
+        "Close Rate %":
+        round(
+            summary_df["Close Rate %"].mean(),
+            2
+        )
     }
 
     summary_df = pd.concat(
