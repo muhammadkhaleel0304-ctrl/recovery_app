@@ -292,14 +292,7 @@ for branch in sorted(df["branch_id"].unique()):
 
         last_date = month_df["recovery_date"].max()
 
-        DUE_DAY = 10
-
-        last_day = last_date.day
-
-        close_rate = round(
-            min(last_day, DUE_DAY) / DUE_DAY * 100,
-            2
-        )
+    
 
         summary_rows.append({
 
@@ -331,8 +324,7 @@ for branch in sorted(df["branch_id"].unique()):
             "Last Recovery Date":
             last_date.strftime("%d-%b-%Y"),
 
-            "Close Rate %":
-            close_rate
+        
 
         })
 summary_df = pd.DataFrame(
@@ -406,11 +398,7 @@ if not summary_df.empty:
         "Last Recovery Date":
         "",
 
-        "Close Rate %":
-        round(
-            summary_df["Close Rate %"].mean(),
-            2
-        )
+    
     }
 
     summary_df = pd.concat(
