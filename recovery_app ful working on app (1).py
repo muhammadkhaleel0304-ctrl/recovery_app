@@ -337,7 +337,7 @@ for month in sorted(df["Month"].unique()):
   month_df = df[df["Month_sort"] == month]
 display_month = str(month)
 
-    for branch in sorted(month_df["branch_id"].unique()):
+for branch in sorted(month_df["branch_id"].unique()):
 
         branch_df = month_df[month_df["branch_id"] == branch]
 
