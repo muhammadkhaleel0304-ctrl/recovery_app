@@ -206,7 +206,6 @@ for branch in sorted(df["branch_id"].unique()):
     branch_df = df[
         df["branch_id"] == branch
     ]
-
    for month in sorted(df["Month_sort"].unique()):
         month_df = branch_df[
             branch_df["Month"] == month
