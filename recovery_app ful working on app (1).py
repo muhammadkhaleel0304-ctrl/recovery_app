@@ -111,7 +111,6 @@ import calendar
 from io import BytesIO
 import os
 
-st.set_page_config(
     page_title="Recovery Month Wise Summary",
     layout="wide"
 )
