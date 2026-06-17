@@ -252,7 +252,7 @@ for branch in sorted(df["branch_id"].unique()):
             branch_df["Month"] == month
         ]
 
-        rec_1_10 = len(
+      rec_1_10 = len(
             month_df[
                 month_df["Range"] == "1-10"
             ]
@@ -290,10 +290,7 @@ for branch in sorted(df["branch_id"].unique()):
             2
         )
 
-       last_date = (
-            month_df["recovery_date"]
-            .max()
-        )
+        last_date = month_df["recovery_date"].max()
 
         DUE_DAY = 10
 
@@ -303,6 +300,7 @@ for branch in sorted(df["branch_id"].unique()):
             min(last_day, DUE_DAY) / DUE_DAY * 100,
             2
         )
+
         summary_rows.append({
 
             "Branch": branch,
@@ -331,15 +329,12 @@ for branch in sorted(df["branch_id"].unique()):
             total,
 
             "Last Recovery Date":
-            last_date.strftime(
-                "%Y-%b-%d"
-            ),
+            last_date.strftime("%d-%b-%Y"),
 
             "Close Rate %":
             close_rate
 
         })
-
 summary_df = pd.DataFrame(
     summary_rows
 )
