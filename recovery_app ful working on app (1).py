@@ -175,6 +175,7 @@ df["recovery_date"] = pd.to_datetime(
 )
 
 df = df.dropna(subset=["recovery_date"])
+df["Month_sort"] = pd.to_datetime(df["recovery_date"]).dt.to_period("M")
 
 # ================= MONTH & DAY =================
 
@@ -206,8 +207,7 @@ for branch in sorted(df["branch_id"].unique()):
         df["branch_id"] == branch
     ]
 
-    for month in sorted(branch_df["Month"].unique()):
-
+   for month in sorted(df["Month_sort"].unique()):
         month_df = branch_df[
             branch_df["Month"] == month
         ]
@@ -274,7 +274,7 @@ for branch in sorted(df["branch_id"].unique()):
 
             "Branch": branch,
 
-            "Month": month,
+            "Month": display_month,
 
             "Recovery 1-10":
             rec_1_10,
@@ -331,7 +331,8 @@ detailed_rows = []
 
 for month in sorted(df["Month"].unique()):
 
-    month_df = df[df["Month"] == month]
+  month_df = df[df["Month_sort"] == month]
+display_month = str(month)
 
     for branch in sorted(month_df["branch_id"].unique()):
 
