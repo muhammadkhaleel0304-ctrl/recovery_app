@@ -290,14 +290,19 @@ for branch in sorted(df["branch_id"].unique()):
             2
         )
 
-        last_date = (
+       last_date = (
             month_df["recovery_date"]
             .max()
         )
 
-       DUE_DAY = 10
+        DUE_DAY = 10
 
-last_day = last_date.day
+        last_day = last_date.day
+
+        close_rate = round(
+            min(last_day, DUE_DAY) / DUE_DAY * 100,
+            2
+        )
 
 close_rate = round(
     min(last_day, DUE_DAY) / DUE_DAY * 100,
