@@ -303,12 +303,6 @@ for branch in sorted(df["branch_id"].unique()):
             min(last_day, DUE_DAY) / DUE_DAY * 100,
             2
         )
-
-close_rate = round(
-    min(last_day, DUE_DAY) / DUE_DAY * 100,
-    2
-)
-
         summary_rows.append({
 
             "Branch": branch,
