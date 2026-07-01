@@ -344,8 +344,7 @@ st.download_button(
 # ================= PDF DOWNLOAD =================
 pdf_buffer = BytesIO()
 doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4), rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20)
-doc.build([build_pdf_table(final_summary_df)])
-
+doc.build([build_pdf_table(new_summary_df)]) #  صحیح نام استعمال کریں
 st.download_button(
     label="📄 Download Full PDF Report",
     data=pdf_buffer.getvalue(),
