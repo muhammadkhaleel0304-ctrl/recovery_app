@@ -341,17 +341,6 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# ================= PDF DOWNLOAD =================
-pdf_buffer = BytesIO()
-doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4), rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20)
-doc.build([build_pdf_table(new_summary_df)])
-st.download_button(
-    label="📄 Download Full PDF Report",
-    data=pdf_buffer.getvalue(),
-    file_name="Recovery_Area_Month_Wise.pdf",
-    mime="application/pdf"
-)
-
 # ================= BRANCH PDF ZIP =================
 zip_buffer = BytesIO()
 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
