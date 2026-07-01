@@ -110,474 +110,233 @@ import pandas as pd
 import calendar
 from io import BytesIO
 import os
+import zipfile
 
-st.title("📊 Recovery Month Wise & Branch Wise Summary")
+# ReportLab Imports
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+st.set_page_config(layout="wide")
+st.title("📊 Recovery Area Wise & Branch Wise Summary")
 
 # ================= STORAGE =================
-
 os.makedirs("data", exist_ok=True)
 LOCAL_FILE = "data/recovery.xlsx"
 
 # ================= UPLOAD =================
-
-uploaded = st.file_uploader(
-    "Upload Recovery File",
-    type=["xlsx", "csv"]
-)
+uploaded = st.file_uploader("Upload Recovery File", type=["xlsx", "csv"])
 
 if uploaded:
-
     if uploaded.name.endswith(".csv"):
         df = pd.read_csv(uploaded)
     else:
         df = pd.read_excel(uploaded)
-
     st.session_state["df"] = df
     df.to_excel(LOCAL_FILE, index=False)
-
 elif "df" in st.session_state:
-
     df = st.session_state["df"]
-
 elif os.path.exists(LOCAL_FILE):
-
     df = pd.read_excel(LOCAL_FILE)
     st.session_state["df"] = df
-
 else:
-
     st.info("Upload file first")
     st.stop()
 
 # ================= REQUIRED COLUMNS =================
-
-required_cols = [
-    "branch_id",
-    "recovery_date",
-    "receipt_no"
-]
-
-missing = [
-    c for c in required_cols
-    if c not in df.columns
-]
+# Ab 'area_id' ko bhi required columns mein add kardiya hai
+required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
+missing = [c for c in required_cols if c not in df.columns]
 
 if missing:
-
     st.error(f"Missing Columns: {missing}")
     st.stop()
 
-# ================= DATE =================
-
-df["recovery_date"] = pd.to_datetime(
-    df["recovery_date"],
-    errors="coerce"
-)
-
+# ================= DATA PREPARATION =================
+df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
 df = df.dropna(subset=["recovery_date"])
-
-# ================= MONTH & DAY =================
 
 df["Month"] = df["recovery_date"].dt.to_period("M")
 df["Day"] = df["recovery_date"].dt.day
 
-# ================= RANGE =================
-
 def get_range(day):
-
-    if day <= 10:
-        return "1-10"
-
-    elif day <= 20:
-        return "11-20"
-
-    else:
-        return "21-31"
+    if day <= 10: return "1-10"
+    elif day <= 20: return "11-20"
+    else: return "21-31"
 
 df["Range"] = df["Day"].apply(get_range)
 
-# ================= SUMMARY =================
-
+# ================= GENERATE SUMMARY ROWS =================
 summary_rows = []
 
-for branch in sorted(df["branch_id"].unique()):
+# Pehly 'area_id' pr loop chly ga phir usky andar 'branch_id' pr
+for area in sorted(df["area_id"].unique()):
+    area_df = df[df["area_id"] == area]
+    
+    for branch in sorted(area_df["branch_id"].unique()):
+        branch_df = area_df[area_df["branch_id"] == branch]
+        
+        for month in sorted(branch_df["Month"].unique()):
+            month_df = branch_df[branch_df["Month"] == month]
+            total = len(month_df)
+            if total == 0:
+                continue
+                
+            rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
+            rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
+            rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
+            
+            last_date = month_df["recovery_date"].max()
+            month_last_day = calendar.monthrange(last_date.year, last_date.month)[1]
+            
+            summary_rows.append({
+                "Area ID": area,
+                "Branch ID": branch,
+                "Month": month,
+                "Recovery 1-10": rec_1_10,
+                "1-10 %": round(rec_1_10 / total * 100, 2),
+                "Recovery 11-20": rec_11_20,
+                "11-20 %": round(rec_11_20 / total * 100, 2),
+                "Recovery 21-31": rec_21_31,
+                "21-31 %": round(rec_21_31 / total * 100, 2),
+                "Total Slips": total,
+                "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
+                "Close Rate %": round(last_date.day / month_last_day * 100, 2)
+            })
 
-    branch_df = df[
-        df["branch_id"] == branch
-    ]
-
-    for month in sorted(branch_df["Month"].unique()):
-
-        month_df = branch_df[
-            branch_df["Month"] == month
-        ]
-
-        rec_1_10 = len(
-            month_df[
-                month_df["Range"] == "1-10"
-            ]
-        )
-
-        rec_11_20 = len(
-            month_df[
-                month_df["Range"] == "11-20"
-            ]
-        )
-
-        rec_21_31 = len(
-            month_df[
-                month_df["Range"] == "21-31"
-            ]
-        )
-
-        total = len(month_df)
-
-        if total == 0:
-            continue
-
-        pct_1_10 = round(
-            rec_1_10 / total * 100,
-            2
-        )
-
-        pct_11_20 = round(
-            rec_11_20 / total * 100,
-            2
-        )
-
-        pct_21_31 = round(
-            rec_21_31 / total * 100,
-            2
-        )
-
-        last_date = (
-            month_df["recovery_date"]
-            .max()
-        )
-
-        last_day = last_date.day
-
-        year = last_date.year
-        month_no = last_date.month
-
-        month_last_day = calendar.monthrange(
-            year,
-            month_no
-        )[1]
-
-        close_rate = round(
-            last_day / month_last_day * 100,
-            2
-        )
-
-        summary_rows.append({
-
-            "Branch": branch,
-
-            "Month": month,
-
-            "Recovery 1-10":
-            rec_1_10,
-
-            "1-10 %":
-            pct_1_10,
-
-            "Recovery 11-20":
-            rec_11_20,
-
-            "11-20 %":
-            pct_11_20,
-
-            "Recovery 21-31":
-            rec_21_31,
-
-            "21-31 %":
-            pct_21_31,
-
-            "Total Slips":
-            total,
-
-            "Last Recovery Date":
-            last_date.strftime(
-                "%Y-%b-%d"
-            ),
-
-            "Close Rate %":
-            close_rate
-
-        })
-
-summary_df = pd.DataFrame(
-    summary_rows
-)
 summary_df = pd.DataFrame(summary_rows)
+summary_df = summary_df.sort_values(["Area ID", "Branch ID", "Month"]).reset_index(drop=True)
 
-summary_df = summary_df.sort_values(
-    ["Branch", "Month"]
-).reset_index(drop=True)
+# Format Branch Month Summary for display
+branch_month_summary = df.groupby(["Month", "area_id", "branch_id"]).size().reset_index(name="Total Slips")
+branch_month_summary["Month"] = branch_month_summary["Month"].astype(str)
 
-summary_df["Month"] = pd.to_datetime(
-    summary_df["Month"].astype(str)
-).dt.strftime("%b-%Y")
-st.subheader(
-    "Month Wise Branch Summary"
-)
-
-st.dataframe(
-    summary_df,
-    use_container_width=True
-)
-branch_month_summary = (
-    df.groupby(["Month", "branch_id"])
-    .size()
-    .reset_index(name="Total Slips")
-)
-
-branch_month_summary = branch_month_summary.sort_values(
-    ["Month", "branch_id"]
-)
-
-st.subheader("📌 Branch Wise Month Summary")
+st.subheader("📌 Area & Branch Wise Month Summary")
 st.dataframe(branch_month_summary, use_container_width=True)
-# ================= GRAND TOTAL =================
+
+# Convert Period object to string formatting
+summary_df["Month"] = pd.to_datetime(summary_df["Month"].astype(str)).dt.strftime("%b-%Y")
+
+# ================= GENERATING AREA TOTALS & GRAND TOTAL =================
+final_rows = []
 
 if not summary_df.empty:
-
+    # Har Area ka alag total nikalny k liye group by loop
+    for area_id, area_group in summary_df.groupby("Area ID"):
+        # Pehly area ka saara data add hoga
+        for _, row in area_group.iterrows():
+            final_rows.append(row.to_dict())
+            
+        # Phir us area ka Sub-Total (Area Grand Total) row bnegi
+        area_total_slips = area_group["Total Slips"].sum()
+        area_total_row = {
+            "Area ID": f"Area {area_id} Total",
+            "Branch ID": "",
+            "Month": "",
+            "Recovery 1-10": area_group["Recovery 1-10"].sum(),
+            "1-10 %": round(area_group["Recovery 1-10"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
+            "Recovery 11-20": area_group["Recovery 11-20"].sum(),
+            "11-20 %": round(area_group["Recovery 11-20"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
+            "Recovery 21-31": area_group["Recovery 21-31"].sum(),
+            "21-31 %": round(area_group["Recovery 21-31"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
+            "Total Slips": area_total_slips,
+            "Last Recovery Date": "",
+            "Close Rate %": round(area_group["Close Rate %"].mean(), 2)
+        }
+        final_rows.append(area_total_row)
+        
+    # Sab se aakhir mein Poori Company ka Grand Total bnegi
+    grand_total_slips = summary_df["Total Slips"].sum()
     grand_row = {
-
-        "Branch": "Grand Total",
+        "Area ID": "Grand Total",
+        "Branch ID": "",
         "Month": "",
-
-        "Recovery 1-10":
-        summary_df["Recovery 1-10"].sum(),
-
-        "1-10 %":
-        round(
-            summary_df["Recovery 1-10"].sum()
-            /
-            summary_df["Total Slips"].sum()
-            * 100,
-            2
-        ),
-
-        "Recovery 11-20":
-        summary_df["Recovery 11-20"].sum(),
-
-        "11-20 %":
-        round(
-            summary_df["Recovery 11-20"].sum()
-            /
-            summary_df["Total Slips"].sum()
-            * 100,
-            2
-        ),
-
-        "Recovery 21-31":
-        summary_df["Recovery 21-31"].sum(),
-
-        "21-31 %":
-        round(
-            summary_df["Recovery 21-31"].sum()
-            /
-            summary_df["Total Slips"].sum()
-            * 100,
-            2
-        ),
-
-        "Total Slips":
-        summary_df["Total Slips"].sum(),
-
-        "Last Recovery Date":
-        "",
-
-        "Close Rate %":
-        round(
-            summary_df["Close Rate %"].mean(),
-            2
-        )
+        "Recovery 1-10": summary_df["Recovery 1-10"].sum(),
+        "1-10 %": round(summary_df["Recovery 1-10"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
+        "Recovery 11-20": summary_df["Recovery 11-20"].sum(),
+        "11-20 %": round(summary_df["Recovery 11-20"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
+        "Recovery 21-31": summary_df["Recovery 21-31"].sum(),
+        "21-31 %": round(summary_df["Recovery 21-31"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
+        "Total Slips": grand_total_slips,
+        "Last Recovery Date": "",
+        "Close Rate %": round(summary_df["Close Rate %"].mean(), 2)
     }
+    final_rows.append(grand_row)
 
-    summary_df = pd.concat(
-        [
-            summary_df,
-            pd.DataFrame([grand_row])
-        ],
-        ignore_index=True
-    )
+final_summary_df = pd.DataFrame(final_rows)
+
+st.subheader("📊 Month Wise Branch & Area Summary")
+st.dataframe(final_summary_df, use_container_width=True)
+
+# ================= HELPER FUNCTION FOR REPORTLAB (AUTOWRAP) =================
+def build_pdf_table(dataframe):
+    styles = getSampleStyleSheet()
+    cell_style = ParagraphStyle(name='Cell', parent=styles['Normal'], fontSize=7, leading=9, alignment=1)
+    header_style = ParagraphStyle(name='Header', parent=styles['Heading4'], fontSize=8, leading=10, alignment=1)
+    
+    formatted_data = []
+    # Header Row
+    formatted_data.append([Paragraph(str(col), header_style) for col in dataframe.columns])
+    # Data Rows
+    for row in dataframe.values:
+        formatted_data.append([Paragraph(str(val), cell_style) for val in row])
+        
+    pdf_table = Table(formatted_data, hAlign='CENTER')
+    pdf_table.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+    ]))
+    return pdf_table
 
 # ================= EXCEL DOWNLOAD =================
-
 excel_buffer = BytesIO()
-
-with pd.ExcelWriter(
-    excel_buffer,
-    engine="openpyxl"
-) as writer:
-
-    summary_df.to_excel(
-        writer,
-        sheet_name="Month_Wise_Summary",
-        index=False
-    )
-
-    branch_month_summary.to_excel(
-        writer,
-        sheet_name="Branch_Month_Summary",
-        index=False
-    )
-
-excel_data = excel_buffer.getvalue()
+with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    final_summary_df.to_excel(writer, sheet_name="Area_Month_Wise_Summary", index=False)
+    branch_month_summary.to_excel(writer, sheet_name="Branch_Month_Summary", index=False)
 
 st.download_button(
-    label="📊 Download Excel",
-    data=excel_data,
-    file_name="Recovery_Month_Wise.xlsx",
+    label="📊 Download Excel Summary",
+    data=excel_buffer.getvalue(),
+    file_name="Recovery_Area_Month_Wise.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
 # ================= PDF DOWNLOAD =================
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape
-from reportlab.lib.pagesizes import A4
-
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Table,
-    TableStyle
-)
-
 pdf_buffer = BytesIO()
-
-doc = SimpleDocTemplate(
-    pdf_buffer,
-    pagesize=landscape(A4)
-)
-
-table_data = (
-    [summary_df.columns.tolist()]
-    +
-    summary_df.values.tolist()
-)
-
-pdf_table = Table(table_data)
-
-pdf_table.setStyle(
-
-    TableStyle([
-
-        ('GRID',
-         (0,0),
-         (-1,-1),
-         1,
-         colors.black),
-
-        ('BACKGROUND',
-         (0,0),
-         (-1,0),
-         colors.lightgrey),
-
-        ('ALIGN',
-         (0,0),
-         (-1,-1),
-         'CENTER'),
-
-        ('FONTSIZE',
-         (0,0),
-         (-1,-1),
-         8)
-
-    ])
-
-)
-
-doc.build([pdf_table])
-
-pdf_bytes = pdf_buffer.getvalue()
+doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4), rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20)
+doc.build([build_pdf_table(final_summary_df)])
 
 st.download_button(
-    label="📄 Download PDF",
-    data=pdf_bytes,
-    file_name="Recovery_Month_Wise.pdf",
+    label="📄 Download Full PDF Report",
+    data=pdf_buffer.getvalue(),
+    file_name="Recovery_Area_Month_Wise.pdf",
     mime="application/pdf"
 )
 
 # ================= BRANCH PDF ZIP =================
-
-import zipfile
-
 zip_buffer = BytesIO()
-
-with zipfile.ZipFile(
-    zip_buffer,
-    "w",
-    zipfile.ZIP_DEFLATED
-) as zipf:
-
-    branches = (
-        summary_df["Branch"]
-        .dropna()
-        .unique()
-    )
-
+with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+    # ZIP file sirf valid Branches ka data rkhy gi (Totals exclude krdiye hain)
+    branches = summary_df["Branch ID"].dropna().unique()
+    
     for branch in branches:
-
-        if branch == "Grand Total":
-            continue
-
-        branch_df = summary_df[
-            summary_df["Branch"] == branch
-        ]
-
+        branch_df = summary_df[summary_df["Branch ID"] == branch]
         branch_pdf = BytesIO()
-
-        doc = SimpleDocTemplate(
-            branch_pdf,
-            pagesize=landscape(A4)
-        )
-
-        data = (
-            [branch_df.columns.tolist()]
-            +
-            branch_df.values.tolist()
-        )
-
-        tbl = Table(data)
-
-        tbl.setStyle(
-            TableStyle([
-                ('GRID',(0,0),(-1,-1),1,colors.black),
-                ('BACKGROUND',(0,0),(-1,0),colors.lightgrey),
-                ('ALIGN',(0,0),(-1,-1),'CENTER'),
-                ('FONTSIZE',(0,0),(-1,-1),8),
-            ])
-        )
-
-        doc.build([tbl])
-
-        zipf.writestr(
-            f"{branch}.pdf",
-            branch_pdf.getvalue()
-        )
-
-zip_bytes = zip_buffer.getvalue()
+        
+        branch_doc = SimpleDocTemplate(branch_pdf, pagesize=landscape(A4), rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20)
+        branch_doc.build([build_pdf_table(branch_df)])
+        
+        zipf.writestr(f"Branch_{branch}.pdf", branch_pdf.getvalue())
 
 st.download_button(
     label="📦 Download Branch PDFs ZIP",
-    data=zip_bytes,
+    data=zip_buffer.getvalue(),
     file_name="Branch_Wise_PDFs.zip",
     mime="application/zip"
-)
-
-# ================= FINAL TABLE =================
-
-st.subheader(
-    "Final Recovery Summary"
-)
-
-st.dataframe(
-    summary_df,
-    use_container_width=True
 )
 import streamlit as st
 import pandas as pd
