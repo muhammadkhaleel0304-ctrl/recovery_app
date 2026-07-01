@@ -118,7 +118,6 @@ from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-st.set_page_config(layout="wide")
 st.title("📊 Recovery Area Wise & Branch Wise Summary")
 
 # ================= STORAGE =================
