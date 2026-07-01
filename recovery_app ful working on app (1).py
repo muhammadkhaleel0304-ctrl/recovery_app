@@ -265,69 +265,97 @@ if not summary_df.empty:
 
 final_summary_df = pd.DataFrame(final_rows)
 
-# ================= BRANCH MONTH SUMMARY =================
-branch_rows = []
+# ================= NEW MONTH WISE AREA SUMMARY (WITH AREA TOTAL) =================
+st.markdown("---")
+st.subheader("📊 مہینہ وار ایریا اور برانچ سمری (Month-wise Breakdown)")
 
+new_area_rows = []
+
+# 1. پہلے مہینوں کے حساب سے سورت کریں
 for month in sorted(df["Month"].unique()):
-
     month_df = df[df["Month"] == month]
+    
+    # 2. پھر اس مہینے کے اندر ایریا کے حساب سے سورت کریں
+    for area in sorted(month_df["area_id"].unique()):
+        area_df = month_df[month_df["area_id"] == area]
+        
+        # 3. پھر اس ایریا کے اندر برانچز نکالیں
+        for branch in sorted(area_df["branch_id"].unique()):
+            branch_df = area_df[area_df["branch_id"] == branch]
+            
+            total = len(branch_df)
+            if total == 0:
+                continue
+                
+            rec_1_10 = len(branch_df[branch_df["Range"] == "1-10"])
+            rec_11_20 = len(branch_df[branch_df["Range"] == "11-20"])
+            rec_21_31 = len(branch_df[branch_df["Range"] == "21-31"])
+            
+            last_date = branch_df["recovery_date"].max()
+            month_last_day = calendar.monthrange(last_date.year, last_date.month)[1]
+            
+            new_area_rows.append({
+                "Month": month.strftime("%b-%Y"),
+                "Area ID": area,
+                "Branch ID": branch,
+                "Recovery 1-10": rec_1_10,
+                "1-10 %": round(rec_1_10 / total * 100, 2),
+                "Recovery 11-20": rec_11_20,
+                "11-20 %": round(rec_11_20 / total * 100, 2),
+                "Recovery 21-31": rec_21_31,
+                "21-31 %": round(rec_21_31 / total * 100, 2),
+                "Total Slips": total,
+                "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
+                "Close Rate %": round(last_date.day / month_last_day * 100, 2)
+            })
+            
+        # 4. 📌 AREA TOTAL (یہاں ہر ایریا کی برانچز ختم ہونے کے بعد اس ایریا کا ٹوٹل ایڈ ہوگا)
+        area_total = len(area_df)
+        if area_total > 0:
+            a_rec_1_10 = len(area_df[area_df["Range"] == "1-10"])
+            a_rec_11_20 = len(area_df[area_df["Range"] == "11-20"])
+            a_rec_21_31 = len(area_df[area_df["Range"] == "21-31"])
+            
+            new_area_rows.append({
+                "Month": month.strftime("%b-%Y"),
+                "Area ID": area,
+                "Branch ID": "Area Total",  # برانچ کی جگہ ایریا ٹوٹل لکھا آئے گا
+                "Recovery 1-10": a_rec_1_10,
+                "1-10 %": round(a_rec_1_10 / area_total * 100, 2),
+                "Recovery 11-20": a_rec_11_20,
+                "11-20 %": round(a_rec_11_20 / area_total * 100, 2),
+                "Recovery 21-31": a_rec_21_31,
+                "21-31 %": round(a_rec_21_31 / area_total * 100, 2),
+                "Total Slips": area_total,
+                "Last Recovery Date": "",
+                "Close Rate %": ""
+            })
 
-    for branch in sorted(month_df["branch_id"].unique()):
-
-        branch_df = month_df[month_df["branch_id"] == branch]
-
-        total = len(branch_df)
-        if total == 0:
-            continue
-
-        rec_1_10 = len(branch_df[branch_df["Range"] == "1-10"])
-        rec_11_20 = len(branch_df[branch_df["Range"] == "11-20"])
-        rec_21_31 = len(branch_df[branch_df["Range"] == "21-31"])
-
-        last_date = branch_df["recovery_date"].max()
-        month_last_day = calendar.monthrange(
-            last_date.year,
-            last_date.month
-        )[1]
-
-        branch_rows.append({
+    # 5. 📌 MONTH TOTAL (جب اس مہینے کے تمام ایریاز ختم ہو جائیں گے تو مہینے کا گرینڈ ٹوٹل آئے گا)
+    month_total = len(month_df)
+    if month_total > 0:
+        m_rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
+        m_rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
+        m_rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
+        
+        new_area_rows.append({
             "Month": month.strftime("%b-%Y"),
-            "Area ID": branch_df["area_id"].iloc[0],
-            "Branch ID": branch,
-            "Recovery 1-10": rec_1_10,
-            "1-10 %": round(rec_1_10 / total * 100, 2),
-            "Recovery 11-20": rec_11_20,
-            "11-20 %": round(rec_11_20 / total * 100, 2),
-            "Recovery 21-31": rec_21_31,
-            "21-31 %": round(rec_21_31 / total * 100, 2),
-            "Total Slips": total,
-            "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
-            "Close Rate %": round(last_date.day / month_last_day * 100, 2)
+            "Area ID": "",
+            "Branch ID": "Month Total",
+            "Recovery 1-10": m_rec_1_10,
+            "1-10 %": round(m_rec_1_10 / month_total * 100, 2),
+            "Recovery 11-20": m_rec_11_20,
+            "11-20 %": round(m_rec_11_20 / month_total * 100, 2),
+            "Recovery 21-31": m_rec_21_31,
+            "21-31 %": round(m_rec_21_31 / month_total * 100, 2),
+            "Total Slips": month_total,
+            "Last Recovery Date": "",
+            "Close Rate %": ""
         })
 
-    # Month Total
-    total = len(month_df)
-
-    rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
-    rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
-    rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
-
-    branch_rows.append({
-        "Month": month.strftime("%b-%Y"),
-        "Area ID": "",
-        "Branch ID": "Month Total",
-        "Recovery 1-10": rec_1_10,
-        "1-10 %": round(rec_1_10 / total * 100, 2),
-        "Recovery 11-20": rec_11_20,
-        "11-20 %": round(rec_11_20 / total * 100, 2),
-        "Recovery 21-31": rec_21_31,
-        "21-31 %": round(rec_21_31 / total * 100, 2),
-        "Total Slips": total,
-        "Last Recovery Date": "",
-        "Close Rate %": ""
-    })
-
-branch_month_summary = pd.DataFrame(branch_rows)
+# نیا ڈیٹا فریم بنائیں اور ڈسپلے کریں
+new_summary_df = pd.DataFrame(new_area_rows)
+st.dataframe(new_summary_df, use_container_width=True)
 # ================= EXCEL DOWNLOAD =================
 excel_buffer = BytesIO()
 with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
