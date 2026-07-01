@@ -341,27 +341,6 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# ================= BRANCH PDF ZIP =================
-zip_buffer = BytesIO()
-with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-    # ZIP file sirf valid Branches ka data rkhy gi (Totals exclude krdiye hain)
-    branches = summary_df["Branch ID"].dropna().unique()
-    
-    for branch in branches:
-        branch_df = summary_df[summary_df["Branch ID"] == branch]
-        branch_pdf = BytesIO()
-        
-        branch_doc = SimpleDocTemplate(branch_pdf, pagesize=landscape(A4), rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20)
-        branch_doc.build([build_pdf_table(branch_df)])
-        
-        zipf.writestr(f"Branch_{branch}.pdf", branch_pdf.getvalue())
-
-st.download_button(
-    label="📦 Download Branch PDFs ZIP",
-    data=zip_buffer.getvalue(),
-    file_name="Branch_Wise_PDFs.zip",
-    mime="application/zip"
-)
 import streamlit as st
 import pandas as pd
 from io import BytesIO
