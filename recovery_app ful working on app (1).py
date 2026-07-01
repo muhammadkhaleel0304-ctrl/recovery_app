@@ -21,40 +21,29 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 import streamlit as st
 
 # ==========================================
-# 1. INITIAL CONFIG & BEAUTIFUL STYLING
+# 1. INITIAL CONFIG & DASHBOARD STYLING
 # ==========================================
 st.set_page_config(page_title="Recovery & Reports App", layout="wide")
 
-# Custom CSS for Premium UI / Front Look
+# Custom UI CSS for Sidebar and Cards
 st.markdown("""
 <style>
-    /* Main Background */
     .stApp {
         background-color: #f8f9fa;
     }
-    /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background-color: #1e293b !important;
-        color: white !important;
     }
     [data-testid="stSidebar"] * {
         color: white !important;
     }
-    /* Cards for UI Beautiful Look */
     .report-card {
         background: white;
         padding: 24px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
         margin-bottom: 20px;
         border-left: 5px solid #0284c7;
-    }
-    .metric-box {
-        background: #f1f5f9;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -68,27 +57,18 @@ USERS = {
 if "login" not in st.session_state:
     st.session_state.login = False
 
-# ---------- LOGIN PAGE ----------
+# ---------- SECURE LOGIN PAGE ----------
 if not st.session_state.login:
     st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     }
-    h2, label {
-        color: white !important;
-        text-align: center;
-    }
+    h2, label { color: white !important; text-align: center; }
     .stButton>button {
-        background: #00c6ff;
-        color: white;
-        border-radius: 10px;
-        height: 40px;
-        font-weight: bold;
+        background: #00c6ff; color: white; border-radius: 10px; height: 40px; font-weight: bold;
     }
-    .stButton>button:hover {
-        background: #0072ff;
-    }
+    .stButton>button:hover { background: #0072ff; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -110,7 +90,7 @@ if not st.session_state.login:
 
 
 # ==========================================
-# 2. SIDEBAR NAVIGATION (LEFT SIDE OPTIONS)
+# 2. SIDEBAR NAVIGATION (LEFT SIDE MENU)
 # ==========================================
 st.sidebar.image("https://img.icons8.com/fluent/96/000000/bank.png", width=80)
 st.sidebar.title("Navigation Menu")
@@ -135,7 +115,7 @@ if st.sidebar.button("Logout 🏃‍♂️"):
     st.rerun()
 
 
-# ---------- HELPERS ----------
+# ---------- HELPER FUNCTIONS ----------
 def safe_str(val):
     if pd.isna(val): return ""
     return str(val).strip()
@@ -145,7 +125,7 @@ def clean_colname(name):
 
 
 # ==========================================
-# 3. MAIN DASHBOARD CONTENT DISPLAY
+# 3. MAIN CONTENT HEADERS
 # ==========================================
 st.write(f"## 🏦 Financial Recovery & Reporting Control Center")
 st.write(f"Current Window: **{app_mode[2:]}**")
@@ -214,7 +194,6 @@ elif app_mode == "📊 Recovery Summaries":
         st.session_state["df"] = df
 
     if df is not None:
-        # Standardizing dynamic column variations
         df.columns = [c.strip() for c in df.columns]
         col_mapping = {clean_colname(c): c for c in df.columns}
         
@@ -226,12 +205,11 @@ elif app_mode == "📊 Recovery Summaries":
 
         if len(req_mapped) < 3:
             st.error("Uploaded file columns must contain clear variants of: branch_id, recovery_date, receipt_no, credit_amount")
-            st.write("Detected columns:", list(df.columns))
         else:
             b_col = req_mapped.get("branch_id")
             d_col = req_mapped.get("recovery_date")
             r_col = req_mapped.get("receipt_no")
-            amt_col = req_mapped.get("credit_amount", df.columns[-1]) # Default fallback
+            amt_col = req_mapped.get("credit_amount", df.columns[-1])
 
             df[d_col] = pd.to_datetime(df[d_col], errors="coerce")
             df = df.dropna(subset=[d_col])
@@ -285,13 +263,11 @@ elif app_mode == "📊 Recovery Summaries":
                 )
     else:
         st.info("System awaiting secure file upload.")
-
-
-# ==========================================
+        # ==========================================
 # MODULE 3: FILE MERGING UTILITIES
 # ==========================================
 elif app_mode == "📁 File Merge Utilities":
-    st.markdown('<div class="report-card"><h3>📁 Relational Matrix Merging Utility</h3><p>Join structural tracking files together by extracting and mapped codes automatically.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="report-card"><h3>📁 Relational Matrix Merging Utility</h3><p>Join structural tracking files together by extracting and mapping codes automatically.</p></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -306,7 +282,7 @@ elif app_mode == "📁 File Merge Utilities":
         df_merge.columns = df_merge.columns.str.strip()
         df_branch.columns = df_branch.columns.str.strip()
 
-        # Find variants of sanction/branch codes
+        # Find variants of sanction/branch codes automatically
         s_col = next((c for c in df_merge.columns if "sanction" in c.lower()), None)
         b_col = next((c for c in df_branch.columns if "branch" in c.lower() or "code" in c.lower()), None)
 
@@ -353,12 +329,16 @@ elif app_mode == "🕒 Overdue Tracker":
 
             overdue_df = do_df[~do_df["Clean_Key"].isin(rec_df["Clean_Key"])].drop(columns=["Clean_Key"])
             
-            # Display Summary Blocks
+            # Summary Metrics Layout
             cc1, cc2 = st.columns(2)
             cc1.metric("Expected Targeted Accounts", len(do_df))
             cc2.metric("⚠️ Total Identified Overdue Defaulters", len(overdue_df), delta_color="inverse")
             
             st.dataframe(overdue_df, use_container_width=True)
+            
+            out_ov = BytesIO()
+            overdue_df.to_excel(out_ov, index=False)
+            st.download_button("📥 Download Overdue Tracker Report", data=out_ov.getvalue(), file_name="Overdue_Defaulters_List.xlsx")
         else:
             st.error("Mapping requires matching tracking ID columns across both uploaded excel spreadsheets.")
 
@@ -375,9 +355,19 @@ elif app_mode == "📑 Cheque-wise Analysis":
         chq_df = pd.read_csv(uploaded_cheque) if uploaded_cheque.name.endswith(".csv") else pd.read_excel(uploaded_cheque)
         chq_df.columns = [str(c).strip() for c in chq_df.columns]
 
-        # Display and edit securely using modern stable data grid platform component
         st.subheader("Interactive System Cell Grid Architecture")
+        # Secure, editable spreadsheet matrix view
         edited_df = st.data_editor(chq_df, use_container_width=True)
+        
+        # Quick inline metrics calculation based on updates
+        st.markdown("---")
+        st.markdown("#### 📈 Quick Grid Analysis")
+        col_summary, col_rows = st.columns(2)
+        col_summary.info(f"**Total Tracked Records:** {len(edited_df)}")
+        if len(edited_df) > 0:
+            numeric_cols = edited_df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 0:
+                col_rows.success(f"**Sum Total (Primary Value Column):** {edited_df[numeric_cols[0]].sum():,}")
 
 
 # ==========================================
@@ -393,7 +383,7 @@ elif app_mode == "📄 Loan Disbursement PDF":
         st.success("Dataset loaded successfully! Generation preview matches formatting bounds.")
         st.dataframe(loan_df.head(5), use_container_width=True)
 
-        # PDF Compilation Engine Blueprint Block
+        # PDF Compilation Engine Blueprint
         if st.button("🏗️ Construct Report Files", type="primary"):
             buf = BytesIO()
             doc = SimpleDocTemplate(buf, pagesize=letter)
@@ -403,8 +393,8 @@ elif app_mode == "📄 Loan Disbursement PDF":
             story.append(Paragraph("<b>LOAN DISBURSEMENT SYSTEM EXECUTIVE REPORT</b>", styles['Title']))
             story.append(Spacer(1, 15))
 
-            # Build data grid array for PDF rendering
-            data_matrix = [list(loan_df.columns)[:5]]  # Header boundary limits
+            # Build structural data grid array for PDF rendering
+            data_matrix = [list(loan_df.columns)[:5]]  # Header boundaries
             for idx, row in loan_df.head(20).iterrows():
                 data_matrix.append([str(val)[:20] for val in row[:5]])
 
