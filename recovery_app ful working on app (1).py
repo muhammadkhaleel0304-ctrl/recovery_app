@@ -265,32 +265,69 @@ if not summary_df.empty:
 
 final_summary_df = pd.DataFrame(final_rows)
 
-st.subheader("📊 Month Wise Branch & Area Summary")
-st.dataframe(final_summary_df, use_container_width=True)
+# ================= BRANCH MONTH SUMMARY =================
+branch_rows = []
 
-# ================= HELPER FUNCTION FOR REPORTLAB (AUTOWRAP) =================
-def build_pdf_table(dataframe):
-    styles = getSampleStyleSheet()
-    cell_style = ParagraphStyle(name='Cell', parent=styles['Normal'], fontSize=7, leading=9, alignment=1)
-    header_style = ParagraphStyle(name='Header', parent=styles['Heading4'], fontSize=8, leading=10, alignment=1)
-    
-    formatted_data = []
-    # Header Row
-    formatted_data.append([Paragraph(str(col), header_style) for col in dataframe.columns])
-    # Data Rows
-    for row in dataframe.values:
-        formatted_data.append([Paragraph(str(val), cell_style) for val in row])
-        
-    pdf_table = Table(formatted_data, hAlign='CENTER')
-    pdf_table.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-    ]))
-    return pdf_table
+for month in sorted(df["Month"].unique()):
 
+    month_df = df[df["Month"] == month]
+
+    for branch in sorted(month_df["branch_id"].unique()):
+
+        branch_df = month_df[month_df["branch_id"] == branch]
+
+        total = len(branch_df)
+        if total == 0:
+            continue
+
+        rec_1_10 = len(branch_df[branch_df["Range"] == "1-10"])
+        rec_11_20 = len(branch_df[branch_df["Range"] == "11-20"])
+        rec_21_31 = len(branch_df[branch_df["Range"] == "21-31"])
+
+        last_date = branch_df["recovery_date"].max()
+        month_last_day = calendar.monthrange(
+            last_date.year,
+            last_date.month
+        )[1]
+
+        branch_rows.append({
+            "Month": month.strftime("%b-%Y"),
+            "Area ID": branch_df["area_id"].iloc[0],
+            "Branch ID": branch,
+            "Recovery 1-10": rec_1_10,
+            "1-10 %": round(rec_1_10 / total * 100, 2),
+            "Recovery 11-20": rec_11_20,
+            "11-20 %": round(rec_11_20 / total * 100, 2),
+            "Recovery 21-31": rec_21_31,
+            "21-31 %": round(rec_21_31 / total * 100, 2),
+            "Total Slips": total,
+            "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
+            "Close Rate %": round(last_date.day / month_last_day * 100, 2)
+        })
+
+    # Month Total
+    total = len(month_df)
+
+    rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
+    rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
+    rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
+
+    branch_rows.append({
+        "Month": month.strftime("%b-%Y"),
+        "Area ID": "",
+        "Branch ID": "Month Total",
+        "Recovery 1-10": rec_1_10,
+        "1-10 %": round(rec_1_10 / total * 100, 2),
+        "Recovery 11-20": rec_11_20,
+        "11-20 %": round(rec_11_20 / total * 100, 2),
+        "Recovery 21-31": rec_21_31,
+        "21-31 %": round(rec_21_31 / total * 100, 2),
+        "Total Slips": total,
+        "Last Recovery Date": "",
+        "Close Rate %": ""
+    })
+
+branch_month_summary = pd.DataFrame(branch_rows)
 # ================= EXCEL DOWNLOAD =================
 excel_buffer = BytesIO()
 with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
