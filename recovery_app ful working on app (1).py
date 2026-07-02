@@ -13,7 +13,10 @@ from fpdf import FPDF
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Birthday! 🎉</title>
+    File "/mount/src/recovery_app/recovery_app ful working on app (1).py", line 16
+      <title>Happy Birthday! 🎉</title>
+                             ^
+SyntaxError: invalid character '🎉' (U+1F389)
     <style>
         /* Base Styling */
         body {
