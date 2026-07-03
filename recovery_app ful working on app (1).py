@@ -107,7 +107,7 @@ if not st.session_state.login:
             st.rerun()
         except AttributeError:
             st.experimental_rerun()
-                st.error("❌ Invalid username or password")
+            st.error("❌ Invalid username or password")
 
     st.stop()
 # 1. Page Configuration
