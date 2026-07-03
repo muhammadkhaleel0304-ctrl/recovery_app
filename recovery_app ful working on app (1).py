@@ -11,7 +11,6 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl import Workbook
-
 import streamlit as st
 import pandas as pd
 import io
@@ -21,7 +20,7 @@ st.set_page_config(page_title="Branch Closing Balance Report", page_icon="📊",
 
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
-st.write("Upload an Excel file to generate the report.")
+st.write("Upload an Excel file to generate the branch-wise summary report.")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
 
@@ -32,26 +31,47 @@ if uploaded_file is not None:
         
         st.success("File uploaded successfully!")
         
-        # --- PROCESS YOUR DATA HERE ---
-        report_df = df.copy() 
-        # ------------------------------
+        # --- کالمز کے نام چیک کرنا ---
+        # نوٹ: اپنے ایکسل کالمز کے حساب سے اگر نام الگ ہیں تو نیچے 'Branch' اور 'Closing Balance' کو تبدیل کر سکتے ہیں
+        branch_col = None
+        balance_col = None
         
-        st.subheader("Generated Report Data")
+        # خودکار طریقے سے کالمز ڈھونڈنے کی کوشش
+        for col in df.columns:
+            if 'branch' in str(col).lower():
+                branch_col = col
+            if 'closing' in str(col).lower() or 'balance' in str(col).lower():
+                balance_col = col
         
-        # FIX: Using Pandas styling to hide the index safely on older Streamlit versions
+        # اگر خودکار نام نہ ملیں تو پہلے دو کالمز فرض کر لیتے ہیں
+        if not branch_col: branch_col = df.columns[0]
+        if not balance_col: balance_col = df.columns[-1]
+        
+        # --- DATA PROCESSING (GROUP BY BRANCH) ---
+        # یہاں ڈیٹا کو برانچ کے نام پر گروپ کر کے کلوزنگ بیلنس کو جمع کیا جا رہا ہے
+        df[balance_col] = pd.to_numeric(df[balance_col], errors='coerce').fillna(0) # بیلنس کو نمبر میں تبدیل کرنا
+        
+        report_df = df.groupby(branch_col, as_index=False)[balance_col].sum()
+        
+        # کالمز کے ناموں کو خوبصورت بنانا
+        report_df.columns = ['Branch Name', 'Total Closing Balance']
+        # ----------------------------------------
+        
+        st.subheader("📊 Branch-wise Summary (Grouped)")
+        
+        # FIX: پرانے سٹریملٹ ورژن کے لیے انڈیکس چھپانا
         st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
         
         # --- DOWNLOAD BUTTON LOGIC ---
-        # Excel فائل بنانے کے لیے بفر (Buffer) کا استعمال
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            report_df.to_excel(writer, index=False, sheet_name='Report')
+            report_df.to_excel(writer, index=False, sheet_name='Summary Report')
         
         # ڈاؤن لوڈ بٹن
         st.download_button(
-            label="📥 Download Report as Excel",
+            label="📥 Download Summary Report as Excel",
             data=buffer.getvalue(),
-            file_name="Branch_Closing_Balance_Report.xlsx",
+            file_name="Branch_Wise_Summary_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         # ------------------------------
@@ -63,6 +83,23 @@ else:
 
 # --- Extra Utility Features ---
 st.markdown("---")
+st.title("🆔 CNIC QR Generator")
+cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
+if st.button("Generate QR", key="qr_btn_unique"):
+    if len(cnic_input) == 13 and cnic_input.isdigit():
+        st.success(f"Generating QR code for CNIC: {cnic_input}")
+    else:
+        st.warning("Please enter a valid 13-digit CNIC number.")
+
+st.markdown("---")
+st.subheader("🔐 Login")
+username = st.text_input("Username", key="login_user_unique")
+password = st.text_input("Password", type="password", key="login_pass_unique")
+if st.button("Login", key="login_btn_unique"):
+    if username == "admin" and password == "password":
+        st.success("Logged in successfully!")
+    else:
+        st.error("Invalid credentials.")
 st.title("🆔 CNIC QR Generator")
 cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
 if st.button("Generate QR", key="qr_btn_unique"):
