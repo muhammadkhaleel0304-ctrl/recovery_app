@@ -14,7 +14,6 @@ from openpyxl import Workbook
 import streamlit as st
 import pandas as pd
 import io
-
 # 1. Page Configuration
 st.set_page_config(page_title="Branch Closing Balance Report", page_icon="📊", layout="centered")
 
