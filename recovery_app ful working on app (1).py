@@ -160,34 +160,7 @@ if "login" not in st.session_state:
 # ---------- LOGIN PAGE ----------
 if not st.session_state.login:
 
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    }
-
-    h2, label {
-        color: white !important;
-        text-align: center;
-    }
-
-    .stButton>button {
-        background: #00c6ff;
-        color: white;
-        border-radius: 10px;
-        height: 40px;
-        font-weight: bold;
-    }
-
-    .stButton>button:hover {
-        background: #0072ff;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1,2,1])
-
-    with col2:
+   
         st.markdown("## 🔐 Login")
 
         user = st.text_input("Username")
