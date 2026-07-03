@@ -110,7 +110,7 @@ import pandas as pd
 # ==========================================
 # 1. یہ لائن پورے کوڈ میں سب سے اوپر ہونی چاہیے
 # ==========================================
-st.set_page_config(page_title="Recovery Dashboard", layout="wide")
+
 
 st.title("📊 Recovery Dashboard")
 st.write("اپنے کسٹمرز کا ڈیٹا لوڈ کرنے کے لیے نیچے فائلز اپلوڈ کریں۔")
