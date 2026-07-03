@@ -11,11 +11,104 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl import Workbook
-import streamlit as st
-import pandas as pd
-import io
+st.title("CNIC QR Generator")
+
+cnic = st.text_input("Enter 13-digit CNIC")
+
+if st.button("Generate QR"):
+    if cnic:
+
+        data = str(cnic).strip()
+
+        # FORCE FULL DATA ENCODING
+        qr = qrcode.QRCode(
+            version=None,  # AUTO size (IMPORTANT FIX)
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4
+        )
+
+        qr.add_data(data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+
+        img_bytes = buf.getvalue()
+
+        st.image(img_bytes)
+
+        st.download_button(
+            "Download QR",
+            data=img_bytes,
+            file_name="cnic_qr.png",
+            mime="image/png"
+        )
+    else:
+        st.warning("Enter CNIC")
+
+
+# ---------- USERS ----------
+USERS = {
+    "Khaleel": "11234",
+    "user": "1111"
+}
+
+# ---------- SESSION ----------
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+# ---------- LOGIN PAGE ----------
+if not st.session_state.login:
+
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    }
+
+    h2, label {
+        color: white !important;
+        text-align: center;
+    }
+
+    .stButton>button {
+        background: #00c6ff;
+        color: white;
+        border-radius: 10px;
+        height: 40px;
+        font-weight: bold;
+    }
+
+    .stButton>button:hover {
+        background: #0072ff;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1,2,1])
+
+    with col2:
+        st.markdown("## 🔐 Login")
+
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+
+        login_btn = st.button("Login", use_container_width=True)
+
+        if login_btn:
+            if USERS.get(user) == pwd:
+                st.session_state.login = True
+                st.success("Login successful ✔")
+                st.rerun()
+            else:
+                st.error("❌ Invalid username or password")
+
+    st.stop()
 # 1. Page Configuration
-st.set_page_config(page_title="Branch Closing Balance Report", page_icon="📊", layout="centered")
+
 
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
