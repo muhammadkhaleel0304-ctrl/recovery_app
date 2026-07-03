@@ -141,7 +141,29 @@ elif os.path.exists(LOCAL_FILE):
 else:
     st.info("Upload file first")
     st.stop()
+# ================= MDP UPLOAD =================
 
+mdp_uploaded = st.file_uploader(
+    "Upload MDP File",
+    type=["xlsx", "csv"],
+    key="mdp"
+)
+
+mdp_df = None
+
+if mdp_uploaded:
+
+    if mdp_uploaded.name.endswith(".csv"):
+        mdp_df = pd.read_csv(mdp_uploaded)
+    else:
+        mdp_df = pd.read_excel(mdp_uploaded)
+
+    mdp_df["receive_date"] = pd.to_datetime(
+        mdp_df["receive_date"],
+        errors="coerce"
+    )
+
+    mdp_df["Month"] = mdp_df["receive_date"].dt.to_period("M")
 # ================= REQUIRED COLUMNS =================
 # Ab 'area_id' ko bhi required columns mein add kardiya hai
 required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
@@ -215,6 +237,91 @@ st.dataframe(branch_month_summary, use_container_width=True)
 
 # Convert Period object to string formatting
 summary_df["Month"] = pd.to_datetime(summary_df["Month"].astype(str)).dt.strftime("%b-%Y")
+# ================= MDP MERGE =================
+
+if mdp_df is not None:
+
+    mdp_summary = (
+        mdp_df
+        .groupby(["branch_id", "Month"])["amount"]
+        .sum()
+        .reset_index()
+    )
+
+    mdp_summary = mdp_summary.sort_values(
+        ["branch_id", "Month"]
+    )
+
+    mdp_summary["Prev Amount"] = (
+        mdp_summary
+        .groupby("branch_id")["amount"]
+        .shift(1)
+    )
+
+    def get_status(row):
+
+        if pd.isna(row["Prev Amount"]):
+            return "-"
+
+        elif row["amount"] > row["Prev Amount"]:
+            return "Increase"
+
+        elif row["amount"] < row["Prev Amount"]:
+            return "Decrease"
+
+        else:
+            return "Same"
+
+    mdp_summary["Status"] = mdp_summary.apply(
+        get_status,
+        axis=1
+    )
+
+    summary_df["Month2"] = pd.to_datetime(
+        summary_df["Month"]
+    ).dt.to_period("M")
+
+    summary_df = summary_df.merge(
+
+        mdp_summary[
+            [
+                "branch_id",
+                "Month",
+                "amount",
+                "Status"
+            ]
+        ],
+
+        left_on=["Branch ID", "Month2"],
+        right_on=["branch_id", "Month"],
+        how="left"
+
+    )
+
+    summary_df.rename(
+        columns={
+            "amount": "MDP Amount",
+            "Status": "MDP Status"
+        },
+        inplace=True
+    )
+
+    summary_df.drop(
+        columns=[
+            "branch_id",
+            "Month2",
+            "Month_y"
+        ],
+        inplace=True,
+        errors="ignore"
+    )
+
+    summary_df.rename(
+        columns={
+            "Month_x": "Month"
+        },
+        inplace=True
+    )
 
 # ================= GENERATING AREA TOTALS & GRAND TOTAL =================
 final_rows = []
