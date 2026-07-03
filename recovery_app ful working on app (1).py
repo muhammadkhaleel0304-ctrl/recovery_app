@@ -106,139 +106,68 @@ if not st.session_state.login:
     st.stop()
 import streamlit as st
 import pandas as pd
-import io
 
-def process_data(active_df, due_df, recovery_df, mdp_df):
-    """
-    Processes and merges the four dataframes according to the business logic.
-    """
-    # 1. Process Active Sheet (Aggregate just in case there are multiple rows per branch)
-    active_g = active_df.groupby(['area_id', 'branch_id'], as_index=False)['Active'].sum()
-    
-    # 2. Process Due Sheet
-    due_g = due_df.groupby(['area_id', 'branch_id'], as_index=False)['Due'].sum()
-    
-    # 3. Process Recovery Sheet: Remove duplicate sanction_no, then count unique sanction_no branch-wise
-    recovery_cleaned = recovery_df.drop_duplicates(subset=['sanction_no'])
-    recovery_g = recovery_cleaned.groupby(['area_id', 'branch_id'], as_index=False)['sanction_no'].nunique()
-    recovery_g.rename(columns={'sanction_no': 'Recover'}, inplace=였다)
-    
-    # 4. Process MDP Sheet: Do not remove duplicates, calculate total amount branch-wise
-    mdp_g = mdp_df.groupby(['area_id', 'branch_id'], as_index=False)['amount'].sum()
-    mdp_g.rename(columns={'amount': 'MDP Amount'}, inplace=True)
-    
-    # 5. Merge all sheets using area_id and branch_id
-    # Get a master list of all unique area_id and branch_id combinations across all sheets
-    all_keys = pd.concat([
-        active_g[['area_id', 'branch_id']],
-        due_g[['area_id', 'branch_id']],
-        recovery_g[['area_id', 'branch_id']],
-        mdp_g[['area_id', 'branch_id']]
-    ]).drop_duplicates()
-    
-    final_df = all_keys.merge(active_g, on=['area_id', 'branch_id'], how='left')
-    final_df = final_df.merge(due_g, on=['area_id', 'branch_id'], how='left')
-    final_df = final_df.merge(recovery_g, on=['area_id', 'branch_id'], how='left')
-    final_df = final_df.merge(mdp_g, on=['area_id', 'branch_id'], how='left')
-    
-    # Fill NaNs with 0 for numeric calculations
-    final_df.fillna(0, inplace=True)
-    
-    # 6. Calculate new columns based on formulas
-    final_df['Remaining'] = final_df['Due'] - final_df['Recover']
-    
-    # Recovery % = (Recover / Due) * 100 (Handle division by zero)
-    final_df['Recovery %'] = final_df.apply(
-        lambda row: round((row['Recover'] / row['Due']) * 100, 2) if row['Due'] > 0 else 0.0, axis=1
-    )
-    
-    # MDP % = (MDP Amount / Active) * 100 (Handle division by zero)
-    final_df['MDP %'] = final_df.apply(
-        lambda row: round((row['MDP Amount'] / row['Active']) * 100, 2) if row['Active'] > 0 else 0.0, axis=1
-    )
-    
-    # 7. Rename and reorder to final report format
-    final_df.rename(columns={'area_id': 'Area ID', 'branch_id': 'Branch ID'}, inplace=True)
-    
-    output_columns = [
-        'Area ID', 'Branch ID', 'Active', 'Due', 'Recover', 
-        'Remaining', 'Recovery %', 'MDP Amount', 'MDP %'
-    ]
-    
-    return final_df[output_columns]
+# ==========================================
+# 1. یہ لائن پورے کوڈ میں سب سے اوپر ہونی چاہیے
+# ==========================================
+st.set_page_config(page_title="Recovery Dashboard", layout="wide")
 
-def to_excel(df):
-    """
-    Converts a dataframe into an Excel file in memory using openpyxl.
-    """
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Recovery Report')
-    processed_data = output.getvalue()
-    return processed_data
+st.title("📊 Recovery Dashboard")
+st.write("اپنے کسٹمرز کا ڈیٹا لوڈ کرنے کے لیے نیچے فائلز اپلوڈ کریں۔")
 
-# --- Streamlit Interface ---
-st.title("📈 Recovery Dashboard")
+# ==========================================
+# 2. ان کالمز کی لسٹ جو آپ کو لازمی چاہیے
+# ==========================================
+REQUIRED_COLUMNS = ["region_id", "area_id", "branch_id"]
 
-st.sidebar.header("Upload Sheets")
-active_file = st.sidebar.file_uploader("Upload Active Sheet (CSV/xlsx)", type=['csv', 'xlsx'])
-due_file = st.sidebar.file_uploader("Upload Due Sheet (CSV/xlsx)", type=['csv', 'xlsx'])
-recovery_file = st.sidebar.file_uploader("Upload Recovery Sheet (CSV/xlsx)", type=['csv', 'xlsx'])
-mdp_file = st.sidebar.file_uploader("Upload MDP Sheet (CSV/xlsx)", type=['csv', 'xlsx'])
+# فائلز اپلوڈ کرنے کے لیے سائیڈ بار یا مین پیج پر آپشنز
+st.sidebar.header("فائلز اپلوڈ کریں")
+active_file = st.sidebar.file_uploader("Active Sheet (Excel/CSV)", type=["xlsx", "csv"], key="active")
+recovery_file = st.sidebar.file_uploader("Recovery Sheet (Excel/CSV)", type=["xlsx", "csv"], key="recovery")
 
-# Check if all files are uploaded
-if active_file and due_file and recovery_file and mdp_file:
-    try:
-        # Helper function to read either CSV or Excel safely
-        def load_sheet(file):
-            if file.name.endswith('.csv'):
-                return pd.read_csv(file)
+# ==========================================
+# 3. فائلز کو پروسیس کرنے کا فنکشن
+# ==========================================
+def load_clean_data(uploaded_file):
+    if uploaded_file is not None:
+        try:
+            # کالمز کے ناموں سے سپیسز ہٹا کر صرف مطلوبہ کالمز ریڈ کرے گا
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file, usecols=lambda c: c.strip() in REQUIRED_COLUMNS)
             else:
-                return pd.read_excel(file)
-        
-        # Load Dataframes
-        active_df = load_sheet(active_file)
-        due_df = load_sheet(due_file)
-        recovery_df = load_sheet(recovery_file)
-        mdp_df = load_sheet(mdp_file)
-        
-        # Process and generate final report
-        report_df = process_data(active_df, due_df, recovery_df, mdp_df)
-        
-        # Area ID Selection Filter
-        unique_areas = sorted(report_df['Area ID'].unique().tolist())
-        options = ["Overall"] + [str(area) for area in unique_areas]
-        
-        selected_option = st.selectbox("Select Area View:", options)
-        
-        # Filter data based on selection
-        if selected_option == "Overall":
-            filtered_df = report_df
-        else:
-            # Cast column to string to ensure matching with selectbox options
-            filtered_df = report_df[report_df['Area ID'].astype(str) == selected_option]
-        
-        # Display DataFrame
-        st.subheader(f"Data Report View: {selected_option}")
-        st.dataframe(filtered_df, use_container_width=True)
-        
-        # Excel Download Button
-        excel_data = to_excel(filtered_df)
-        file_name = f"Recovery_Report_{selected_option.replace(' ', '_')}.xlsx"
-        
-        st.download_button(
-            label=f"📥 Download {selected_option} Report as Excel",
-            data=excel_data,
-            file_name=file_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+                df = pd.read_excel(uploaded_file, usecols=lambda c: c.strip() in REQUIRED_COLUMNS)
+            
+            # ڈیٹا فریم کے کالمز سے مستقل طور پر سپیسز ختم کرنے کے لیے
+            df.columns = df.columns.str.strip()
+            return df
+        except Exception as e:
+            st.error(f"فائل پڑھنے میں مسئلہ ہوا: {e}")
+            return None
+    return None
 
-    except Exception as e:
-        st.error(f"An error occurred while processing the files: {e}")
-        st.info("Please ensure your uploaded sheets contain the correct columns specified in the requirements.")
+# ==========================================
+# 4. ڈیٹا لوڈ کرنا اور ڈیش بورڈ پر دکھانا
+# ==========================================
+if active_file or recovery_file:
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if active_file:
+            st.subheader("Active Data")
+            df_active = load_clean_data(active_file)
+            if df_active is not None:
+                st.dataframe(df_active.head())
+                # اب آپ بغیر کسی ایرر کے کالم استعمال کر سکتے ہیں:
+                # region = df_active['region_id'] 
 
+    with col2:
+        if recovery_file:
+            st.subheader("Recovery Data")
+            df_recovery = load_clean_data(recovery_file)
+            if df_recovery is not None:
+                st.dataframe(df_recovery.head())
 else:
-    st.info("Please upload all four required sheets in the sidebar to generate the dashboard.")
+    st.info("براہ کرم سائیڈ بار سے فائلز اپلوڈ کریں۔")
 import streamlit as st
 import pandas as pd
 import calendar
