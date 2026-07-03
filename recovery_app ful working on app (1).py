@@ -106,85 +106,6 @@ if not st.session_state.login:
     st.stop()
 import streamlit as st
 import pandas as pd
-
-# ==========================================
-# 1. پیج کنفیگریشن (سب سے اوپر ہونا ضروری ہے)
-# ==========================================
-
-st.title("📊 Recovery Dashboard")
-st.write("اپنے کسٹمرز کا ڈیٹا لوڈ کرنے کے لیے نیچے چاروں فائلز اپلوڈ کریں۔")
-
-# ==========================================
-# 2. مطلوبہ کالمز کی لسٹ
-# ==========================================
-REQUIRED_COLUMNS = ["region_id", "area_id", "branch_id"]
-
-# سائیڈ بار میں 4 فائلوں کے اپلوڈ کے آپشنز
-st.sidebar.header("📁 تمام فائلز اپلوڈ کریں")
-active_file = st.sidebar.file_uploader("1. Active Sheet", type=["xlsx", "csv"], key="active")
-recovery_file = st.sidebar.file_uploader("2. Recovery Sheet", type=["xlsx", "csv"], key="recovery")
-due_file = st.sidebar.file_uploader("3. Due Sheet", type=["xlsx", "csv"], key="due")
-mdp_file = st.sidebar.file_uploader("4. MDP Sheet", type=["xlsx", "csv"], key="mdp")
-
-# ==========================================
-# 3. فائل پڑھنے اور کالم صاف کرنے کا فنکشن
-# ==========================================
-def load_clean_data(uploaded_file):
-    if uploaded_file is not None:
-        try:
-            # کالمز کی سپیسز کو اگنور کر کے صرف کام کے کالمز پڑھے گا
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file, usecols=lambda c: c.strip() in REQUIRED_COLUMNS)
-            else:
-                df = pd.read_excel(uploaded_file, usecols=lambda c: c.strip() in REQUIRED_COLUMNS)
-            
-            # کالمز کے ناموں سے مستقل طور پر سپیس ختم کرنے کے لیے
-            df.columns = df.columns.str.strip()
-            return df
-        except Exception as e:
-            st.error(f"فائل پڑھنے میں مسئلہ ہوا ({uploaded_file.name}): {e}")
-            return None
-    return None
-
-# ==========================================
-# 4. ڈیٹا لوڈ کرنا اور 4 کالمز کے لے آؤٹ میں دکھانا
-# ==========================================
-# اگر کوئی بھی ایک فائل اپلوڈ ہو جائے تو یہ حصہ چلے گا
-if active_file or recovery_file or due_file or mdp_file:
-    # اسکرین کو 4 برابر حصوں (Columns) میں تقسیم کریں
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if active_file:
-            st.subheader("Active Data")
-            df_active = load_clean_data(active_file)
-            if df_active is not None:
-                st.dataframe(df_active.head())
-
-    with col2:
-        if recovery_file:
-            st.subheader("Recovery Data")
-            df_recovery = load_clean_data(recovery_file)
-            if df_recovery is not None:
-                st.dataframe(df_recovery.head())
-
-    with col3:
-        if due_file:
-            st.subheader("Due Data")
-            df_due = load_clean_data(due_file)
-            if df_due is not None:
-                st.dataframe(df_due.head())
-
-    with col4:
-        if mdp_file:
-            st.subheader("MDP Data")
-            df_mdp = load_clean_data(mdp_file)
-            if df_mdp is not None:
-                st.dataframe(df_mdp.head())
-else:
-    st.info("💡 براہ کرم بائیں طرف (Sidebar) سے چاروں فائلز اپلوڈ کریں۔")
-import streamlit as st
-import pandas as pd
 import calendar
 from io import BytesIO
 import os
@@ -248,9 +169,6 @@ if mdp_uploaded:
 required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
 missing = [c for c in required_cols if c not in df.columns]
 
-if missing:
-    st.error(f"Missing Columns: {missing}")
-    st.stop()
 
 # ================= DATA PREPARATION =================
 df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
