@@ -178,7 +178,6 @@ def to_excel(df):
     return processed_data
 
 # --- Streamlit Interface ---
-st.set_page_config(page_title="Recovery Dashboard", layout="wide")
 st.title("📈 Recovery Dashboard")
 
 st.sidebar.header("Upload Sheets")
