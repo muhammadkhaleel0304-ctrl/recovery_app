@@ -108,21 +108,6 @@ if st.button("Generate QR", key="qr_btn_unique"):
         st.success(f"CNIC {cnic_input} Verified!")
     else:
         st.error("Please enter a valid 13-digit numeric CNIC.")
-st.title("🆔 CNIC QR Generator")
-cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
-
-if st.button("Generate QR", key="qr_btn_unique"):
-    if len(cnic_input) == 13 and cnic_input.isdigit():
-        st.success(f"CNIC {cnic_input} Verified!")
-    else:
-        st.error("Please enter a valid 13-digit numeric CNIC.")
-st.title("🆔 CNIC QR Generator")
-cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
-if st.button("Generate QR", key="qr_btn_unique"):
-    if len(cnic_input) == 13 and cnic_input.isdigit():
-        st.success(f"Generating QR code for CNIC: {cnic_input}")
-    else:
-        st.warning("Please enter a valid 13-digit CNIC number.")
 
 st.markdown("---")
 st.subheader("🔐 Login")
@@ -150,16 +135,7 @@ if st.button("Login", key="login_btn_unique"):
         st.success("Logged in successfully!")
     else:
         st.error("Invalid credentials.")
-st.title("🆔 CNIC QR Generator")
-cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13)
-if st.button("Generate QR"):
-    if len(cnic_input) == 13 and cnic_input.isdigit():
-        st.success(f"Generating QR code for CNIC: {cnic_input}")
-        # Add your QR generation logic here if needed
-    else:
-        st.warning("Please enter a valid 13-digit CNIC number.")
 
-st.markdown("---")
 st.subheader("🔐 Login")
 username = st.text_input("Username")
 password = st.text_input("Password", type="password")
