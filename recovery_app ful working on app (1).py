@@ -102,9 +102,11 @@ if not st.session_state.login:
             if USERS.get(user) == pwd:
                 st.session_state.login = True
                 st.success("Login successful ✔")
-    st.rerun()
-    except AttributeError:
-    st.experimental_rerun()
+    # Try aur Except dono ka line ke shuru se gap (spaces) barabar hona chahiye
+        try:
+            st.rerun()
+        except AttributeError:
+            st.experimental_rerun()
                 st.error("❌ Invalid username or password")
 
     st.stop()
