@@ -36,7 +36,6 @@ if uploaded_file is not None:
         name_col = None
         balance_col = None
         
-        # خودکار طریقے سے کالمز ڈھونڈنے کی کوشش
         for col in df.columns:
             col_lower = str(col).lower()
             if 'branch' in col_lower:
@@ -46,34 +45,36 @@ if uploaded_file is not None:
             elif 'closing' in col_lower or 'balance' in col_lower:
                 balance_col = col
         
-        # اگر خودکار نام نہ ملیں تو ڈیفالٹ کالمز سیٹ کرنا
         if not branch_col: branch_col = df.columns[0]
         if not name_col: name_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
         if not balance_col: balance_col = df.columns[-1]
         
-        # User dynamic selection (تاکہ اگر کالم غلط سلیکٹ ہو تو یوزر خود چن سکے)
+        # User dynamic selection
         st.sidebar.subheader("Configure Columns")
         branch_col = st.sidebar.selectbox("Select Branch/Code Column", df.columns, index=list(df.columns).index(branch_col))
         name_col = st.sidebar.selectbox("Select Name/Description Column", df.columns, index=list(df.columns).index(name_col))
         balance_col = st.sidebar.selectbox("Select Balance Column", df.columns, index=list(df.columns).index(balance_col))
         
         # --- DATA CLEANING & PROCESSING ---
-        # بیلنس میں سے کوما (,) ختم کر کے نمبر میں تبدیل کرنا
+        # بیلنس کو نمبر میں تبدیل کرنا
         df[balance_col] = df[balance_col].astype(str).str.replace(',', '').str.strip()
         df[balance_col] = pd.to_numeric(df[balance_col], errors='coerce').fillna(0)
         
-        # اب ہم برانچ کوڈ اور نام دونوں کی بنیاد پر گروپنگ کریں گے
-        # اس سے ہر برانچ کا مخصوص نام (جیسے Salaries یا Project Allowance) صرف 1 بار آئے گا اور رقم جمع ہو جائے گی
-        report_df = df.groupby([branch_col, name_col], as_index=False)[balance_col].sum()
+        # ✨ نام کو صاف کرنا (تاکہ Electricity-PSIC... اور Electricity-Apni Chat... دونوں صرف 'Electricity' بن جائیں)
+        # یہ لاجک پہلے ڈیش (-) پر نام کو توڑ کر صرف پہلا لفظ الگ کر لے گی
+        df['Cleaned_Name'] = df[name_col].astype(str).apply(lambda x: x.split('-')[0].strip())
+        
+        # اب ہم برانچ کوڈ اور اس صاف کیے گئے نام (Cleaned Name) پر گروپنگ کریں گے
+        report_df = df.groupby([branch_col, 'Cleaned_Name'], as_index=False)[balance_col].sum()
         
         # کالمز کے ناموں کو خوبصورت بنانا
-        report_df.columns = ['Branch Code', 'Name / Description', 'Total Closing Balance']
+        report_df.columns = ['Branch Code', 'Expense / Name', 'Total Closing Balance']
         
-        # رقم کو پڑھنے میں آسان فارمیٹ (Commas کے ساتھ) دکھانے کے لیے
+        # رقم کو دوبارہ پڑھنے میں آسان فارمیٹ (Commas کے ساتھ) دکھانے کے لیے
         report_df['Total Closing Balance'] = report_df['Total Closing Balance'].apply(lambda x: f"{x:,.2f}")
         # ----------------------------------------
         
-        st.subheader("📊 Grouped Summary Report")
+        st.subheader("📊 Grouped Summary Report (Cleaned & Merged)")
         
         # رپورٹ کو سکرین پر دکھانا (بغیر انڈیکس کے)
         st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
@@ -83,14 +84,12 @@ if uploaded_file is not None:
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             report_df.to_excel(writer, index=False, sheet_name='Summary Report')
         
-        # ڈاؤن لوڈ بٹن
         st.download_button(
             label="📥 Download Summary Report as Excel",
             data=buffer.getvalue(),
-            file_name="Branch_Name_Wise_Summary.xlsx",
+            file_name="Branch_Cleaned_Summary.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        # ------------------------------
         
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
@@ -101,6 +100,14 @@ else:
 st.markdown("---")
 
 # CNIC QR Generator Section (Fixing the DuplicateWidgetID error)
+st.title("🆔 CNIC QR Generator")
+cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
+
+if st.button("Generate QR", key="qr_btn_unique"):
+    if len(cnic_input) == 13 and cnic_input.isdigit():
+        st.success(f"CNIC {cnic_input} Verified!")
+    else:
+        st.error("Please enter a valid 13-digit numeric CNIC.")
 st.title("🆔 CNIC QR Generator")
 cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
 
