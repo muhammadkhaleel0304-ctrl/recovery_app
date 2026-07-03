@@ -14,6 +14,7 @@ from openpyxl import Workbook
 
 import streamlit as st
 import pandas as pd
+import io
 
 # 1. Page Configuration
 st.set_page_config(page_title="Branch Closing Balance Report", page_icon="📊", layout="centered")
@@ -32,7 +33,6 @@ if uploaded_file is not None:
         st.success("File uploaded successfully!")
         
         # --- PROCESS YOUR DATA HERE ---
-        # (Example: cleaning or filtering if needed)
         report_df = df.copy() 
         # ------------------------------
         
@@ -41,13 +41,45 @@ if uploaded_file is not None:
         # FIX: Using Pandas styling to hide the index safely on older Streamlit versions
         st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
         
+        # --- DOWNLOAD BUTTON LOGIC ---
+        # Excel فائل بنانے کے لیے بفر (Buffer) کا استعمال
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            report_df.to_excel(writer, index=False, sheet_name='Report')
+        
+        # ڈاؤن لوڈ بٹن
+        st.download_button(
+            label="📥 Download Report as Excel",
+            data=buffer.getvalue(),
+            file_name="Branch_Closing_Balance_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        # ------------------------------
+        
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
 else:
     st.info("Please upload an Excel file.")
 
-# --- Extra Utility Features (From your layout) ---
+# --- Extra Utility Features ---
 st.markdown("---")
+st.title("🆔 CNIC QR Generator")
+cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13, key="cnic_input_unique")
+if st.button("Generate QR", key="qr_btn_unique"):
+    if len(cnic_input) == 13 and cnic_input.isdigit():
+        st.success(f"Generating QR code for CNIC: {cnic_input}")
+    else:
+        st.warning("Please enter a valid 13-digit CNIC number.")
+
+st.markdown("---")
+st.subheader("🔐 Login")
+username = st.text_input("Username", key="login_user_unique")
+password = st.text_input("Password", type="password", key="login_pass_unique")
+if st.button("Login", key="login_btn_unique"):
+    if username == "admin" and password == "password":
+        st.success("Logged in successfully!")
+    else:
+        st.error("Invalid credentials.")
 st.title("🆔 CNIC QR Generator")
 cnic_input = st.text_input("Enter 13-digit CNIC", max_chars=13)
 if st.button("Generate QR"):
