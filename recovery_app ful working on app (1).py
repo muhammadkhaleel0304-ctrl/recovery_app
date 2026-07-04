@@ -48,12 +48,14 @@ if st.button("Generate QR"):
         )
     else:
         st.warning("Enter CNIC")
-
 import streamlit as st
 
 # Page Configuration
+st.set_page_config(page_title="Login", page_icon="🔒", layout="centered")
 
-# Custom CSS for a beautiful modern card layout
+# ==========================================
+# Custom CSS for Beautiful Login Page
+# ==========================================
 st.markdown("""
     <style>
     /* Background styling */
@@ -79,34 +81,49 @@ st.markdown("""
         margin-bottom: 2rem;
     }
     </style>
-""", unsafe_allow_index=True)
+""", unsafe_allow_html=True) # <-- Fixed: 'unsafe_allow_html' is used correctly here
 
-# Main container to mimic a card look
-st.markdown('<div class="login-card">', unsafe_allow_html=True)
+# Session state to check login status
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-st.markdown('<h1 class="login-title">🔒 Welcome Back</h1>', unsafe_allow_html=True)
+# ==========================================
+# Login UI Layout
+# ==========================================
+if not st.session_state.logged_in:
+    # Main container to mimic a card look
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.markdown('<h1 class="login-title">🔒 Welcome Back</h1>', unsafe_allow_html=True)
 
-# Input fields
-username = st.text_input("Username / Email", placeholder="Enter your username")
-password = st.text_input("Password", type="password", placeholder="Enter your password")
+    # Input fields
+    username = st.text_input("Username / Email", placeholder="Enter your username")
+    password = st.text_input("Password", type="password", placeholder="Enter your password")
 
-st.markdown('<br>', unsafe_allow_html=True)
+    st.markdown('<br>', unsafe_allow_html=True)
 
-# Login Button
-if st.button("Login", use_container_width=True):
-    if username == "admin" and password == "admin123": # Apna logic yahan lagayein
-        st.success("🎉 Login Successful!")
-        st.balloons()
-        # st.switch_page("pages/app.py") # Agar multi-page app hai to navigate karein
-    elif not username or not password:
-        st.warning("Please fill in all fields.")
-    else:
-        st.error("❌ Invalid Username or Password")
+    # Login Button
+    if st.button("Login", use_container_width=True):
+        if username == "admin" and password == "admin123": # Apna ID aur Password yahan set karein
+            st.session_state.logged_in = True
+            st.success("🎉 Login Successful!")
+            st.rerun()
+        elif not username or not password:
+            st.warning("Please fill in all fields.")
+        else:
+            st.error("❌ Invalid Username or Password")
 
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #777; margin-top: 2rem;'>Forgot password? Contact your Administrator.</p>", unsafe_allow_html=True)
 
-# Footer info or help link
-st.markdown("<p style='text-align: center; color: #777; margin-top: 2rem;'>Forgot password? Contact your Administrator.</p>", unsafe_allow_html=True)
+else:
+    # Login hone ke baad jo screen dikhegi
+    st.title("Welcome to the Dashboard!")
+    st.write(f"Hello, {username}! You are successfully logged in.")
+    
+    # Logout Button
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
 st.write("Upload an Excel file to generate the branch-wise summary report.")
