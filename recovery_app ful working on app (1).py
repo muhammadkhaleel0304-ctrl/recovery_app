@@ -52,7 +52,6 @@ if st.button("Generate QR"):
 import streamlit as st
 
 # Page Configuration
-st.set_page_config(page_title="Login", page_icon="🔒", layout="centered")
 
 # Custom CSS for a beautiful modern card layout
 st.markdown("""
