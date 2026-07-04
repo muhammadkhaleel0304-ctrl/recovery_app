@@ -50,69 +50,6 @@ if st.button("Generate QR"):
         st.warning("Enter CNIC")
 
 
-# ---------- USERS ----------
-USERS = {
-    "Khaleel": "11234",
-    "user": "1111"
-}
-
-# ---------- SESSION ----------
-if "login" not in st.session_state:
-    st.session_state.login = False
-
-# ---------- LOGIN PAGE ----------
-if not st.session_state.login:
-
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    }
-
-    h2, label {
-        color: white !important;
-        text-align: center;
-    }
-
-    .stButton>button {
-        background: #00c6ff;
-        color: white;
-        border-radius: 10px;
-        height: 40px;
-        font-weight: bold;
-    }
-
-    .stButton>button:hover {
-        background: #0072ff;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1,2,1])
-
-    with col2:
-        st.markdown("## 🔐 Login")
-
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-
-        login_btn = st.button("Login", use_container_width=True)
-
-        if login_btn:
-            if USERS.get(user) == pwd:
-                st.session_state.login = True
-                st.success("Login successful ✔")
-    # Try aur Except dono ka line ke shuru se gap (spaces) barabar hona chahiye
-        try:
-            st.rerun()
-        except AttributeError:
-            st.experimental_rerun()
-            st.error("❌ Invalid username or password")
-
-    st.stop()
-# 1. Page Configuration
-
-
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
 st.write("Upload an Excel file to generate the branch-wise summary report.")
