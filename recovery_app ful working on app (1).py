@@ -21,7 +21,7 @@ if st.button("Generate QR"):
         qr = qrcode.QRCode(
             version=None,  # AUTO size (IMPORTANT FIX)
             error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
+            box_size=5,
             border=4
         )
 
