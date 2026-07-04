@@ -1,119 +1,109 @@
 import streamlit as st
 import qrcode
+from io import BytesIO
+import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
-from io import BytesIO
-from openpyxl import Workbook
-import calendar
-import os
-import zipfile
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-# Page Configuration (Hamesha top par hona chahiye)
-st.set_page_config(page_title="Recovery App & Login", page_icon="🔒", layout="centered")
+st.title("CNIC QR Generator")
 
-# ==========================================
-# 1. Custom CSS for Beautiful Login Page
-# ==========================================
-st.markdown("""
+cnic = st.text_input("Enter 13-digit CNIC")
+
+if st.button("Generate QR"):
+    if cnic:
+
+        data = str(cnic).strip()
+
+        # FORCE FULL DATA ENCODING
+        qr = qrcode.QRCode(
+            version=None,  # AUTO size (IMPORTANT FIX)
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4
+        )
+
+        qr.add_data(data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+
+        img_bytes = buf.getvalue()
+
+        st.image(img_bytes)
+
+        st.download_button(
+            "Download QR",
+            data=img_bytes,
+            file_name="cnic_qr.png",
+            mime="image/png"
+        )
+    else:
+        st.warning("Enter CNIC")
+
+
+# ---------- USERS ----------
+USERS = {
+    "Khaleel": "11234",
+    "user": "1111"
+}
+
+# ---------- SESSION ----------
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+# ---------- LOGIN PAGE ----------
+if not st.session_state.login:
+
+    st.markdown("""
     <style>
-    /* Background styling */
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     }
-    
-    /* Login Card container */
-    .login-card {
-        background-color: white;
-        padding: 3rem;
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        margin-top: 4rem;
-    }
-    
-    /* Title styling */
-    .login-title {
+
+    h2, label {
+        color: white !important;
         text-align: center;
-        color: #333333;
-        font-family: 'Helvetica Neue', sans-serif;
-        font-weight: 700;
-        margin-bottom: 2rem;
+    }
+
+    .stButton>button {
+        background: #00c6ff;
+        color: white;
+        border-radius: 10px;
+        height: 40px;
+        font-weight: bold;
+    }
+
+    .stButton>button:hover {
+        background: #0072ff;
     }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# Session state to check login status
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+    col1, col2, col3 = st.columns([1,2,1])
 
-# ==========================================
-# 2. Login UI Layout
-# ==========================================
-if not st.session_state.logged_in:
-    # Main container to mimic a card look
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.markdown('<h1 class="login-title">🔒 Welcome Back</h1>', unsafe_allow_html=True)
-
-    # Input fields
-    username = st.text_input("Username / Email", placeholder="Enter your username")
-    password = st.text_input("Password", type="password", placeholder="Enter your password")
-
-    st.markdown('<br>', unsafe_allow_html=True)
-
-    # Login Button
-    if st.button("Login", use_container_width=True):
-        if username == "admin" and password == "admin123": # Apna ID/Password yahan set karein
-            st.session_state.logged_in = True
-            st.success("🎉 Login Successful!")
-            st.rerun()
-        elif not username or not password:
-            st.warning("Please fill in all fields.")
-        else:
-            st.error("❌ Invalid Username or Password")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #777; margin-top: 2rem;'>Forgot password? Contact your Administrator.</p>", unsafe_allow_html=True)
-
-# ==========================================
-# 3. Main App View (Sirf Login ke baad chalega)
-# ==========================================
-else:
-    # Logout Button at Top
-    col1, col2 = st.columns([8, 2])
     with col2:
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.rerun()
+        st.markdown("## 🔐 Login")
 
-    # --- AB SAARE FEATURES IS 'ELSE:' KE ANDAR INDENTED HAIN ---
-    st.title("CNIC QR Generator")
-    cnic = st.text_input("Enter 13-digit CNIC")
-    if st.button("Generate QR"):
-        if cnic:
-            data = str(cnic).strip()
-            qr = qrcode.QRCode(
-                version=None,
-                error_correction=qrcode.constants.ERROR_CORRECT_H,
-                box_size=10,
-                border=4
-            )
-            qr.add_data(data)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            buf = BytesIO()
-            img.save(buf, format="PNG")
-            img_bytes = buf.getvalue()
-            st.image(img_bytes)
-            st.download_button("Download QR", data=img_bytes, file_name="cnic_qr.png", mime="image/png")
-        else:
-            st.warning("Enter CNIC")
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
 
+        login_btn = st.button("Login", use_container_width=True)
+
+        if login_btn:
+            if USERS.get(user) == pwd:
+                st.session_state.login = True
+                st.success("Login successful ✔")
+                st.rerun()
+            else:
+                st.error("❌ Invalid username or password")
+
+    st.stop()
     # 2. App Title & File Uploader
     st.title("📊 Branch Closing Balance Report")
     st.write("Upload an Excel file to generate the branch-wise summary report.")
