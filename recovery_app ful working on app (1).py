@@ -1,59 +1,25 @@
 import streamlit as st
 import qrcode
-from io import BytesIO
-import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
-import streamlit as st
-import pandas as pd
 from io import BytesIO
 from openpyxl import Workbook
-st.title("CNIC QR Generator")
+import calendar
+import os
+import zipfile
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-cnic = st.text_input("Enter 13-digit CNIC")
-
-if st.button("Generate QR"):
-    if cnic:
-
-        data = str(cnic).strip()
-
-        # FORCE FULL DATA ENCODING
-        qr = qrcode.QRCode(
-            version=None,  # AUTO size (IMPORTANT FIX)
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4
-        )
-
-        qr.add_data(data)
-        qr.make(fit=True)
-
-        img = qr.make_image(fill_color="black", back_color="white")
-
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-
-        img_bytes = buf.getvalue()
-
-        st.image(img_bytes)
-
-        st.download_button(
-            "Download QR",
-            data=img_bytes,
-            file_name="cnic_qr.png",
-            mime="image/png"
-        )
-    else:
-        st.warning("Enter CNIC")
-import streamlit as st
-
-# Page Configuration
+# Page Configuration (Hamesha top par hona chahiye)
+st.set_page_config(page_title="Recovery App & Login", page_icon="🔒", layout="centered")
 
 # ==========================================
-# Custom CSS for Beautiful Login Page
+# 1. Custom CSS for Beautiful Login Page
 # ==========================================
 st.markdown("""
     <style>
@@ -87,7 +53,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 # ==========================================
-# Login UI Layout
+# 2. Login UI Layout
 # ==========================================
 if not st.session_state.logged_in:
     # Main container to mimic a card look
@@ -114,15 +80,165 @@ if not st.session_state.logged_in:
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #777; margin-top: 2rem;'>Forgot password? Contact your Administrator.</p>", unsafe_allow_html=True)
 
+# ==========================================
+# 3. Main App View (Sirf Login ke baad chalega)
+# ==========================================
 else:
-    # Login hone ke baad jo screen dikhegi
-    st.title("🚀 Welcome to the Dashboard!")
-    st.write(f"Hello, **{username}**! You are successfully logged in.")
+    # Logout Button at Top
+    col1, col2 = st.columns([8, 2])
+    with col2:
+        if st.button("Logout"):
+            st.session_state.logged_in = False
+            st.rerun()
+
+    # --- AB SAARE FEATURES IS 'ELSE:' KE ANDAR INDENTED HAIN ---
+    st.title("CNIC QR Generator")
+    cnic = st.text_input("Enter 13-digit CNIC")
+    if st.button("Generate QR"):
+        if cnic:
+            data = str(cnic).strip()
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=4
+            )
+            qr.add_data(data)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
+            st.image(img_bytes)
+            st.download_button("Download QR", data=img_bytes, file_name="cnic_qr.png", mime="image/png")
+        else:
+            st.warning("Enter CNIC")
+
+    # 2. App Title & File Uploader
+    st.title("📊 Branch Closing Balance Report")
+    st.write("Upload an Excel file to generate the branch-wise summary report.")
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
     
-    # Logout Button
-    if st.button("Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
+    if uploaded_file is not None:
+        try:
+            df = pd.read_excel(uploaded_file)
+            st.success("File uploaded successfully!")
+            
+            branch_col = None
+            name_col = None
+            balance_col = None
+            for col in df.columns:
+                col_lower = str(col).lower()
+                if 'branch' in col_lower: branch_col = col
+                elif 'name' in col_lower: name_col = col
+                elif 'closing' in col_lower or 'balance' in col_lower: balance_col = col
+                
+            if not branch_col: branch_col = df.columns[0]
+            if not name_col: name_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
+            if not balance_col: balance_col = df.columns[-1]
+            
+            st.sidebar.subheader("Configure Columns")
+            branch_col = st.sidebar.selectbox("Select Branch/Code Column", df.columns, index=list(df.columns).index(branch_col))
+            name_col = st.sidebar.selectbox("Select Name/Description Column", df.columns, index=list(df.columns).index(name_col))
+            balance_col = st.sidebar.selectbox("Select Balance Column", df.columns, index=list(df.columns).index(balance_col))
+            
+            df[balance_col] = df[balance_col].astype(str).str.replace(',', '').str.strip()
+            df[balance_col] = pd.to_numeric(df[balance_col], errors='coerce').fillna(0)
+            df['Cleaned_Name'] = df[name_col].astype(str).apply(lambda x: x.split('-')[0].strip())
+            
+            report_df = df.groupby([branch_col, 'Cleaned_Name'], as_index=False)[balance_col].sum()
+            report_df.columns = ['Branch Code', 'Expense / Name', 'Total Closing Balance']
+            report_df['Total Closing Balance'] = report_df['Total Closing Balance'].apply(lambda x: f"{x:,.2f}")
+            
+            st.subheader("📊 Grouped Summary Report (Cleaned & Merged)")
+            st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
+            
+            buffer = BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                report_df.to_excel(writer, index=False, sheet_name='Summary Report')
+            st.download_button(label="📥 Download Summary Report as Excel", data=buffer.getvalue(), file_name="Branch_Cleaned_Summary.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        except Exception as e:
+            st.error(f"An error occurred while processing the file: {e}")
+    else:
+        st.info("Please upload an Excel file.")
+
+    st.markdown("---")
+    st.subheader("📊 Recovery Area Wise & Branch Wise Summary")
+    
+    os.makedirs("data", exist_ok=True)
+    LOCAL_FILE = "data/recovery.xlsx"
+    
+    uploaded = st.file_uploader("Upload Recovery File", type=["xlsx", "csv"])
+    if uploaded:
+        if uploaded.name.endswith(".csv"):
+            df = pd.read_csv(uploaded)
+        else:
+            df = pd.read_excel(uploaded)
+        st.session_state["df"] = df
+        df.to_excel(LOCAL_FILE, index=False)
+    elif "df" in st.session_state:
+        df = st.session_state["df"]
+    elif os.path.exists(LOCAL_FILE):
+        df = pd.read_excel(LOCAL_FILE)
+        st.session_state["df"] = df
+    else:
+        st.info("Upload file first")
+        st.stop()
+        
+    mdp_uploaded = st.file_uploader("Upload MDP File", type=["xlsx", "csv"], key="mdp")
+    mdp_df = None
+    if mdp_uploaded:
+        if mdp_uploaded.name.endswith(".csv"):
+            mdp_df = pd.read_csv(mdp_uploaded)
+        else:
+            mdp_df = pd.read_excel(mdp_uploaded)
+        mdp_df["receive_date"] = pd.to_datetime(mdp_df["receive_date"], errors="coerce")
+        mdp_df["Month"] = mdp_df["receive_date"].dt.to_period("M")
+        
+    required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
+    missing = [c for c in required_cols if c not in df.columns]
+    
+    if not missing:
+        df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
+        df = df.dropna(subset=["recovery_date"])
+        df["Month"] = df["recovery_date"].dt.to_period("M")
+        df["Day"] = df["recovery_date"].dt.day
+        
+        def get_range(day):
+            if day <= 10: return "1-10"
+            elif day <= 20: return "11-20"
+            else: return "21-31"
+        df["Range"] = df["Day"].apply(get_range)
+        
+        summary_rows = []
+        for area in sorted(df["area_id"].unique()):
+            area_df = df[df["area_id"] == area]
+            for branch in sorted(area_df["branch_id"].unique()):
+                branch_df = area_df[area_df["branch_id"] == branch]
+                for month in sorted(branch_df["Month"].unique()):
+                    month_df = branch_df[branch_df["Month"] == month]
+                    total = len(month_df)
+                    if total == 0: continue
+                    rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
+                    rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
+                    rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
+                    last_date = month_df["recovery_date"].max()
+                    month_last_day = calendar.monthrange(last_date.year, last_date.month)[1]
+                    summary_rows.append({
+                        "Area ID": area, "Branch ID": branch, "Month": month,
+                        "Recovery 1-10": rec_1_10, "1-10 %": round(rec_1_10 / total * 100, 2),
+                        "Recovery 11-20": rec_11_20, "11-20 %": round(rec_11_20 / total * 100, 2),
+                        "Recovery 21-31": rec_21_31, "21-31 %": round(rec_21_31 / total * 100, 2),
+                        "Total Slips": total, "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
+                        "Close Rate %": round(last_date.day / month_last_day * 100, 2)
+                    })
+        summary_df = pd.DataFrame(summary_rows)
+        if not summary_df.empty:
+            summary_df = summary_df.sort_values(["Area ID", "Branch ID", "Month"]).reset_index(drop=True)
+            branch_month_summary = df.groupby(["Month", "area_id", "branch_id"]).size().reset_index(name="Total Slips")
+            branch_month_summary["Month"] = branch_month_summary["Month"].astype(str)
+            st.subheader("📌 Area & Branch Wise Month Summary")
+            st.dataframe(branch_month_summary, use_container_width=True)
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
 st.write("Upload an Excel file to generate the branch-wise summary report.")
