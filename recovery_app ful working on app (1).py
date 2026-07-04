@@ -49,7 +49,65 @@ if st.button("Generate QR"):
     else:
         st.warning("Enter CNIC")
 
+import streamlit as st
 
+# Page Configuration
+st.set_page_config(page_title="Login", page_icon="🔒", layout="centered")
+
+# Custom CSS for a beautiful modern card layout
+st.markdown("""
+    <style>
+    /* Background styling */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    /* Login Card container */
+    .login-card {
+        background-color: white;
+        padding: 3rem;
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        margin-top: 2rem;
+    }
+    
+    /* Title styling */
+    .login-title {
+        text-align: center;
+        color: #333333;
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 700;
+        margin-bottom: 2rem;
+    }
+    </style>
+""", unsafe_allow_index=True)
+
+# Main container to mimic a card look
+st.markdown('<div class="login-card">', unsafe_allow_html=True)
+
+st.markdown('<h1 class="login-title">🔒 Welcome Back</h1>', unsafe_allow_html=True)
+
+# Input fields
+username = st.text_input("Username / Email", placeholder="Enter your username")
+password = st.text_input("Password", type="password", placeholder="Enter your password")
+
+st.markdown('<br>', unsafe_allow_html=True)
+
+# Login Button
+if st.button("Login", use_container_width=True):
+    if username == "admin" and password == "admin123": # Apna logic yahan lagayein
+        st.success("🎉 Login Successful!")
+        st.balloons()
+        # st.switch_page("pages/app.py") # Agar multi-page app hai to navigate karein
+    elif not username or not password:
+        st.warning("Please fill in all fields.")
+    else:
+        st.error("❌ Invalid Username or Password")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Footer info or help link
+st.markdown("<p style='text-align: center; color: #777; margin-top: 2rem;'>Forgot password? Contact your Administrator.</p>", unsafe_allow_html=True)
 # 2. App Title & File Uploader
 st.title("📊 Branch Closing Balance Report")
 st.write("Upload an Excel file to generate the branch-wise summary report.")
