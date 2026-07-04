@@ -51,6 +51,7 @@ if st.button("Generate QR"):
 import streamlit as st
 
 # Page Configuration
+st.set_page_config(page_title="Login", page_icon="🔒", layout="centered")
 
 # ==========================================
 # Custom CSS for Beautiful Login Page
@@ -68,7 +69,7 @@ st.markdown("""
         padding: 3rem;
         border-radius: 15px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        margin-top: 2rem;
+        margin-top: 4rem;
     }
     
     /* Title styling */
@@ -80,7 +81,7 @@ st.markdown("""
         margin-bottom: 2rem;
     }
     </style>
-""", unsafe_allow_html=True) # <-- Fixed: 'unsafe_allow_html' is used correctly here
+""", unsafe_allow_html=True)
 
 # Session state to check login status
 if "logged_in" not in st.session_state:
@@ -102,7 +103,7 @@ if not st.session_state.logged_in:
 
     # Login Button
     if st.button("Login", use_container_width=True):
-        if username == "admin" and password == "admin123": # Apna ID aur Password yahan set karein
+        if username == "admin" and password == "admin123": # Apna ID/Password yahan set karein
             st.session_state.logged_in = True
             st.success("🎉 Login Successful!")
             st.rerun()
@@ -116,8 +117,8 @@ if not st.session_state.logged_in:
 
 else:
     # Login hone ke baad jo screen dikhegi
-    st.title("Welcome to the Dashboard!")
-    st.write(f"Hello, {username}! You are successfully logged in.")
+    st.title("🚀 Welcome to the Dashboard!")
+    st.write(f"Hello, **{username}**! You are successfully logged in.")
     
     # Logout Button
     if st.button("Logout"):
