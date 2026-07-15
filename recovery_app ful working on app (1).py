@@ -102,7 +102,7 @@ if st.button("Generate QR"):
             mime="image/png"
         )
     else:
-        st.warning("Enter CNIC")
+st.warning("Enter CNIC")
 import calendar
 import os
 from io import BytesIO
@@ -110,8 +110,6 @@ import pandas as pd
 import streamlit as st
 
 # Page Configuration
-st.set_page_config(page_title="Branch Reporting Portal", layout="wide")
-
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.title("🧭 Navigation Menu")
 st.sidebar.markdown("Choose a report type to upload files and view data.")
