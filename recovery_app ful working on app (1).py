@@ -101,8 +101,7 @@ if st.button("Generate QR"):
             file_name="cnic_qr.png",
             mime="image/png"
         )
-    else:
-    st.warning("Enter CNIC")
+
 import calendar
 import os
 from io import BytesIO
