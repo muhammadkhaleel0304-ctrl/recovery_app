@@ -102,7 +102,7 @@ if st.button("Generate QR"):
             mime="image/png"
         )
     else:
-st.warning("Enter CNIC")
+    st.warning("Enter CNIC")
 import calendar
 import os
 from io import BytesIO
