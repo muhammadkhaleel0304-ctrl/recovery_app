@@ -11,6 +11,7 @@ from fpdf import FPDF
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "12341",
+    "Aryan Haider": "Munara",
     "user": "1111"
 }
 
