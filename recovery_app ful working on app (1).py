@@ -1640,7 +1640,6 @@ else:
 
 # ---------------- Column Selection ----------------
 st.subheader("Available Columns")
-st.write(list(df.columns))
 
 date_col = st.selectbox("Select Date Column", df.columns)
 branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
