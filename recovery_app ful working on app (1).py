@@ -1483,8 +1483,6 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 
-st.set_page_config(layout="wide") # اسکرین کو بہتر استعمال کرنے کے لیے
-
 st.title("Loan Disbursement PDF Generator (Branchwise)")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
