@@ -1482,6 +1482,7 @@ if uploaded_cheque:
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
+import io
 
 st.title("Loan Disbursement PDF Generator (Branchwise)")
 
@@ -1499,9 +1500,56 @@ def safe(val):
 # ---------------------- PDF Class ----------------------
 class PDF(FPDF):
     def header(self):
-        self.set_font("Arial", 'B', 12)
-        self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
-        self.ln(3)
+        # اگر ہیڈر پہلے سے بنا ہوا ہے تو دوبارہ نہ بنائیں
+        if not hasattr(self, 'header_printed'):
+            self.set_font("Arial", 'B', 12)
+            self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
+            self.ln(3)
+            self.header_printed = True
+
+# ---------------------- PDF GENERATION FUNCTION ----------------------
+# تمام پی ڈی ایف لاجک کو فنکشن میں ڈال دیا تاکہ اسکرین پر None نہ آئے
+def generate_branch_pdf(br_name, br_data):
+    pdf = PDF(orientation="L", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.add_page()
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, f"Branch: {br_name}", ln=True, align="C")
+    pdf.ln(3)
+
+    headers = [
+        "Date Disburse", "Sanction No", "Tranch", "Cheque No",
+        "Loan Amount", "Group No", "Member Name", "CNIC"
+    ]
+    col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
+
+    pdf.set_fill_color(200, 200, 200)
+    pdf.set_font("Arial", 'B', 9)
+
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
+    pdf.ln()
+
+    fill = False
+    for _, row in br_data.iterrows():
+        pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
+        pdf.set_font("Arial", '', 9)
+
+        pdf.cell(col_widths[0], 7, safe(row["date_disburse"]), border=1, fill=True)
+        pdf.cell(col_widths[1], 7, safe(row["sanction_no"]), border=1, fill=True)
+        pdf.cell(col_widths[2], 7, safe(row["tranch"]), border=1, fill=True)
+        pdf.cell(col_widths[3], 7, safe(row["cheque_no"]), border=1, fill=True)
+        pdf.cell(col_widths[4], 7, safe(row["loan_amount"]), border=1, fill=True)
+        pdf.cell(col_widths[5], 7, safe(row["group_no"]), border=1, fill=True)
+        pdf.cell(col_widths[6], 7, safe(row["member_name"]), border=1, fill=True)
+        pdf.cell(col_widths[7], 7, safe(row["member_cnic"]), border=1, fill=True)
+
+        pdf.ln()
+        fill = not fill
+
+    # پائتھون 3 میں بائٹس آؤٹ پٹ حاصل کرنے کا محفوظ طریقہ
+    return pdf.output(dest="S").encode("latin-1")
 
 # ---------------------- MAIN ----------------------
 if uploaded_file:
@@ -1538,62 +1586,19 @@ if uploaded_file:
         st.markdown(f"### 📌 Branch: **{br}**")
         st.dataframe(br_df)
 
-        # ---------------------- GENERATE PDF DATA DIRECTLY ----------------------
-        pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
-        pdf.set_auto_page_break(auto=True, margin=10)
-        pdf.add_page()
+        # فنکشن کال کر کے پی ڈی ایف ڈیٹا بائٹس حاصل کریں
+        pdf_bytes = generate_branch_pdf(br, br_df)
 
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 8, f"Branch: {br}", ln=True, align="C")
-        pdf.ln(3)
-
-        # ---------------------- TABLE HEADER ----------------------
-        headers = [
-            "Date Disburse", "Sanction No", "Tranch", "Cheque No",
-            "Loan Amount", "Group No", "Member Name", "CNIC"
-        ]
-
-        # Landscape column widths
-        col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
-
-        pdf.set_fill_color(200, 200, 200)
-        pdf.set_font("Arial", 'B', 9)
-
-        for i, h in enumerate(headers):
-            pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
-        pdf.ln()
-
-        # ---------------------- TABLE ROWS ----------------------
-        fill = False
-        for _, row in br_df.iterrows():
-            pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
-            pdf.set_font("Arial", '', 9)
-
-            pdf.cell(col_widths[0], 7, safe(row["date_disburse"]), border=1, fill=True)
-            pdf.cell(col_widths[1], 7, safe(row["sanction_no"]), border=1, fill=True)
-            pdf.cell(col_widths[2], 7, safe(row["tranch"]), border=1, fill=True)
-            pdf.cell(col_widths[3], 7, safe(row["cheque_no"]), border=1, fill=True)
-            pdf.cell(col_widths[4], 7, safe(row["loan_amount"]), border=1, fill=True)
-            pdf.cell(col_widths[5], 7, safe(row["group_no"]), border=1, fill=True)
-            pdf.cell(col_widths[6], 7, safe(row["member_name"]), border=1, fill=True)
-            pdf.cell(col_widths[7], 7, safe(row["member_cnic"]), border=1, fill=True)
-
-            pdf.ln()
-            fill = not fill
-
-        # Export PDF to bytes
-        pdf_bytes = pdf.output(dest="S").encode("latin-1")
-
-        # ---------------------- DIRECT DOWNLOAD BUTTON ----------------------
+        # ڈاؤن لوڈ بٹن
         st.download_button(
             label=f"Download PDF for Branch {br}",
             data=pdf_bytes,
             file_name=f"{br}_Loan_Disbursement.pdf",
             mime="application/pdf",
-            key=f"btn_{br}"  # Unique Key for Streamlit loop
+            key=f"btn_{br}"
         )
         
-        st.write("---")  # Separation Line
+        st.write("---")
 
     st.success("All Branch PDF Buttons Ready!")
 import streamlit as st
