@@ -1482,7 +1482,8 @@ if uploaded_cheque:
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
-import io
+
+st.set_page_config(layout="wide") 
 
 st.title("Loan Disbursement PDF Generator (Branchwise)")
 
@@ -1500,17 +1501,14 @@ def safe(val):
 # ---------------------- PDF Class ----------------------
 class PDF(FPDF):
     def header(self):
-        # اگر ہیڈر پہلے سے بنا ہوا ہے تو دوبارہ نہ بنائیں
-        if not hasattr(self, 'header_printed'):
-            self.set_font("Arial", 'B', 12)
-            self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
-            self.ln(3)
-            self.header_printed = True
+        self.set_font("Arial", 'B', 12)
+        self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
+        self.ln(3)
 
 # ---------------------- PDF GENERATION FUNCTION ----------------------
-# تمام پی ڈی ایف لاجک کو فنکشن میں ڈال دیا تاکہ اسکرین پر None نہ آئے
-def generate_branch_pdf(br_name, br_data):
-    pdf = PDF(orientation="L", unit="mm", format="A4")
+# تمام پی ڈی ایف لاجک کو اس فنکشن میں بند کر دیا ہے تاکہ اسکرین پر None نہ آئے
+def make_branch_pdf(br_name, br_data):
+    pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
 
@@ -1518,10 +1516,12 @@ def generate_branch_pdf(br_name, br_data):
     pdf.cell(0, 8, f"Branch: {br_name}", ln=True, align="C")
     pdf.ln(3)
 
+    # ---------------------- TABLE HEADER ----------------------
     headers = [
         "Date Disburse", "Sanction No", "Tranch", "Cheque No",
         "Loan Amount", "Group No", "Member Name", "CNIC"
     ]
+
     col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
 
     pdf.set_fill_color(200, 200, 200)
@@ -1531,6 +1531,7 @@ def generate_branch_pdf(br_name, br_data):
         pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
     pdf.ln()
 
+    # ---------------------- TABLE ROWS ----------------------
     fill = False
     for _, row in br_data.iterrows():
         pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
@@ -1548,7 +1549,7 @@ def generate_branch_pdf(br_name, br_data):
         pdf.ln()
         fill = not fill
 
-    # پائتھون 3 میں بائٹس آؤٹ پٹ حاصل کرنے کا محفوظ طریقہ
+    # پائتھون 3 میں بائٹس آؤٹ پٹ حاصل کرنے کا طریقہ
     return pdf.output(dest="S").encode("latin-1")
 
 # ---------------------- MAIN ----------------------
@@ -1586,10 +1587,10 @@ if uploaded_file:
         st.markdown(f"### 📌 Branch: **{br}**")
         st.dataframe(br_df)
 
-        # فنکشن کال کر کے پی ڈی ایف ڈیٹا بائٹس حاصل کریں
-        pdf_bytes = generate_branch_pdf(br, br_df)
+        # یہاں فنکشن کے اندر پی ڈی ایف بنے گی، اس لیے اسکرین پر کوئی چیز پرنٹ نہیں ہوگی
+        pdf_bytes = make_branch_pdf(br, br_df)
 
-        # ڈاؤن لوڈ بٹن
+        # براہ راست ڈاؤن لوڈ بٹن
         st.download_button(
             label=f"Download PDF for Branch {br}",
             data=pdf_bytes,
