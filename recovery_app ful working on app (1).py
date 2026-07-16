@@ -1483,6 +1483,8 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 
+st.set_page_config(layout="wide") 
+
 st.title("Loan Disbursement PDF Generator (Branchwise)")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
@@ -1539,7 +1541,6 @@ if uploaded_file:
         st.dataframe(br_df)
 
         # ---------------------- GENERATE PDF DATA DIRECTLY ----------------------
-        # ہم بٹن دبانے کا انتظار کیے بغیر پی ڈی ایف کا ڈیٹا بیک گراؤنڈ میں تیار کر رہے ہیں
         pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
         pdf.set_auto_page_break(auto=True, margin=10)
         pdf.add_page()
@@ -1554,7 +1555,7 @@ if uploaded_file:
             "Loan Amount", "Group No", "Member Name", "CNIC"
         ]
 
-        # Landscape column widths (Perfect Adjustment)
+        # Landscape column widths
         col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
 
         pdf.set_fill_color(200, 200, 200)
@@ -1586,19 +1587,17 @@ if uploaded_file:
         pdf_bytes = pdf.output(dest="S").encode("latin-1")
 
         # ---------------------- DIRECT DOWNLOAD BUTTON ----------------------
-        # یہ بٹن اب پیج کو بغیر ری رن کیے ڈائریکٹ فائل ڈاؤن لوڈ کروائے گا
         st.download_button(
             label=f"Download PDF for Branch {br}",
             data=pdf_bytes,
             file_name=f"{br}_Loan_Disbursement.pdf",
             mime="application/pdf",
-            key=f"btn_{br}"  # ہر بٹن کے لیے یونیک کی (Unique Key) ہونا لازمی ہے
+            key=f"btn_{br}"  # Unique Key for Streamlit loop
         )
         
-        st.write("---")  # برانچز کے درمیان واضح لکیر کے لیے
+        st.write("---")  # Separation Line
 
     st.success("All Branch PDF Buttons Ready!")
-
 import streamlit as st
 import pandas as pd
 from io import BytesIO
