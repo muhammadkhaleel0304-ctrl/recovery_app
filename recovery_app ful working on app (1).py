@@ -120,7 +120,7 @@ with col2:
                 )
             else:
                 st.error(
-                    f"❌ Invalid! 13 ڈیجٹ لکھنا لازمی ہے۔ آپ نے {len(clean_13)} ڈیجٹ لکھے"
+                    f"❌ Invalid! Must Enter 13 Digit {len(clean_13)} "
                 )
         else:
             st.warning("Please Enter CNIC NO Without Dashes")
