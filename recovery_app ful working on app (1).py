@@ -11,6 +11,65 @@ from io import BytesIO
 import qrcode
 
 
+
+# ---------- USERS ----------
+USERS = {
+    "Khaleel": "12341",
+    "Aryan Haider": "Munara",
+    "user": "1111"
+}
+
+# ---------- SESSION ----------
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+# ---------- LOGIN PAGE ----------
+if not st.session_state.login:
+
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    }
+
+    h2, label {
+        color: white !important;
+        text-align: center;
+    }
+
+    .stButton>button {
+        background: #00c6ff;
+        color: white;
+        border-radius: 10px;
+        height: 40px;
+        font-weight: bold;
+    }
+
+    .stButton>button:hover {
+        background: #0072ff;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1,2,1])
+
+    with col2:
+        st.markdown("## 🔐 Login")
+
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+
+        login_btn = st.button("Login", use_container_width=True)
+
+        if login_btn:
+            if USERS.get(user) == pwd:
+                st.session_state.login = True
+                st.success("Login successful ✔")
+                st.experimental_rerun()
+            else:
+                st.error("❌ Invalid username or password")
+
+    st.stop()
 # ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
 FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
 # ===========================================
@@ -123,66 +182,7 @@ with col2:
                     "❌ Invalid! Must Enter 13 Digit "
                 )
         else:
-            st.warning("Please Enter CNIC NO Without Dashes")
-# ---------- USERS ----------
-USERS = {
-    "Khaleel": "12341",
-    "Aryan Haider": "Munara",
-    "user": "1111"
-}
-
-# ---------- SESSION ----------
-if "login" not in st.session_state:
-    st.session_state.login = False
-
-# ---------- LOGIN PAGE ----------
-if not st.session_state.login:
-
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    }
-
-    h2, label {
-        color: white !important;
-        text-align: center;
-    }
-
-    .stButton>button {
-        background: #00c6ff;
-        color: white;
-        border-radius: 10px;
-        height: 40px;
-        font-weight: bold;
-    }
-
-    .stButton>button:hover {
-        background: #0072ff;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1,2,1])
-
-    with col2:
-        st.markdown("## 🔐 Login")
-
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-
-        login_btn = st.button("Login", use_container_width=True)
-
-        if login_btn:
-            if USERS.get(user) == pwd:
-                st.session_state.login = True
-                st.success("Login successful ✔")
-                st.experimental_rerun()
-            else:
-                st.error("❌ Invalid username or password")
-
-    st.stop()
-    
+            st.warning("Please Enter CNIC NO Without Dashes")    
     # 2. App Title & File Uploader
     st.title("📊 Branch Closing Balance Report")
     st.write("Upload an Excel file to generate the branch-wise summary report.")
