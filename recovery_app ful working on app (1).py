@@ -10,6 +10,10 @@ from fpdf import FPDF
 from io import BytesIO
 import qrcode
 
+import streamlit as st
+import qrcode
+from io import BytesIO
+
 # ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
 FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
 # ===========================================
@@ -44,12 +48,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header Section
+# Header Section - یہاں سے prefix ہٹا دیا
 st.markdown(
-    f"""
+    """
     <div class="header-card">
         <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle">Prefix: {FIXED_FIRST_12} + آپ 13 ڈیجٹ لکھیں = 25 ڈیجٹ</div>
+        <div class="header-subtitle">صرف آگے والے 13 ڈیجٹ لکھیں</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -61,7 +65,7 @@ col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     # یوزر سے 13 ڈیجٹ لیں گے
     user_13_digit = st.text_input(
-        "Sirf 13 Digit Likhy ",
+        "آگے والے 13 ڈیجٹ لکھیں",
         placeholder="مثال: 1234567890123",
         max_chars=13,
     )
@@ -100,25 +104,26 @@ with col2:
                 # ------------------------------------------------------
 
                 st.markdown("---")
-                st.success(f"✅ مکمل 25 ڈیجٹ: {full_cnic}")
 
-                # Modern Result Frame
+                # یہاں سے "مکمل 25 ڈیجٹ" والا success ہٹا دیا
+                # اور caption سے بھی full_cnic ہٹا دیا
+
                 st.image(
                     img_bytes,
-                    caption=f"Generated for: {full_cnic}",
+                    caption="QR Code Ready",
                     use_column_width=True,
                 )
 
                 st.download_button(
                     "📥 QR Code ڈاؤنلوڈ کریں",
                     data=img_bytes,
-                    file_name=f"cnic_qr_{full_cnic}.png",
+                    file_name=f"cnic_qr.png",  # فائل نیم سے بھی full_cnic ہٹا دیا
                     mime="image/png",
                     use_container_width=True,
                 )
             else:
                 st.error(
-                    f"❌ Invalid! 13 ڈیجٹ لکھنا لازمی ہے۔ آپ نے {len(clean_13)} ڈیجٹ لکھے۔ ٹوٹل بنے گا 25"
+                    f"❌ Invalid! 13 ڈیجٹ لکھنا لازمی ہے۔ آپ نے {len(clean_13)} ڈیجٹ لکھے"
                 )
         else:
             st.warning("براہ کرم آگے والے 13 ڈیجٹ لکھیں")
