@@ -10,9 +10,6 @@ from fpdf import FPDF
 from io import BytesIO
 import qrcode
 
-import streamlit as st
-import qrcode
-from io import BytesIO
 
 # ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
 FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
@@ -53,7 +50,7 @@ st.markdown(
     """
     <div class="header-card">
         <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle">صرف آگے والے 13 ڈیجٹ لکھیں</div>
+        <div class="header-subtitle"></div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -65,7 +62,7 @@ col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     # یوزر سے 13 ڈیجٹ لیں گے
     user_13_digit = st.text_input(
-        "آگے والے 13 ڈیجٹ لکھیں",
+        "Just Enter CNIC NO 13",
         placeholder="مثال: 1234567890123",
         max_chars=13,
     )
