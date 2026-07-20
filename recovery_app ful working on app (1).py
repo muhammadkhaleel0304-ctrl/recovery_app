@@ -9,6 +9,8 @@ import plotly.express as px
 from fpdf import FPDF
 from io import BytesIO
 import qrcode
+
+
 # Custom Page Config & CSS Design
 st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
 
@@ -94,11 +96,11 @@ with col2:
 
                 st.markdown("---")
 
-                # Modern Result Frame
-                st.image("path/to/image.jpg")
-                    img_bytes,
+                # Modern Result Frame - YAHAN THEEK KIYA
+                st.image(
+                    img_bytes,  # direct bytes pass kiye
                     caption=f"Generated for: {clean_cnic}",
-                    use_container_width=True,
+                    use_column_width=True,  # use_container_width purane version me nahi chalta
                 )
 
                 st.download_button(
