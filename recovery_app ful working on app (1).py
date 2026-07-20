@@ -13,11 +13,11 @@ import streamlit as st
 
 st.title("CNIC QR Generator")
 
-# Max length ko 26 rakha taakay dashes waala format bhee complete enter ho sakay
+# Max length ko 25 rakha taakay dashes waala format bhee complete enter ho sakay
 cnic = st.text_input(
-    "Enter 13-digit CNIC",
+    "Enter 25-digit CNIC",
     placeholder="e.g. 42101-1234567-1 ya 4210112345671",
-    max_chars=26,
+    max_chars=25,
 )
 
 if st.button("Generate QR"):
