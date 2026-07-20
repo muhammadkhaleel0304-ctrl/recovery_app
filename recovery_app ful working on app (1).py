@@ -95,7 +95,7 @@ with col2:
                 st.markdown("---")
 
                 # Modern Result Frame
-                st.image(
+                st.image("your_image.jpg", caption="My Image", use_column_width=True)
                     img_bytes,
                     caption=f"Generated for: {clean_cnic}",
                     use_container_width=True,
