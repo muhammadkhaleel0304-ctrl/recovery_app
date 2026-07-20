@@ -17,7 +17,7 @@ st.title("CNIC QR Generator")
 cnic = st.text_input(
     "Enter 13-digit CNIC",
     placeholder="e.g. 42101-1234567-1 ya 4210112345671",
-    max_chars=20,
+    max_chars=26,
 )
 
 if st.button("Generate QR"):
