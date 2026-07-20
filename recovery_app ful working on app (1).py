@@ -7,44 +7,113 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from fpdf import FPDF
-st.title("CNIC QR Generator")
+from io import BytesIO
+import qrcode
+import streamlit as st
 
-cnic = st.text_input("Enter 13-digit CNIC")
+# Custom Page Config
+st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
 
-if st.button("Generate QR"):
-    if cnic:
+# Modern Styling (CSS)
+st.markdown(
+    """
+    <style>
+        .main-card {
+            background-color: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            border: 1px solid #334155;
+            margin-bottom: 25px;
+        }
+        .title-text {
+            color: #f8fafc;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .subtitle-text {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .stButton>button {
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-        data = str(cnic).strip()
+# Header Section / Card
+st.markdown(
+    """
+    <div class="main-card">
+        <div class="title-text">🪪 CNIC QR Code Generator</div>
+        <div class="subtitle-text">Enter a 13-digit CNIC to instantly generate a high-quality QR code.</div>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
-        # FORCE FULL DATA ENCODING
-        qr = qrcode.QRCode(
-            version=None,  # AUTO size (IMPORTANT FIX)
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=5,
-            border=4
-        )
+# Input Section with Columns
+col1, col2, col3 = st.columns([1, 3, 1])
 
-        qr.add_data(data)
-        qr.make(fit=True)
+with col2:
+    cnic = st.text_input(
+        "CNIC Number",
+        placeholder="e.g. 4210112345671",
+        max_chars=15,
+        help="Enter 13 digits without dashes",
+    )
 
-        img = qr.make_image(fill_color="black", back_color="white")
+    generate_btn = st.button(
+        "✨ Generate QR Code", use_container_width=True, type="primary"
+    )
 
-        buf = BytesIO()
-        img.save(buf, format="PNG")
+    if generate_btn:
+        clean_cnic = cnic.replace("-", "").strip()
 
-        img_bytes = buf.getvalue()
+        if clean_cnic and clean_cnic.isdigit() and len(clean_cnic) == 13:
+            # QR Code Generation Logic
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=8,
+                border=3,
+            )
+            qr.add_data(clean_cnic)
+            qr.make(fit=True)
 
-        st.image(img_bytes)
+            img = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
 
-        st.download_button(
-            "Download QR",
-            data=img_bytes,
-            file_name="cnic_qr.png",
-            mime="image/png"
-        )
-    else:
-        st.warning("Enter CNIC")
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
 
+            st.success("✅ QR Code generated successfully!")
+
+            # Display QR in a centered layout
+            qr_col1, qr_col2, qr_col3 = st.columns([1, 2, 1])
+            with qr_col2:
+                st.image(
+                    img_bytes,
+                    caption=f"CNIC: {clean_cnic}",
+                    use_container_width=True,
+                )
+
+                st.download_button(
+                    label="📥 Download QR Code",
+                    data=img_bytes,
+                    file_name=f"cnic_qr_{clean_cnic}.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
+        else:
+            st.error("❌ Please enter a valid 13-digit CNIC number.")
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "12341",
