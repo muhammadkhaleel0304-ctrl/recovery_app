@@ -120,7 +120,7 @@ with col2:
                 )
             else:
                 st.error(
-                    f"❌ Invalid! Must Enter 13 Digit {len(clean_13)} "
+                    f"❌ Invalid! Must Enter 13 Digit {len(clean_13)}You Just Enter"
                 )
         else:
             st.warning("Please Enter CNIC NO Without Dashes")
