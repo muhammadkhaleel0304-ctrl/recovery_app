@@ -123,7 +123,7 @@ with col2:
                     f"❌ Invalid! 13 ڈیجٹ لکھنا لازمی ہے۔ آپ نے {len(clean_13)} ڈیجٹ لکھے"
                 )
         else:
-            st.warning("براہ کرم آگے والے 13 ڈیجٹ لکھیں")
+            st.warning("Please Enter CNIC NO Without Dashes")
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "12341",
