@@ -11,13 +11,9 @@ from io import BytesIO
 import qrcode
 import streamlit as st
 
-from io import BytesIO
-import qrcode
-import streamlit as st
-
 st.title("CNIC QR Generator")
 
-# Max length ko 20 rakha taakay dashes waala format bhee complete enter ho sakay
+# Max length ko 26 rakha taakay dashes waala format bhee complete enter ho sakay
 cnic = st.text_input(
     "Enter 13-digit CNIC",
     placeholder="e.g. 42101-1234567-1 ya 4210112345671",
