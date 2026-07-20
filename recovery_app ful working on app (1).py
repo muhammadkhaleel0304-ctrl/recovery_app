@@ -9,11 +9,6 @@ import plotly.express as px
 from fpdf import FPDF
 from io import BytesIO
 import qrcode
-
-from io import BytesIO
-import qrcode
-import streamlit as st
-
 # Custom Page Config & CSS Design
 st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
 
