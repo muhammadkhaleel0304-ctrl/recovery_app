@@ -92,7 +92,7 @@ with col2:
                 img_bytes = buf.getvalue()
                 # ------------------------------------------------------
 
-                st.divider()
+                st.markdown("---")
 
                 # Modern Result Frame
                 st.image(
