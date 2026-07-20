@@ -9,58 +9,116 @@ import plotly.express as px
 from fpdf import FPDF
 from io import BytesIO
 import qrcode
+
+from io import BytesIO
+import qrcode
 import streamlit as st
 
-st.title("CNIC QR Generator")
+# Custom Page Config & CSS Design
+st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
 
-# Max length ko 25 rakha taakay dashes waala format bhee complete enter ho sakay
-cnic = st.text_input(
-    "Enter 25-digit CNIC",
-    placeholder="e.g. 42101-1234567-1 ya 4210112345671",
-    max_chars=25,
+st.markdown(
+    """
+    <style>
+        /* Modern Header styling */
+        .header-card {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            margin-bottom: 25px;
+        }
+        .header-title {
+            color: #ffffff;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .header-subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
 )
 
-if st.button("Generate QR"):
-    if cnic:
-        # Dash (-) aur spaces ko saaf karke sirf numbers nikalna
-        clean_cnic = cnic.replace("-", "").strip()
+# Header Section
+st.markdown(
+    """
+    <div class="header-card">
+        <div class="header-title">🪪 CNIC QR Generator</div>
+        <div class="header-subtitle">Generate high-quality printable QR codes instantly</div>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
-        # Check ke exact 13 digits hain
-        if clean_cnic.isdigit() and len(clean_cnic) == 25:
-            data = clean_cnic
+# Input Section with Columns Layout
+col1, col2, col3 = st.columns([1, 3, 1])
 
-            # FORCE FULL DATA ENCODING (Original Logic)
-            qr = qrcode.QRCode(
-                version=None,  # AUTO size
-                error_correction=qrcode.constants.ERROR_CORRECT_H,
-                box_size=5,
-                border=4,
-            )
+with col2:
+    cnic = st.text_input(
+        "Enter 25-digit CNIC",
+        placeholder="e.g. 42101-1234567-1 ya 4210112345671",
+        max_chars=25,
+    )
 
-            qr.add_data(data)
-            qr.make(fit=True)
+    generate_btn = st.button(
+        "✨ Generate QR Code", type="primary", use_container_width=True
+    )
 
-            img = qr.make_image(fill_color="black", back_color="white")
+    if generate_btn:
+        if cnic:
+            # ---------------- EXACT ORIGINAL LOGIC ----------------
+            clean_cnic = cnic.replace("-", "").strip()
 
-            buf = BytesIO()
-            img.save(buf, format="PNG")
+            if clean_cnic.isdigit() and len(clean_cnic) == 25:
+                data = clean_cnic
 
-            img_bytes = buf.getvalue()
+                # FORCE FULL DATA ENCODING (Original Logic)
+                qr = qrcode.QRCode(
+                    version=None,  # AUTO size
+                    error_correction=qrcode.constants.ERROR_CORRECT_H,
+                    box_size=5,
+                    border=4,
+                )
 
-            st.image(img_bytes)
+                qr.add_data(data)
+                qr.make(fit=True)
 
-            st.download_button(
-                "Download QR",
-                data=img_bytes,
-                file_name=f"cnic_qr_{clean_cnic}.png",
-                mime="image/png",
-            )
+                img = qr.make_image(fill_color="black", back_color="white")
+
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+
+                img_bytes = buf.getvalue()
+                # ------------------------------------------------------
+
+                st.divider()
+
+                # Modern Result Frame
+                st.image(
+                    img_bytes,
+                    caption=f"Generated for: {clean_cnic}",
+                    use_container_width=True,
+                )
+
+                st.download_button(
+                    "📥 Download QR Code",
+                    data=img_bytes,
+                    file_name=f"cnic_qr_{clean_cnic}.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
+            else:
+                st.error(
+                    f"❌ Invalid CNIC! Exactly 25 digits hona zaroori hain (Aap ne {len(clean_cnic)} digits enter kiye hain)."
+                )
         else:
-            st.error(
-                f"❌ Invalid CNIC! Exactly 25 digits hona zaroori hain (Aap ne {len(clean_cnic)} digits enter kiye hain)."
-            )
-    else:
-        st.warning("Enter CNIC")
+            st.warning("Enter CNIC")
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "12341",
