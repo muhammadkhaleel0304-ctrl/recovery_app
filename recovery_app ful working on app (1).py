@@ -10,6 +10,9 @@ from fpdf import FPDF
 from io import BytesIO
 import qrcode
 
+# ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
+FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
+# ===========================================
 
 # Custom Page Config & CSS Design
 st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
@@ -17,7 +20,6 @@ st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="cen
 st.markdown(
     """
     <style>
-        /* Modern Header styling */
         .header-card {
             background: linear-gradient(135deg, #1e293b, #0f172a);
             padding: 25px;
@@ -44,10 +46,10 @@ st.markdown(
 
 # Header Section
 st.markdown(
-    """
+    f"""
     <div class="header-card">
         <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle">Generate high-quality printable QR codes instantly</div>
+        <div class="header-subtitle">Prefix: {FIXED_FIRST_12} + آپ 13 ڈیجٹ لکھیں = 25 ڈیجٹ</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -57,23 +59,26 @@ st.markdown(
 col1, col2, col3 = st.columns([1, 3, 1])
 
 with col2:
-    cnic = st.text_input(
-        "Enter 25-digit CNIC",
-        placeholder="e.g. 42101-1234567-1 ya 4210112345671",
-        max_chars=25,
+    # یوزر سے 13 ڈیجٹ لیں گے
+    user_13_digit = st.text_input(
+        "آگے والے 13 ڈیجٹ لکھیں",
+        placeholder="مثال: 1234567890123",
+        max_chars=13,
     )
 
     generate_btn = st.button(
-        "✨ Generate QR Code", type="primary", use_container_width=True
+        "✨ QR Code بنائیں", type="primary", use_container_width=True
     )
 
     if generate_btn:
-        if cnic:
+        if user_13_digit:
             # ---------------- EXACT ORIGINAL LOGIC ----------------
-            clean_cnic = cnic.replace("-", "").strip()
+            clean_13 = user_13_digit.replace("-", "").strip()
 
-            if clean_cnic.isdigit() and len(clean_cnic) == 25:
-                data = clean_cnic
+            full_cnic = FIXED_FIRST_12 + clean_13  # 12 + 13 = 25 ڈیجٹ
+
+            if clean_13.isdigit() and len(full_cnic) == 25:
+                data = full_cnic
 
                 # FORCE FULL DATA ENCODING (Original Logic)
                 qr = qrcode.QRCode(
@@ -95,27 +100,28 @@ with col2:
                 # ------------------------------------------------------
 
                 st.markdown("---")
+                st.success(f"✅ مکمل 25 ڈیجٹ: {full_cnic}")
 
-                # Modern Result Frame - YAHAN THEEK KIYA
+                # Modern Result Frame
                 st.image(
-                    img_bytes,  # direct bytes pass kiye
-                    caption=f"Generated for: {clean_cnic}",
-                    use_column_width=True,  # use_container_width purane version me nahi chalta
+                    img_bytes,
+                    caption=f"Generated for: {full_cnic}",
+                    use_column_width=True,
                 )
 
                 st.download_button(
-                    "📥 Download QR Code",
+                    "📥 QR Code ڈاؤنلوڈ کریں",
                     data=img_bytes,
-                    file_name=f"cnic_qr_{clean_cnic}.png",
+                    file_name=f"cnic_qr_{full_cnic}.png",
                     mime="image/png",
                     use_container_width=True,
                 )
             else:
                 st.error(
-                    f"❌ Invalid CNIC! Exactly 25 digits hona zaroori hain (Aap ne {len(clean_cnic)} digits enter kiye hain)."
+                    f"❌ Invalid! 13 ڈیجٹ لکھنا لازمی ہے۔ آپ نے {len(clean_13)} ڈیجٹ لکھے۔ ٹوٹل بنے گا 25"
                 )
         else:
-            st.warning("Enter CNIC")
+            st.warning("براہ کرم آگے والے 13 ڈیجٹ لکھیں")
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "12341",
