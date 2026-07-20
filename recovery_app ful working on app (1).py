@@ -26,7 +26,7 @@ if st.button("Generate QR"):
         clean_cnic = cnic.replace("-", "").strip()
 
         # Check ke exact 13 digits hain
-        if clean_cnic.isdigit() and len(clean_cnic) == 13:
+        if clean_cnic.isdigit() and len(clean_cnic) == 25:
             data = clean_cnic
 
             # FORCE FULL DATA ENCODING (Original Logic)
@@ -57,7 +57,7 @@ if st.button("Generate QR"):
             )
         else:
             st.error(
-                f"❌ Invalid CNIC! Exactly 13 digits hona zaroori hain (Aap ne {len(clean_cnic)} digits enter kiye hain)."
+                f"❌ Invalid CNIC! Exactly 25 digits hona zaroori hain (Aap ne {len(clean_cnic)} digits enter kiye hain)."
             )
     else:
         st.warning("Enter CNIC")
