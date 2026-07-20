@@ -62,8 +62,8 @@ col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     # یوزر سے 13 ڈیجٹ لیں گے
     user_13_digit = st.text_input(
-        "Just Enter CNIC NO 13",
-        placeholder="مثال: 1234567890123",
+        "Just Enter CNIC NO",
+        placeholder="مثال: 3720388692193",
         max_chars=13,
     )
 
