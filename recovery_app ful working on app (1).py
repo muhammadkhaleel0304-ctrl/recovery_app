@@ -61,7 +61,7 @@ col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     # یوزر سے 13 ڈیجٹ لیں گے
     user_13_digit = st.text_input(
-        "آگے والے 13 ڈیجٹ لکھیں",
+        "Sirf 13 Digit Likhy ",
         placeholder="مثال: 1234567890123",
         max_chars=13,
     )
