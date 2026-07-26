@@ -1,1965 +1,357 @@
-import streamlit as st
-import qrcode
-from io import BytesIO
-import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import plotly.express as px
-from fpdf import FPDF
-from io import BytesIO
-import qrcode
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNIC Portal & Dashboard</title>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Firebase App & Database -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
-# ---------- USERS ----------
-USERS = {
-    "Khaleel": "12341",
-    "Aryan Haider": "Munara",
-    "user": "1111"
-}
-
-# ---------- SESSION ----------
-if "login" not in st.session_state:
-    st.session_state.login = False
-
-# ---------- LOGIN PAGE ----------
-if not st.session_state.login:
-
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --sidebar-bg: #0f172a;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --btn-green: #10b981;
+      --btn-red: #ef4444;
+      --text-light: #f8fafc;
+      --text-muted: #94a3b8;
     }
 
-    h2, label {
-        color: white !important;
-        text-align: center;
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); height: 100vh; overflow: hidden; }
+
+    /* MODERN LOGIN SCREEN STYLING */
+    #login-screen {
+      position: fixed; inset: 0; background: radial-gradient(circle at top right, #1e1b4b, #0f172a 60%);
+      display: flex; justify-content: center; align-items: center; z-index: 100;
     }
-
-    .stButton>button {
-        background: #00c6ff;
-        color: white;
-        border-radius: 10px;
-        height: 40px;
-        font-weight: bold;
+    .login-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 40px 35px; border-radius: 20px;
+      width: 360px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      text-align: center;
+      animation: fadeIn 0.5s ease-in-out;
     }
-
-    .stButton>button:hover {
-        background: #0072ff;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-    </style>
-    """, unsafe_allow_html=True)
+    
+    .login-icon {
+      width: 60px; height: 60px; background: rgba(56, 189, 248, 0.1);
+      color: var(--primary); border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; margin: 0 auto 15px auto;
+      font-size: 26px; border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    
+    .login-card h2 { margin-bottom: 6px; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .login-card p.subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 25px; }
 
-    col1, col2, col3 = st.columns([1,2,1])
+    .input-group {
+      position: relative; margin-bottom: 18px; text-align: left;
+    }
+    .input-group i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 14px; transition: 0.3s;
+    }
+    .input-field {
+      width: 100%; padding: 13px 14px 13px 42px; border-radius: 10px;
+      border: 1px solid #334155; background: rgba(15, 23, 42, 0.6); color: white;
+      outline: none; font-size: 14px; transition: 0.3s ease;
+    }
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    }
+    .input-field:focus + i { color: var(--primary); }
 
-    with col2:
-        st.markdown("## 🔐 Login")
+    .login-btn {
+      width: 100%; padding: 13px; background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: white; border: none; border-radius: 10px; font-weight: 600;
+      cursor: pointer; font-size: 15px; transition: 0.3s ease;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3); margin-top: 5px;
+    }
+    .login-btn:hover { opacity: 0.95; transform: translateY(-1px); }
 
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
+    /* DASHBOARD LAYOUT */
+    .app-container { display: flex; height: 100vh; }
+    
+    .header {
+      position: absolute; top: 0; left: 0; right: 0; height: 60px;
+      background: #0f172a; border-bottom: 1px solid #1e293b;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 25px; z-index: 10;
+    }
+    .user-info { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-light); }
+    .logout-btn {
+      background: rgba(239, 68, 68, 0.1); color: var(--btn-red);
+      border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 16px;
+      border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s;
+    }
+    .logout-btn:hover { background: var(--btn-red); color: white; }
 
-        login_btn = st.button("Login", use_container_width=True)
+    .sidebar {
+      width: 250px; background: #0f172a; margin-top: 60px;
+      border-right: 1px solid #1e293b; padding: 20px 0; overflow-y: auto;
+    }
+    .menu-title { padding: 0 20px 10px; font-size: 11px; color: var(--text-muted); letter-spacing: 1px; font-weight: 700; }
+    
+    .nav-main-header {
+      padding: 12px 20px; font-size: 15px; font-weight: 700; color: #ffffff;
+      display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.03);
+      border-left: 4px solid var(--primary); margin-bottom: 8px;
+    }
+    .sub-menu-container { padding-left: 15px; }
 
-        if login_btn:
-            if USERS.get(user) == pwd:
-                st.session_state.login = True
-                st.success("Login successful ✔")
-                st.experimental_rerun()
-            else:
-                st.error("❌ Invalid username or password")
+    .nav-sub-btn {
+      width: 100%; padding: 12px 18px; background: transparent; border: none;
+      color: var(--text-muted); text-align: left; cursor: pointer; display: flex;
+      align-items: center; gap: 12px; font-size: 14px; transition: 0.3s;
+      border-radius: 0 20px 20px 0; margin-bottom: 4px;
+    }
+    .nav-sub-btn:hover, .nav-sub-btn.active { background: rgba(56, 189, 248, 0.1); color: var(--primary); font-weight: 600; }
 
-    st.stop()
-# ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
-FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
-# ===========================================
+    .main-content {
+      flex: 1; margin-top: 60px; padding: 40px; display: flex;
+      justify-content: center; align-items: flex-start; overflow-y: auto;
+    }
+    .tab-content { display: none; width: 100%; max-width: 500px; }
+    .tab-content.active { display: block; }
 
-# Custom Page Config & CSS Design
-st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
+    .card {
+      background: var(--card-bg); padding: 30px; border-radius: 16px;
+      border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;
+    }
+    .card h3 { color: var(--primary); margin-bottom: 25px; font-size: 20px; }
+    
+    .action-btn {
+      width: 100%; padding: 12px; background: var(--btn-green); color: white;
+      border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+      margin-top: 15px; font-size: 15px; transition: 0.2s;
+    }
+    .action-btn:hover { opacity: 0.9; }
 
-st.markdown(
-    """
-    <style>
-        .header-card {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            padding: 25px;
-            border-radius: 16px;
-            border: 1px solid #334155;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            margin-bottom: 25px;
-        }
-        .header-title {
-            color: #ffffff;
-            font-size: 26px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .header-subtitle {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+    #qrcode-box {
+      margin-top: 25px; display: flex; justify-content: center;
+      background: white; padding: 20px; border-radius: 12px; width: fit-content; margin: 20px auto 0 auto;
+    }
+    #qrcode-box:empty { display: none; }
+  </style>
+</head>
+<body>
 
-# Header Section - یہاں سے prefix ہٹا دیا
-st.markdown(
-    """
-    <div class="header-card">
-        <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle"></div>
+  <!-- MODERN LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2>Welcome Back</h2>
+      <p class="subtitle">Please enter your credentials</p>
+
+      <div class="input-group">
+        <input type="text" id="username" class="input-field" placeholder="Username">
+        <i class="fa-solid fa-user"></i>
+      </div>
+
+      <div class="input-group">
+        <input type="password" id="password" class="input-field" placeholder="Password">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+
+      <button class="login-btn" onclick="handleLogin()">Sign In</button>
+      <p id="login-err" style="color: #ef4444; margin-top: 15px; font-size: 13px; font-weight: 600;"></p>
     </div>
-""",
-    unsafe_allow_html=True,
-)
-
-# Input Section with Columns Layout
-col1, col2, col3 = st.columns([1, 3, 1])
-
-with col2:
-    # یوزر سے 13 ڈیجٹ لیں گے
-    user_13_digit = st.text_input(
-        "Just Enter CNIC NO",
-        placeholder="مثال: 3720388692193",
-        max_chars=13,
-    )
-
-    generate_btn = st.button(
-        "✨ QR Code بنائیں", type="primary", use_container_width=True
-    )
-
-    if generate_btn:
-        if user_13_digit:
-            # ---------------- EXACT ORIGINAL LOGIC ----------------
-            clean_13 = user_13_digit.replace("-", "").strip()
-
-            full_cnic = FIXED_FIRST_12 + clean_13  # 12 + 13 = 25 ڈیجٹ
-
-            if clean_13.isdigit() and len(full_cnic) == 25:
-                data = full_cnic
-
-                # FORCE FULL DATA ENCODING (Original Logic)
-                qr = qrcode.QRCode(
-                    version=None,  # AUTO size
-                    error_correction=qrcode.constants.ERROR_CORRECT_H,
-                    box_size=5,
-                    border=4,
-                )
-
-                qr.add_data(data)
-                qr.make(fit=True)
-
-                img = qr.make_image(fill_color="black", back_color="white")
-
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-
-                img_bytes = buf.getvalue()
-                # ------------------------------------------------------
-
-                st.markdown("---")
-
-                # یہاں سے "مکمل 25 ڈیجٹ" والا success ہٹا دیا
-                # اور caption سے بھی full_cnic ہٹا دیا
-
-                st.image(
-                    img_bytes,
-                    caption="QR Code Ready",
-                    use_column_width=True,
-                )
-
-                st.download_button(
-                    "📥 QR Code ڈاؤنلوڈ کریں",
-                    data=img_bytes,
-                    file_name=f"cnic_qr.png",  # فائل نیم سے بھی full_cnic ہٹا دیا
-                    mime="image/png",
-                    use_container_width=True,
-                )
-            else:
-                st.error(
-                    "❌ Invalid! Must Enter 13 Digit "
-                )
-        else:
-            st.warning("Please Enter CNIC NO Without Dashes")
-
-    # 2. App Title & File Uploader
-    st.title("📊 Branch Closing Balance Report")
-    st.write("Upload an Excel file to generate the branch-wise summary report.")
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_excel(uploaded_file)
-            st.success("File uploaded successfully!")
-            
-            branch_col = None
-            name_col = None
-            balance_col = None
-            for col in df.columns:
-                col_lower = str(col).lower()
-                if 'branch' in col_lower: branch_col = col
-                elif 'name' in col_lower: name_col = col
-                elif 'closing' in col_lower or 'balance' in col_lower: balance_col = col
-                
-            if not branch_col: branch_col = df.columns[0]
-            if not name_col: name_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
-            if not balance_col: balance_col = df.columns[-1]
-            
-            st.sidebar.subheader("Configure Columns")
-            branch_col = st.sidebar.selectbox("Select Branch/Code Column", df.columns, index=list(df.columns).index(branch_col))
-            name_col = st.sidebar.selectbox("Select Name/Description Column", df.columns, index=list(df.columns).index(name_col))
-            balance_col = st.sidebar.selectbox("Select Balance Column", df.columns, index=list(df.columns).index(balance_col))
-            
-            df[balance_col] = df[balance_col].astype(str).str.replace(',', '').str.strip()
-            df[balance_col] = pd.to_numeric(df[balance_col], errors='coerce').fillna(0)
-            df['Cleaned_Name'] = df[name_col].astype(str).apply(lambda x: x.split('-')[0].strip())
-            
-            report_df = df.groupby([branch_col, 'Cleaned_Name'], as_index=False)[balance_col].sum()
-            report_df.columns = ['Branch Code', 'Expense / Name', 'Total Closing Balance']
-            report_df['Total Closing Balance'] = report_df['Total Closing Balance'].apply(lambda x: f"{x:,.2f}")
-            
-            st.subheader("📊 Grouped Summary Report (Cleaned & Merged)")
-            st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
-            
-            buffer = BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                report_df.to_excel(writer, index=False, sheet_name='Summary Report')
-            st.download_button(label="📥 Download Summary Report as Excel", data=buffer.getvalue(), file_name="Branch_Cleaned_Summary.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        except Exception as e:
-            st.error(f"An error occurred while processing the file: {e}")
-    else:
-        st.info("Please upload an Excel file.")
-
-    st.markdown("---")
-    st.subheader("📊 Recovery Area Wise & Branch Wise Summary")
-    
-    os.makedirs("data", exist_ok=True)
-    LOCAL_FILE = "data/recovery.xlsx"
-    
-    uploaded = st.file_uploader("Upload Recovery File", type=["xlsx", "csv"])
-    if uploaded:
-        if uploaded.name.endswith(".csv"):
-            df = pd.read_csv(uploaded)
-        else:
-            df = pd.read_excel(uploaded)
-        st.session_state["df"] = df
-        df.to_excel(LOCAL_FILE, index=False)
-    elif "df" in st.session_state:
-        df = st.session_state["df"]
-    elif os.path.exists(LOCAL_FILE):
-        df = pd.read_excel(LOCAL_FILE)
-        st.session_state["df"] = df
-    else:
-        st.info("Upload file first")
-        st.stop()
-        
-    mdp_uploaded = st.file_uploader("Upload MDP File", type=["xlsx", "csv"], key="mdp")
-    mdp_df = None
-    if mdp_uploaded:
-        if mdp_uploaded.name.endswith(".csv"):
-            mdp_df = pd.read_csv(mdp_uploaded)
-        else:
-            mdp_df = pd.read_excel(mdp_uploaded)
-        mdp_df["receive_date"] = pd.to_datetime(mdp_df["receive_date"], errors="coerce")
-        mdp_df["Month"] = mdp_df["receive_date"].dt.to_period("M")
-        
-    required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
-    missing = [c for c in required_cols if c not in df.columns]
-    
-    if not missing:
-        df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
-        df = df.dropna(subset=["recovery_date"])
-        df["Month"] = df["recovery_date"].dt.to_period("M")
-        df["Day"] = df["recovery_date"].dt.day
-        
-        def get_range(day):
-            if day <= 10: return "1-10"
-            elif day <= 20: return "11-20"
-            else: return "21-31"
-        df["Range"] = df["Day"].apply(get_range)
-        
-        summary_rows = []
-        for area in sorted(df["area_id"].unique()):
-            area_df = df[df["area_id"] == area]
-            for branch in sorted(area_df["branch_id"].unique()):
-                branch_df = area_df[area_df["branch_id"] == branch]
-                for month in sorted(branch_df["Month"].unique()):
-                    month_df = branch_df[branch_df["Month"] == month]
-                    total = len(month_df)
-                    if total == 0: continue
-                    rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
-                    rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
-                    rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
-                    last_date = month_df["recovery_date"].max()
-                    month_last_day = calendar.monthrange(last_date.year, last_date.month)[1]
-                    summary_rows.append({
-                        "Area ID": area, "Branch ID": branch, "Month": month,
-                        "Recovery 1-10": rec_1_10, "1-10 %": round(rec_1_10 / total * 100, 2),
-                        "Recovery 11-20": rec_11_20, "11-20 %": round(rec_11_20 / total * 100, 2),
-                        "Recovery 21-31": rec_21_31, "21-31 %": round(rec_21_31 / total * 100, 2),
-                        "Total Slips": total, "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
-                        "Close Rate %": round(last_date.day / month_last_day * 100, 2)
-                    })
-        summary_df = pd.DataFrame(summary_rows)
-        if not summary_df.empty:
-            summary_df = summary_df.sort_values(["Area ID", "Branch ID", "Month"]).reset_index(drop=True)
-            branch_month_summary = df.groupby(["Month", "area_id", "branch_id"]).size().reset_index(name="Total Slips")
-            branch_month_summary["Month"] = branch_month_summary["Month"].astype(str)
-            st.subheader("📌 Area & Branch Wise Month Summary")
-            st.dataframe(branch_month_summary, use_container_width=True)
-# 2. App Title & File Uploader
-st.title("📊 Branch Closing Balance Report")
-st.write("Upload an Excel file to generate the branch-wise summary report.")
-
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
-
-if uploaded_file is not None:
-    try:
-        # Load data from excel
-        df = pd.read_excel(uploaded_file)
-        
-        st.success("File uploaded successfully!")
-        
-        # --- کالمز کے نام چیک کرنا ---
-        branch_col = None
-        name_col = None
-        balance_col = None
-        
-        for col in df.columns:
-            col_lower = str(col).lower()
-            if 'branch' in col_lower:
-                branch_col = col
-            elif 'name' in col_lower:
-                name_col = col
-            elif 'closing' in col_lower or 'balance' in col_lower:
-                balance_col = col
-        
-        if not branch_col: branch_col = df.columns[0]
-        if not name_col: name_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
-        if not balance_col: balance_col = df.columns[-1]
-        
-        # User dynamic selection
-        st.sidebar.subheader("Configure Columns")
-        branch_col = st.sidebar.selectbox("Select Branch/Code Column", df.columns, index=list(df.columns).index(branch_col))
-        name_col = st.sidebar.selectbox("Select Name/Description Column", df.columns, index=list(df.columns).index(name_col))
-        balance_col = st.sidebar.selectbox("Select Balance Column", df.columns, index=list(df.columns).index(balance_col))
-        
-        # --- DATA CLEANING & PROCESSING ---
-        # بیلنس کو نمبر میں تبدیل کرنا
-        df[balance_col] = df[balance_col].astype(str).str.replace(',', '').str.strip()
-        df[balance_col] = pd.to_numeric(df[balance_col], errors='coerce').fillna(0)
-        
-        # ✨ نام کو صاف کرنا (تاکہ Electricity-PSIC... اور Electricity-Apni Chat... دونوں صرف 'Electricity' بن جائیں)
-        # یہ لاجک پہلے ڈیش (-) پر نام کو توڑ کر صرف پہلا لفظ الگ کر لے گی
-        df['Cleaned_Name'] = df[name_col].astype(str).apply(lambda x: x.split('-')[0].strip())
-        
-        # اب ہم برانچ کوڈ اور اس صاف کیے گئے نام (Cleaned Name) پر گروپنگ کریں گے
-        report_df = df.groupby([branch_col, 'Cleaned_Name'], as_index=False)[balance_col].sum()
-        
-        # کالمز کے ناموں کو خوبصورت بنانا
-        report_df.columns = ['Branch Code', 'Expense / Name', 'Total Closing Balance']
-        
-        # رقم کو دوبارہ پڑھنے میں آسان فارمیٹ (Commas کے ساتھ) دکھانے کے لیے
-        report_df['Total Closing Balance'] = report_df['Total Closing Balance'].apply(lambda x: f"{x:,.2f}")
-        # ----------------------------------------
-        
-        st.subheader("📊 Grouped Summary Report (Cleaned & Merged)")
-        
-        # رپورٹ کو سکرین پر دکھانا (بغیر انڈیکس کے)
-        st.dataframe(report_df.style.hide(axis="index"), use_container_width=True)
-        
-        # --- DOWNLOAD BUTTON LOGIC ---
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            report_df.to_excel(writer, index=False, sheet_name='Summary Report')
-        
-        st.download_button(
-            label="📥 Download Summary Report as Excel",
-            data=buffer.getvalue(),
-            file_name="Branch_Cleaned_Summary.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        
-    except Exception as e:
-        st.error(f"An error occurred while processing the file: {e}")
-else:
-    st.info("Please upload an Excel file.")
-
-# --- Extra Utility Features ---
-st.markdown("---")
-
-import streamlit as st
-import pandas as pd
-import calendar
-from io import BytesIO
-import os
-import zipfile
-
-# ReportLab Imports
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
-st.title("📊 Recovery Area Wise & Branch Wise Summary")
-
-# ================= STORAGE =================
-os.makedirs("data", exist_ok=True)
-LOCAL_FILE = "data/recovery.xlsx"
-
-# ================= UPLOAD =================
-uploaded = st.file_uploader("Upload Recovery File", type=["xlsx", "csv"])
-
-if uploaded:
-    if uploaded.name.endswith(".csv"):
-        df = pd.read_csv(uploaded)
-    else:
-        df = pd.read_excel(uploaded)
-    st.session_state["df"] = df
-    df.to_excel(LOCAL_FILE, index=False)
-elif "df" in st.session_state:
-    df = st.session_state["df"]
-elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.session_state["df"] = df
-else:
-    st.info("Upload file first")
-    st.stop()
-# ================= MDP UPLOAD =================
-
-mdp_uploaded = st.file_uploader(
-    "Upload MDP File",
-    type=["xlsx", "csv"],
-    key="mdp"
-)
-
-mdp_df = None
-
-if mdp_uploaded:
-
-    if mdp_uploaded.name.endswith(".csv"):
-        mdp_df = pd.read_csv(mdp_uploaded)
-    else:
-        mdp_df = pd.read_excel(mdp_uploaded)
-
-    mdp_df["receive_date"] = pd.to_datetime(
-        mdp_df["receive_date"],
-        errors="coerce"
-    )
-
-    mdp_df["Month"] = mdp_df["receive_date"].dt.to_period("M")
-# ================= REQUIRED COLUMNS =================
-# Ab 'area_id' ko bhi required columns mein add kardiya hai
-required_cols = ["area_id", "branch_id", "recovery_date", "receipt_no"]
-missing = [c for c in required_cols if c not in df.columns]
-
-
-# ================= DATA PREPARATION =================
-df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
-df = df.dropna(subset=["recovery_date"])
-
-df["Month"] = df["recovery_date"].dt.to_period("M")
-df["Day"] = df["recovery_date"].dt.day
-
-def get_range(day):
-    if day <= 10: return "1-10"
-    elif day <= 20: return "11-20"
-    else: return "21-31"
-
-df["Range"] = df["Day"].apply(get_range)
-
-# ================= GENERATE SUMMARY ROWS =================
-summary_rows = []
-
-# Pehly 'area_id' pr loop chly ga phir usky andar 'branch_id' pr
-for area in sorted(df["area_id"].unique()):
-    area_df = df[df["area_id"] == area]
-    
-    for branch in sorted(area_df["branch_id"].unique()):
-        branch_df = area_df[area_df["branch_id"] == branch]
-        
-        for month in sorted(branch_df["Month"].unique()):
-            month_df = branch_df[branch_df["Month"] == month]
-            total = len(month_df)
-            if total == 0:
-                continue
-                
-            rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
-            rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
-            rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
-            
-            last_date = month_df["recovery_date"].max()
-            month_last_day = calendar.monthrange(last_date.year, last_date.month)[1]
-            
-            summary_rows.append({
-                "Area ID": area,
-                "Branch ID": branch,
-                "Month": month,
-                "Recovery 1-10": rec_1_10,
-                "1-10 %": round(rec_1_10 / total * 100, 2),
-                "Recovery 11-20": rec_11_20,
-                "11-20 %": round(rec_11_20 / total * 100, 2),
-                "Recovery 21-31": rec_21_31,
-                "21-31 %": round(rec_21_31 / total * 100, 2),
-                "Total Slips": total,
-                "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
-                "Close Rate %": round(last_date.day / month_last_day * 100, 2)
-            })
-
-summary_df = pd.DataFrame(summary_rows)
-summary_df = summary_df.sort_values(["Area ID", "Branch ID", "Month"]).reset_index(drop=True)
-
-# Format Branch Month Summary for display
-branch_month_summary = df.groupby(["Month", "area_id", "branch_id"]).size().reset_index(name="Total Slips")
-branch_month_summary["Month"] = branch_month_summary["Month"].astype(str)
-
-st.subheader("📌 Area & Branch Wise Month Summary")
-st.dataframe(branch_month_summary, use_container_width=True)
-
-# Convert Period object to string formatting
-summary_df["Month"] = pd.to_datetime(summary_df["Month"].astype(str)).dt.strftime("%b-%Y")
-# ================= MDP MERGE =================
-
-if mdp_df is not None:
-
-    mdp_summary = (
-        mdp_df
-        .groupby(["branch_id", "Month"])["amount"]
-        .sum()
-        .reset_index()
-    )
-
-    mdp_summary = mdp_summary.sort_values(
-        ["branch_id", "Month"]
-    )
-
-    mdp_summary["Prev Amount"] = (
-        mdp_summary
-        .groupby("branch_id")["amount"]
-        .shift(1)
-    )
-
-    def get_status(row):
-
-        if pd.isna(row["Prev Amount"]):
-            return "-"
-
-        elif row["amount"] > row["Prev Amount"]:
-            return "Increase"
-
-        elif row["amount"] < row["Prev Amount"]:
-            return "Decrease"
-
-        else:
-            return "Same"
-
-    mdp_summary["Status"] = mdp_summary.apply(
-        get_status,
-        axis=1
-    )
-
-    summary_df["Month2"] = pd.to_datetime(
-        summary_df["Month"]
-    ).dt.to_period("M")
-
-    summary_df = summary_df.merge(
-
-        mdp_summary[
-            [
-                "branch_id",
-                "Month",
-                "amount",
-                "Status"
-            ]
-        ],
-
-        left_on=["Branch ID", "Month2"],
-        right_on=["branch_id", "Month"],
-        how="left"
-
-    )
-
-    summary_df.rename(
-        columns={
-            "amount": "MDP Amount",
-            "Status": "MDP Status"
-        },
-        inplace=True
-    )
-
-    summary_df.drop(
-        columns=[
-            "branch_id",
-            "Month2",
-            "Month_y"
-        ],
-        inplace=True,
-        errors="ignore"
-    )
-
-    summary_df.rename(
-        columns={
-            "Month_x": "Month"
-        },
-        inplace=True
-    )
-
-# ================= GENERATING AREA TOTALS & GRAND TOTAL =================
-final_rows = []
-
-if not summary_df.empty:
-    # Har Area ka alag total nikalny k liye group by loop
-    for area_id, area_group in summary_df.groupby("Area ID"):
-        # Pehly area ka saara data add hoga
-        for _, row in area_group.iterrows():
-            final_rows.append(row.to_dict())
-            
-        # Phir us area ka Sub-Total (Area Grand Total) row bnegi
-        area_total_slips = area_group["Total Slips"].sum()
-        area_total_row = {
-            "Area ID": f"Area {area_id} Total",
-            "Branch ID": "",
-            "Month": "",
-            "Recovery 1-10": area_group["Recovery 1-10"].sum(),
-            "1-10 %": round(area_group["Recovery 1-10"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
-            "Recovery 11-20": area_group["Recovery 11-20"].sum(),
-            "11-20 %": round(area_group["Recovery 11-20"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
-            "Recovery 21-31": area_group["Recovery 21-31"].sum(),
-            "21-31 %": round(area_group["Recovery 21-31"].sum() / area_total_slips * 100, 2) if area_total_slips else 0,
-            "Total Slips": area_total_slips,
-            "Last Recovery Date": "",
-            "Close Rate %": round(area_group["Close Rate %"].mean(), 2)
-        }
-        final_rows.append(area_total_row)
-        
-    # Sab se aakhir mein Poori Company ka Grand Total bnegi
-    grand_total_slips = summary_df["Total Slips"].sum()
-    grand_row = {
-        "Area ID": "Grand Total",
-        "Branch ID": "",
-        "Month": "",
-        "Recovery 1-10": summary_df["Recovery 1-10"].sum(),
-        "1-10 %": round(summary_df["Recovery 1-10"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
-        "Recovery 11-20": summary_df["Recovery 11-20"].sum(),
-        "11-20 %": round(summary_df["Recovery 11-20"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
-        "Recovery 21-31": summary_df["Recovery 21-31"].sum(),
-        "21-31 %": round(summary_df["Recovery 21-31"].sum() / grand_total_slips * 100, 2) if grand_total_slips else 0,
-        "Total Slips": grand_total_slips,
-        "Last Recovery Date": "",
-        "Close Rate %": round(summary_df["Close Rate %"].mean(), 2)
-    }
-    final_rows.append(grand_row)
-
-final_summary_df = pd.DataFrame(final_rows)
-
-# ================= BRANCH MONTH SUMMARY =================
-branch_rows = []
-
-for month in sorted(df["Month"].unique()):
-
-    month_df = df[df["Month"] == month]
-
-    for branch in sorted(month_df["branch_id"].unique()):
-
-        branch_df = month_df[month_df["branch_id"] == branch]
-
-        total = len(branch_df)
-        if total == 0:
-            continue
-
-        rec_1_10 = len(branch_df[branch_df["Range"] == "1-10"])
-        rec_11_20 = len(branch_df[branch_df["Range"] == "11-20"])
-        rec_21_31 = len(branch_df[branch_df["Range"] == "21-31"])
-
-        last_date = branch_df["recovery_date"].max()
-        month_last_day = calendar.monthrange(
-            last_date.year,
-            last_date.month
-        )[1]
-
-        branch_rows.append({
-            "Month": month.strftime("%b-%Y"),
-            "Area ID": branch_df["area_id"].iloc[0],
-            "Branch ID": branch,
-            "Recovery 1-10": rec_1_10,
-            "1-10 %": round(rec_1_10 / total * 100, 2),
-            "Recovery 11-20": rec_11_20,
-            "11-20 %": round(rec_11_20 / total * 100, 2),
-            "Recovery 21-31": rec_21_31,
-            "21-31 %": round(rec_21_31 / total * 100, 2),
-            "Total Slips": total,
-            "Last Recovery Date": last_date.strftime("%Y-%b-%d"),
-            "Close Rate %": round(last_date.day / month_last_day * 100, 2)
-        })
-
-    # Month Total
-    total = len(month_df)
-
-    rec_1_10 = len(month_df[month_df["Range"] == "1-10"])
-    rec_11_20 = len(month_df[month_df["Range"] == "11-20"])
-    rec_21_31 = len(month_df[month_df["Range"] == "21-31"])
-
-    branch_rows.append({
-        "Month": month.strftime("%b-%Y"),
-        "Area ID": "",
-        "Branch ID": "Month Total",
-        "Recovery 1-10": rec_1_10,
-        "1-10 %": round(rec_1_10 / total * 100, 2),
-        "Recovery 11-20": rec_11_20,
-        "11-20 %": round(rec_11_20 / total * 100, 2),
-        "Recovery 21-31": rec_21_31,
-        "21-31 %": round(rec_21_31 / total * 100, 2),
-        "Total Slips": total,
-        "Last Recovery Date": "",
-        "Close Rate %": ""
-    })
-
-branch_month_summary = pd.DataFrame(branch_rows)
-# ================= EXCEL DOWNLOAD =================
-excel_buffer = BytesIO()
-with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-    final_summary_df.to_excel(writer, sheet_name="Area_Month_Wise_Summary", index=False)
-    branch_month_summary.to_excel(writer, sheet_name="Branch_Month_Summary", index=False)
-
-st.download_button(
-    label="📊 Download Excel Summary",
-    data=excel_buffer.getvalue(),
-    file_name="Recovery_Area_Month_Wise.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-import streamlit as st
-import pandas as pd
-from io import BytesIO
-
-st.markdown("---")
-st.subheader("📁 Merge Sanction & Branch File")
-
-# --- File Upload ---
-col1, col2 = st.columns(2)
-with col1:
-    merge_file = st.file_uploader("Upload Merge File (Sanction No)", type=["xlsx","xls","csv"], key="merge_file")
-with col2:
-    branch_file = st.file_uploader("Upload Branch File (Branch Code)", type=["xlsx","xls","csv"], key="branch_file")
-
-# --- Placeholders ---
-merge_table_placeholder = st.empty()
-merge_download_placeholder = st.empty()
-
-if merge_file and branch_file:
-    try:
-        df_merge = pd.read_csv(merge_file) if merge_file.name.endswith(".csv") else pd.read_excel(merge_file)
-        df_branch = pd.read_csv(branch_file) if branch_file.name.endswith(".csv") else pd.read_excel(branch_file)
-    except Exception as e:
-        merge_table_placeholder.error(f"Error reading files: {e}")
-        st.stop()
-
-    # --- Clean column names ---
-    df_merge.columns = df_merge.columns.str.strip()
-    df_branch.columns = df_branch.columns.str.strip()
-
-    # --- Check required columns ---
-    if 'sanctionno' not in df_merge.columns:
-        st.error("Merge File must have column 'sanctionno'")
-        st.stop()
-    if 'branch code' not in df_branch.columns or 'branch_name' not in df_branch.columns or 'area_name' not in df_branch.columns:
-        st.error("Branch File must have columns 'branch code', 'branch_name', 'area_name'")
-        st.stop()
-
-    # --- Ensure columns are string for merge ---
-    df_merge['Sanction_Prefix'] = df_merge['sanctionno'].astype(str).str[:4]
-    df_branch['branch code'] = df_branch['branch code'].astype(str)
-
-    # --- Merge logic ---
-    merged_df = pd.merge(
-        df_merge,
-        df_branch.rename(columns={'branch code':'Sanction_Prefix'}),
-        on='Sanction_Prefix',
-        how='left'
-    )
-
-    # --- Add Branch Name & Area Name as 3rd and 4th column ---
-    if 'branch_name' in merged_df.columns and 'area_name' in merged_df.columns:
-        branch_col = merged_df.pop('branch_name')
-        area_col = merged_df.pop('area_name')
-        merged_df.insert(2, 'Branch Name', branch_col)
-        merged_df.insert(3, 'Area Name', area_col)
-
-    # --- Display table ---
-    merge_table_placeholder.dataframe(merged_df)
-
-    # --- Download helper ---
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Merged_Report')
-        return output.getvalue()
-
-    excel_data = to_excel(merged_df)
-
-    # --- Download button ---
-    merge_download_placeholder.download_button(
-        label="📥 Download Merged File",
-        data=excel_data,
-        file_name="Merged_Report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key="merge_download"
-    )
-
-else:
-    merge_table_placeholder.info("Upload both Merge File and Branch File to generate merged report.")
-# Upload Recovery File
-uploaded_file = st.file_uploader("📁 Upload Recovery File (Excel)", type=["xlsx"])
-
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
-    df['recovery_date'] = pd.to_datetime(df['recovery_date'], errors='coerce')
-    df.dropna(subset=['recovery_date'], inplace=True)
-    df['day'] = df['recovery_date'].dt.day
-
-    def get_range(day):
-        if 1 <= day <= 10:
-            return "1-10"
-        elif 11 <= day <= 20:
-            return "11-20"
-        elif 21 <= day <= 31:
-            return "21-31"
-        return "Unknown"
-
-    df['range'] = df['day'].apply(get_range)
-
-    st.write("### 📄 Complete Recovery Data")
-    st.dataframe(df)
-
-    # Summary
-    summary = df.groupby(['branch_id', 'range']).agg({
-        'amount': 'sum',
-        'receipt_no': 'count'
-    }).reset_index()
-
-    branch_totals = df.groupby('branch_id')['amount'].sum().reset_index().rename(columns={'amount': 'total_amount'})
-    summary = summary.merge(branch_totals, on='branch_id')
-    summary['percentage'] = (summary['amount'] / summary['total_amount']) * 100
-
-    st.subheader("📊 Branch-wise Recovery Summary")
-    st.dataframe(summary.style.format({
-        'amount': 'Rs {:,.0f}',
-        'percentage': '{:.2f}%'
-    }))
-
-    # Chart
-    st.subheader("📈 Recovery Chart by Date Range")
-    fig = px.bar(summary, x='branch_id', y='amount', color='range',
-                 barmode='group',
-                 text=summary['percentage'].apply(lambda x: f"{x:.1f}%"),
-                 labels={'amount': 'Amount Recovered', 'branch_id': 'Branch'})
-    fig.update_traces(textposition='outside')
-    fig.update_layout(xaxis_title="Branch", yaxis_title="Amount", legend_title="Date Range")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Pivot Table
-    st.subheader("📌 Pivot Table (Branch → Project → Date)")
-    pivot_df = df.groupby(['branch_id', 'project', 'recovery_date']).agg(
-        Receipts=('receipt_no', 'count'),
-        Amount=('amount', 'sum')
-    ).reset_index()
-
-    st.dataframe(pivot_df)
-
-    # PDF Class
-    class PDF(FPDF):
-        def header(self):
-            pass
-        def footer(self):
-            pass
-
-    # Branch-wise PDF downloads
-    st.subheader("📥 Download Branch-wise Pivot Table PDFs")
-    for branch, branch_df in pivot_df.groupby('branch_id'):
-        branch_pdf = PDF()
-        branch_pdf.set_auto_page_break(auto=True, margin=15)
-        branch_pdf.add_page()
-        branch_pdf.set_font("Arial", 'B', 14)
-        branch_pdf.cell(0, 10, f"Branch: {branch}", ln=True, align='C')
-
-        branch_total_amount = 0
-        branch_total_receipts = 0
-
-        for project, proj_df in branch_df.groupby('project'):
-            branch_pdf.set_font("Arial", 'B', 12)
-            branch_pdf.cell(0, 8, f"Project: {project}", ln=True)
-
-            # Table Header
-            branch_pdf.set_font("Arial", 'B', 10)
-            branch_pdf.cell(40, 8, "Date", border=1, align='C')
-            branch_pdf.cell(40, 8, "Receipts", border=1, align='C')
-            branch_pdf.cell(40, 8, "Amount", border=1, align='C')
-            branch_pdf.ln()
-
-            project_total_amount = 0
-            project_total_receipts = 0
-
-            branch_pdf.set_font("Arial", '', 10)
-            for _, row in proj_df.iterrows():
-                date_str = row['recovery_date'].strftime('%Y-%m-%d') if pd.notnull(row['recovery_date']) else ''
-                branch_pdf.cell(40, 8, date_str, border=1)
-                branch_pdf.cell(40, 8, str(row['Receipts']), border=1, align='C')
-                branch_pdf.cell(40, 8, f"Rs {row['Amount']:,.0f}", border=1, align='R')
-                branch_pdf.ln()
-                project_total_receipts += row['Receipts']
-                project_total_amount += row['Amount']
-
-            # Project total
-            branch_pdf.set_font("Arial", 'B', 10)
-            branch_pdf.cell(40, 8, "Project Total", border=1)
-            branch_pdf.cell(40, 8, str(project_total_receipts), border=1, align='C')
-            branch_pdf.cell(40, 8, f"Rs {project_total_amount:,.0f}", border=1, align='R')
-            branch_pdf.ln(10)
-
-            branch_total_receipts += project_total_receipts
-            branch_total_amount += project_total_amount
-
-        # Branch total
-        branch_pdf.set_font("Arial", 'B', 11)
-        branch_pdf.cell(40, 8, "Branch Total", border=1)
-        branch_pdf.cell(40, 8, str(branch_total_receipts), border=1, align='C')
-        branch_pdf.cell(40, 8, f"Rs {branch_total_amount:,.0f}", border=1, align='R')
-
-        pdf_bytes = branch_pdf.output(dest='S').encode('latin1')
-        st.download_button(
-            label=f"📥 Download PDF for Branch {branch}",
-            data=pdf_bytes,
-            file_name=f"Branch_{branch}.pdf",
-            mime="application/pdf"
-        )
-st.subheader("📥 Upload Due List and Recovery File for Overdue Detection")
-
-dolist_file = st.file_uploader("📄 Due List Upload", type=["xlsx"], key="dolist")
-recovery_file2 = st.file_uploader("📄 Recovery File Upload", type=["xlsx"], key="recovery2")
-
-if dolist_file and recovery_file2:
-    dolist_df = pd.read_excel(dolist_file)
-    recovery_df2 = pd.read_excel(recovery_file2)
-
-    dolist_df['Sanction No'] = dolist_df['Sanction No'].astype(str).str.strip()
-    recovery_df2['Sanction No'] = recovery_df2['Sanction No'].astype(str).str.strip()
-
-    overdue_df = dolist_df[~dolist_df['Sanction No'].isin(recovery_df2['Sanction No'])]
-    st.subheader("❗ Overdue List")
-    st.write(f"🔢 Total Overdue: {len(overdue_df)}")
-    st.dataframe(overdue_df)
-
-# Final Overdue via Terabyte
-st.subheader("📥 Upload Terabyte File (Final Overdue)")
-
-terabyte_file = st.file_uploader("📄 Terabyte File Upload", type=["xlsx"], key="terabyte")
-
-if terabyte_file and 'overdue_df' in locals() and not overdue_df.empty:
-    terabyte_df = pd.read_excel(terabyte_file)
-    terabyte_df['Sanction No'] = terabyte_df['Sanction No'].astype(str).str.strip()
-    overdue_df['Sanction No'] = overdue_df['Sanction No'].astype(str).str.strip()
-
-    final_overdue_df = overdue_df[~overdue_df['Sanction No'].isin(terabyte_df['Sanction No'])]
-
-    st.subheader("🚨 Final Overdue Cases")
-    st.write(f"🔢 Total Final Overdue: {len(final_overdue_df)}")
-    st.dataframe(final_overdue_df)
-
-    # Full PDF: Branch-wise + Date-wise
-    full_pdf = FPDF()
-    full_pdf.set_auto_page_break(auto=True, margin=15)
-
-    if 'branch_id' not in final_overdue_df.columns:
-        final_overdue_df['branch_id'] = 'Unknown'
-
-    for branch in final_overdue_df['branch_id'].unique():
-        data = final_overdue_df[final_overdue_df['branch_id'] == branch]
-        full_pdf.add_page()
-        full_pdf.set_font("Arial", 'B', 12)
-        full_pdf.cell(200, 10, txt=f"Branch: {branch}", ln=True, align='C')
-
-        full_pdf.set_font("Arial", size=10)
-        full_pdf.cell(10, 10, "Sr#", 1)
-        full_pdf.cell(70, 10, "Name", 1)
-        full_pdf.cell(60, 10, "Sanction No", 1)
-        full_pdf.ln()
-
-        for i, (_, row) in enumerate(data.iterrows(), start=1):
-            full_pdf.cell(10, 10, str(i), 1)
-            full_pdf.cell(70, 10, str(row.get('Name', '')), 1)
-            full_pdf.cell(60, 10, str(row.get('Sanction No', '')), 1)
-            full_pdf.ln()
-
-    full_pdf_output = full_pdf.output(dest='S').encode('latin1')
-    st.download_button("📥 Download Final Overdue PDF (Branch-wise)", full_pdf_output, "final_overdue.pdf", "application/pdf")
-# 🔽 Separate Branch-wise PDF Downloads
-    st.subheader("📂 Download Final Overdue Branch-wise PDFs")
-
-    branch_pdfs = {}
-
-    for branch in final_overdue_df['branch_id'].unique():
-        branch_data = final_overdue_df[final_overdue_df['branch_id'] == branch]
-
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt=f"Branch: {branch}", ln=True, align='C')
-
-        pdf.set_font("Arial", size=10)
-        pdf.cell(10, 10, "Sr#", 1)
-        pdf.cell(70, 10, "Name", 1)
-        pdf.cell(60, 10, "Sanction No", 1)
-        pdf.ln()
-
-        for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
-            pdf.cell(10, 10, str(i), 1)
-            pdf.cell(70, 10, str(row.get('Name', '')), 1)
-            pdf.cell(60, 10, str(row.get('Sanction No', '')), 1)
-            pdf.ln()
-
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        branch_pdfs[branch] = pdf_bytes
-
-    for branch, pdf_data in branch_pdfs.items():
-        st.download_button(
-            label=f"📥 Download PDF for Branch: {branch}",
-            data=pdf_data,
-            file_name=f"final_overdue_branch_{branch}.pdf",
-            mime="application/pdf"
-        )
-import streamlit as st
-import pandas as pd
-import os
-import io
-import zipfile
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from fpdf import FPDF
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, landscape, A4
-from reportlab.lib.styles import getSampleStyleSheet
-import plotly.express as px
-
-st.title("🏦 Recovery & Reports App")
-
-# --------------------
-# File upload widgets (unique keys)
-# --------------------
-do_file = st.file_uploader("Upload Do List", type=["xlsx", "xls"], key="uploader_do")
-recovery_file = st.file_uploader("Upload Recovery File", type=["xlsx", "xls"], key="uploader_recovery")
-terabyte_file = st.file_uploader("Upload Terabyte File (Optional)", type=["xlsx", "xls"], key="uploader_terabyte")
-
-# --------------------
-# When Do + Recovery uploaded -> main logic
-# --------------------
-if do_file and recovery_file:
-    # Read files
-    do_df = pd.read_excel(do_file)
-    recovery_df = pd.read_excel(recovery_file)
-
-    # Normalize column names
-    for df in [do_df, recovery_df]:
-        df.columns = df.columns.str.strip()
-
-    # --------------------
-    # Overdue logic (Final Overdue List)
-    # --------------------
-    if 'Sanction No' not in do_df.columns or 'Sanction No' not in recovery_df.columns:
-        st.error("Both Do List and Recovery File must contain 'Sanction No' column.")
-    else:
-        overdue_df = do_df[~do_df['Sanction No'].astype(str).str.strip().isin(
-            recovery_df['Sanction No'].astype(str).str.strip()
-        )].copy()
-
-        st.subheader("🕒 Final Overdue List")
-        st.dataframe(overdue_df)
-
-        # Branch-wise Overdue PDF (as ZIP)
-        if not overdue_df.empty:
-            st.subheader("📁 Download Branch-wise Final Overdue (ZIP)")
-            overdue_df.columns = overdue_df.columns.str.strip()
-            branches = overdue_df['branch_id'].astype(str).unique()
-
-            zip_buf_overdue = io.BytesIO()
-            with zipfile.ZipFile(zip_buf_overdue, "a", zipfile.ZIP_DEFLATED) as zf:
-                for branch in branches:
-                    branch_data = overdue_df[overdue_df['branch_id'].astype(str) == str(branch)]
-
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", size=10)
-                    pdf.cell(0, 10, f"Branch: {branch}", ln=True)
-
-                    # Header
-                    pdf.set_font("Arial", "B", 10)
-                    pdf.cell(10, 10, "Sr#", 1)
-                    pdf.cell(60, 10, "Name", 1)
-                    pdf.cell(50, 10, "Sanction No", 1)
-                    # include mobile if present
-                    if "Mobile No" in branch_data.columns:
-                        pdf.cell(50, 10, "Mobile No", 1)
-                    pdf.ln()
-
-                    pdf.set_font("Arial", size=9)
-                    for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
-                        pdf.cell(10, 10, str(i), 1)
-                        pdf.cell(60, 10, str(row.get("Name", ""))[:25], 1)
-                        pdf.cell(50, 10, str(row.get("Sanction No", "")), 1)
-                        if "Mobile No" in branch_data.columns:
-                            pdf.cell(50, 10, str(row.get("Mobile No", "")), 1)
-                        pdf.ln()
-
-                    pdf_bytes = pdf.output(dest="S").encode("latin1")
-                    zf.writestr(f"{branch}_Final_Overdue.pdf", pdf_bytes)
-
-            zip_buf_overdue.seek(0)
-            st.download_button(
-                label="⬇️ Download Branch-wise Overdue ZIP",
-                data=zip_buf_overdue.getvalue(),
-                file_name="Final_Overdue_BranchWise.zip",
-                mime="application/zip",
-                key="download_overdue_zip"
-            )
-        else:
-            st.info("No overdue records found.")
-
-    # --------------------
-    # Recovery this month / matched recoveries and summary / charts (original)
-    # --------------------
-    # Sanction No normalization
-    do_df['Sanction No'] = do_df['Sanction No'].astype(str).str.strip()
-    recovery_df['Sanction No'] = recovery_df['Sanction No'].astype(str).str.strip()
-
-    # Parse recovery date if present
-    if 'recovery_date' in recovery_df.columns:
-        recovery_df['recovery_date'] = pd.to_datetime(recovery_df['recovery_date'], errors='coerce')
-    else:
-        # if no recovery_date column, try common names or create empty
-        recovery_df['recovery_date'] = pd.NaT
-
-    current_month = pd.Timestamp.now().month
-    current_year = pd.Timestamp.now().year
-
-    recovery_this_month = recovery_df[
-        (recovery_df['recovery_date'].dt.month == current_month) &
-        (recovery_df['recovery_date'].dt.year == current_year)
-    ] if not recovery_df['recovery_date'].isna().all() else recovery_df.iloc[0:0]
-
-    recovered = recovery_this_month[recovery_this_month['Sanction No'].isin(do_df['Sanction No'])]
-
-    # Due summary per branch
-    if 'branch_id' not in do_df.columns:
-        do_df['branch_id'] = do_df.get('Branch', '')
-    if 'branch_id' not in recovery_df.columns:
-        recovery_df['branch_id'] = recovery_df.get('Branch Code', '')
-
-    due_summary = do_df.groupby('branch_id')['Sanction No'].count().reset_index()
-    due_summary.columns = ['branch_id', 'total_due']
-
-    recovered_summary = recovered.groupby('branch_id')['Sanction No'].count().reset_index()
-    recovered_summary.columns = ['branch_id', 'recovered']
-
-    summary = due_summary.merge(recovered_summary, on='branch_id', how='left').fillna(0)
-    summary['remaining'] = summary['total_due'] - summary['recovered']
-    summary['recovery_percent'] = (summary['recovered'] / summary['total_due'].replace(0, pd.NA)) * 100
-    summary['recovery_percent'] = summary['recovery_percent'].fillna(0)
-
-    st.subheader("📋 Branch-wise Recovery Summary (This Month)")
-    st.dataframe(summary.style.format({
-        'total_due': '{:,.0f}',
-        'recovered': '{:,.0f}',
-        'remaining': '{:,.0f}',
-        'recovery_percent': '{:.2f} %'
-    }))
-
-    # Chart: recovery percent by branch
-    try:
-        fig = px.bar(
-            summary,
-            x='branch_id',
-            y='recovery_percent',
-            text=summary['recovery_percent'].apply(lambda x: f"{x:.1f}%"),
-            labels={'branch_id': 'Branch', 'recovery_percent': 'Recovery %'},
-            title='📈 Recovery % by Branch (This Month)'
-        )
-        fig.update_traces(textposition='outside')
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception:
-        pass
-
-    # Debugging info
-    st.subheader("🛠 Debugging Info")
-    st.write("Total Due List Entries:", len(do_df))
-    st.write("Recovery Entries This Month:", len(recovery_this_month))
-    st.write("Matched Recoveries:", len(recovered))
-
-# --------------------
-# TERABYTE SECTION (kept as originally present in your code)
-# --------------------
-# This block expects a terabyte upload (can be optional)
-terabyte_pdf_file = st.file_uploader("Upload Terabyte Excel (for branch receipts PDF)", type=["xls", "xlsx"], key="uploader_terabyte_pdf")
-
-if terabyte_pdf_file is not None:
-    df_tera = pd.read_excel(terabyte_pdf_file)
-
-    required_cols = ["Sanction No", "Recovery Date", "Receipt No", "Credit Amount", "Branch Code"]
-    missing = [c for c in required_cols if c not in df_tera.columns]
-    if missing:
-        st.error(f"Uploaded Terabyte file must contain columns: {', '.join(missing)}")
-    else:
-        df_tera["Recovery Date"] = pd.to_datetime(df_tera["Recovery Date"], errors='coerce').dt.date
-        df_tera.insert(0, "Serial No", range(1, len(df_tera) + 1))
-        df_tera = df_tera[["Serial No", "Sanction No", "Recovery Date", "Receipt No", "Credit Amount", "Branch Code"]]
-
-        st.write("### Terabyte Branch-wise Preview")
-        st.dataframe(df_tera.head())
-
-        # Branch-wise downloadable PDFs using reportlab (kept original approach)
-        branches = df_tera["Branch Code"].unique()
-        for branch in branches:
-            branch_df = df_tera[df_tera["Branch Code"] == branch]
-
-            st.write(f"#### Branch {branch} Summary")
-            st.dataframe(branch_df)
-
-            # Create in-memory PDF and show download button per branch
-            buf = io.BytesIO()
-            doc = SimpleDocTemplate(buf, pagesize=letter)
-            elements = []
-            styles = getSampleStyleSheet()
-
-            elements.append(Paragraph(f"Branch Code: {branch}", styles['Heading1']))
-            elements.append(Spacer(1, 12))
-
-            table_data = [list(branch_df.columns)] + branch_df.values.tolist()
-            table = Table(table_data)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            elements.append(table)
-            elements.append(Spacer(1, 20))
-
-            # Branch summary
-            branch_summary = pd.DataFrame({
-                "Branch Code": [branch],
-                "Total Receipts": [len(branch_df)],
-                "Total Amount": [branch_df["Credit Amount"].sum()]
-            })
-            elements.append(Paragraph("Branch Summary", styles['Heading2']))
-            branch_table = Table([list(branch_summary.columns)] + branch_summary.values.tolist())
-            branch_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            elements.append(branch_table)
-            elements.append(Spacer(1, 20))
-
-            # Date-wise summary
-            date_summary = branch_df.groupby("Recovery Date").agg(
-                Receipts_Count=("Receipt No", "count"),
-                Amount_Sum=("Credit amount", "sum")
-            ).reset_index()
-            elements.append(Paragraph("Date-wise Summary", styles['Heading2']))
-            date_table = Table([list(date_summary.columns)] + date_summary.values.tolist())
-            date_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            elements.append(date_table)
-
-            doc.build(elements)
-            buf.seek(0)
-
-            st.download_button(
-                label=f"Download Branch {branch} PDF",
-                data=buf.getvalue(),
-                file_name=f"branch_{branch}.pdf",
-                mime="application/pdf",
-                key=f"download_terabyte_{branch}"
-            )
-
-# --------------------
-# NEW: Branch-wise Recovery PDFs from uploaded Recovery File
-# (This is the single addition you asked for — everything else left intact)
-# --------------------
-# This button will be available if user uploaded a recovery_file earlier.
-if 'recovery_file' in locals() or recovery_file is not None:
-    # Use the uploaded recovery_file object if present
-    # (We attempt to read it again safely here)
-    try:
-        if recovery_file is not None:
-            rec_df_for_pdf = pd.read_excel(recovery_file)
-        else:
-            rec_df_for_pdf = None
-    except Exception:
-        rec_df_for_pdf = None
-
-    if rec_df_for_pdf is not None and not rec_df_for_pdf.empty:
-        st.subheader("📄 Generate Branch-wise PDFs from Recovery File")
-        st.write("This will create a PDF per branch (recovery_date,amount, Name, Sanction No)")
-
-        if st.button("⬇️ Generate Branch-wise Recovery PDFs", key="gen_recovery_pdfs_btn"):
-            # Normalize and ensure columns
-            rec_df = rec_df_for_pdf.copy()
-            rec_df.columns = rec_df.columns.str.strip()
-
-            # Ensure these columns exist or create empty
-            for col in ["branch_id", "recovery_date", "amount", "Name", "Sanction No"]:
-                if col not in rec_df.columns:
-                    rec_df[col] = ""
-
-            # Format Date column
-            try:
-                rec_df["Date"] = pd.to_datetime(rec_df["recovery_date"], errors='coerce').dt.strftime("%d-%m-%y")
-            except Exception:
-                rec_df["recovery_date"] = rec_df["recovery_date"].astype(str)
-
-            branches = rec_df["branch_id"].astype(str).unique()
-            zip_buffer = io.BytesIO()
-
-            with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
-                for branch in branches:
-                    branch_data = rec_df[rec_df["branch_id"].astype(str) == str(branch)]
-
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", "B", 14)
-                    pdf.cell(0, 10, f"Branch: {branch}", ln=True, align="L")
-                    pdf.ln(6)
-
-                    # Header
-                    pdf.set_font("Arial", "B", 10)
-                    pdf.cell(12, 8, "Sr#", 1, 0, "C")
-                    pdf.cell(50, 8, "Date", 1, 0, "C")
-                    pdf.cell(40, 8, "amount", 1, 0, "C")
-                    pdf.cell(60, 8, "Name", 1, 0, "C")
-                    pdf.cell(40, 8, "Sanction No", 1, 1, "C")
-
-                    pdf.set_font("Arial", "", 9)
-                    total_amount = 0.0
-                    for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
-                        pdf.cell(12, 8, str(i), 1, 0, "C")
-                        pdf.cell(50, 8, str(row.get("Date", ""))[:10], 1, 0, "C")
-                        pdf.cell(40, 8, str(row.get("amount", "")), 1, 0, "R")
-                        pdf.cell(60, 8, str(row.get("Name", ""))[:25], 1, 0, "L")
-                        pdf.cell(40, 8, str(row.get("Sanction No", "")), 1, 1, "C")
-                        try:
-                            total_amount += float(row.get("amount", 0) if row.get("amount", 0) != "" else 0)
-                        except Exception:
-                            pass
-
-                    # Total row
-                    pdf.set_font("Arial", "B", 10)
-                    pdf.cell(62, 8, "Total", 1)
-                    pdf.cell(40, 8, f"{total_amount:,.2f}", 1)
-                    pdf.ln(8)
-
-                    pdf_bytes = pdf.output(dest="S").encode("latin1")
-                    zf.writestr(f"{branch}_Recovery.pdf", pdf_bytes)
-
-            zip_buffer.seek(0)
-            st.download_button(
-                label="📦 Download Branch-wise Recovery PDFs (ZIP)",
-                data=zip_buffer.getvalue(),
-                file_name="Branch_Wise_Recovery_PDFs.zip",
-                mime="application/zip",
-                key="download_recovery_zip"
-            )
-    else:
-        # No recovery file data to generate from
-        pass
-
-import streamlit as st
-import pandas as pd
-import re
-
-st.header("📂 Merge CSV Files (Skip first 2 rows)")
-
-def clean_colname(name):
-    return re.sub(r'[^a-z0-9]', '', str(name).lower())
-
-# --- Users select multiple CSV files ---
-uploaded_files = st.file_uploader(
-    "Upload your CSV files",
-    type="csv",
-    accept_multiple_files=True
-)
-
-merged_data = []
-missing_sanction_files = []
-
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        try:
-            # Skip first 2 rows
-            df = pd.read_csv(uploaded_file, skiprows=2)
-
-            # Clean columns
-            df.columns = [clean_colname(col) for col in df.columns]
-
-            # Check for Sanction No column
-            possible_names = ["sanctionno", "sanctionnumber", "sactionno"]
-            sanction_col = next((col for col in df.columns if col in possible_names), None)
-
-            if sanction_col:
-                merged_data.append(df)
-            else:
-                missing_sanction_files.append(uploaded_file.name)
-
-        except Exception as e:
-            st.error(f"Error reading {uploaded_file.name}: {e}")
-
-    # --- Show warning for files without Sanction No ---
-    if missing_sanction_files:
-        st.warning("No 'Sanction No' column found in these files:")
-        for f in missing_sanction_files:
-            st.write(f"- {f}")
-
-    # --- Merge and allow download ---
-    if merged_data:
-        final_df = pd.concat(merged_data, ignore_index=True)
-        st.success(f"Merged {len(merged_data)} CSV files! Total rows: {len(final_df)}")
-
-        csv_download = final_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="⬇ Download Merged CSV",
-            data=csv_download,
-            file_name="merged_due_list.csv",
-            mime="text/csv"
-        )
-else:
-    st.info("Please upload at least one CSV file to merge.")
-
-import streamlit as st
-import pandas as pd
-import os
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.lib.styles import getSampleStyleSheet
-from io import BytesIO
-from zipfile import ZipFile
-
-st.header("📑 Cheque-wise Analysis")
-
-uploaded_cheque = st.file_uploader("Upload Cheque-wise List", type=["xlsx", "csv"])
-
-if uploaded_cheque:
-
-    if uploaded_cheque.name.endswith(".csv"):
-        cheque_df = pd.read_csv(uploaded_cheque)
-    else:
-        cheque_df = pd.read_excel(uploaded_cheque)
-
-    cheque_df.columns = [str(c).strip() for c in cheque_df.columns]
-
-    required_cols = ["branch_id","date_disbursed","sanction_no","tranch_no","member_name","member_cnic"]
-    cheque_df = cheque_df[[c for c in required_cols if c in cheque_df.columns]]
-
-    cheque_df["Name"] = cheque_df["member_name"]
-    cheque_df.drop(columns=["member_name"], inplace=True)
-
-    cheque_df["date_disbursed"] = pd.to_datetime(cheque_df["date_disbursed"], errors="coerce")
-
-    today = datetime.today()
-
-    cheque_df["Months Passed"] = cheque_df["date_disbursed"].apply(
-        lambda x: relativedelta(today, x).months + relativedelta(today, x).years*12 if pd.notnull(x) else ""
-    )
-
-    cheque_df["Days Passed"] = cheque_df["date_disbursed"].apply(
-        lambda x: (today-x).days if pd.notnull(x) else ""
-    )
-
-    for col in ["House Complete","Shifted","Design"]:
-        if col not in cheque_df.columns:
-            cheque_df[col] = ""
-
-    cheque_df["2nd Tranch Status"] = ""
-
-    second_map = cheque_df[cheque_df["tranch_no"]==2].groupby("sanction_no").size().to_dict()
-
-    first_df = cheque_df[cheque_df["tranch_no"]==1].copy()
-    first_df["2nd Tranch Status"] = first_df["sanction_no"].apply(lambda x:"OK" if x in second_map else "")
-
-    display_cols = ["branch_id","sanction_no","tranch_no","Name","member_cnic",
-                    "date_disbursed","Months Passed","2nd Tranch Status",
-                    "House Complete","Shifted","Design"]
-
-    editable_df = first_df[display_cols]
-
-    # -------- Editable Table --------
-    edited_df = st.experimental_data_editor(editable_df, use_container_width=True)
-
-    # -------- CSV Download --------
-    csv_data = edited_df.to_csv(index=False).encode("utf-8")
-
-    st.download_button(
-        "⬇️ Download Edited CSV",
-        csv_data,
-        "cheque_analysis.csv",
-        "text/csv"
-    )
-
-    # -------- Save Flags --------
-    if st.button("💾 Save Flags"):
-        edited_df[["sanction_no","tranch_no","House Complete","Shifted","Design"]].to_csv(
-            "cheque_flags.csv", index=False
-        )
-        st.success("Saved")
-
-    # -------- ZIP PDFs --------
-    if st.button("⬇️ Download All Branch PDFs (ZIP)"):
-
-        zip_buffer = BytesIO()
-
-        with ZipFile(zip_buffer,"w") as zipf:
-
-            for branch in edited_df["branch_id"].unique():
-
-                bdf = edited_df[edited_df["branch_id"]==branch]
-
-                pdf = BytesIO()
-                doc = SimpleDocTemplate(pdf, pagesize=landscape(A4))
-                styles = getSampleStyleSheet()
-                elements=[]
-
-                elements.append(Paragraph(f"Branch {branch}",styles["Heading1"]))
-                elements.append(Spacer(1,10))
-
-                table_df = bdf.drop(columns=["branch_id","tranch_no"],errors="ignore")
-                table_df.insert(0,"S.No",range(1,len(table_df)+1))
-
-                data=[table_df.columns.tolist()]+table_df.astype(str).values.tolist()
-
-                table=Table(data,repeatRows=1)
-                table.setStyle(TableStyle([
-                    ("GRID",(0,0),(-1,-1),0.5,colors.black),
-                    ("ALIGN",(0,0),(-1,-1),"CENTER")
-                ]))
-
-                elements.append(table)
-                doc.build(elements)
-                pdf.seek(0)
-
-                zipf.writestr(f"branch_{branch}.pdf",pdf.getvalue())
-
-        zip_buffer.seek(0)
-
-        st.download_button(
-            "Download ZIP",
-            zip_buffer.getvalue(),
-            "branches.zip",
-            "application/zip"
-        )
-import streamlit as st
-import pandas as pd
-from fpdf import FPDF
-
-st.title("Loan Disbursement PDF Generator (Branchwise)")
-
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
-# ---------------------- Safe Functions ----------------------
-def safe(val):
-    try:
-        if pd.isna(val):
-            return ""
-        return str(val)
-    except:
-        return ""
-
-# ---------------------- PDF Class ----------------------
-class PDF(FPDF):
-    def header(self):
-        self.set_font("Arial", 'B', 12)
-        self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
-        self.ln(3)
-
-# ---------------------- PDF GENERATION FUNCTION ----------------------
-# لاجک بالکل سیم ہے، بس فنکشن میں ڈالنے سے اسکرین پر None پرنٹ ہونا بند ہو جائے گا
-def generate_pdf_data(br_name, br_data):
-    pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
-    pdf.set_auto_page_break(auto=True, margin=10)
-    pdf.add_page()
-
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 8, f"Branch: {br_name}", ln=True, align="C")
-    pdf.ln(3)
-
-    # ---------------------- TABLE HEADER ----------------------
-    headers = [
-        "Date Disburse", "Sanction No", "Tranch", "Cheque No",
-        "Loan Amount", "Group No", "Member Name", "CNIC"
-    ]
-    col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
-
-    pdf.set_fill_color(200, 200, 200)
-    pdf.set_font("Arial", 'B', 9)
-
-    for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
-    pdf.ln()
-
-    # ---------------------- TABLE ROWS ----------------------
-    fill = False
-    for _, row in br_data.iterrows():
-        pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
-        pdf.set_font("Arial", '', 9)
-
-        pdf.cell(col_widths[0], 7, safe(row["date_disburse"]), border=1, fill=True)
-        pdf.cell(col_widths[1], 7, safe(row["sanction_no"]), border=1, fill=True)
-        pdf.cell(col_widths[2], 7, safe(row["tranch"]), border=1, fill=True)
-        pdf.cell(col_widths[3], 7, safe(row["cheque_no"]), border=1, fill=True)
-        pdf.cell(col_widths[4], 7, safe(row["loan_amount"]), border=1, fill=True)
-        pdf.cell(col_widths[5], 7, safe(row["group_no"]), border=1, fill=True)
-        pdf.cell(col_widths[6], 7, safe(row["member_name"]), border=1, fill=True)
-        pdf.cell(col_widths[7], 7, safe(row["member_cnic"]), border=1, fill=True)
-
-        pdf.ln()
-        fill = not fill
-
-    return pdf.output(dest="S").encode("latin-1")
-
-# ---------------------- MAIN ----------------------
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
-
-    # Fix column spellings
-    df.rename(columns={
-        "date_disbursed": "date_disburse",
-        "date_of_disbursement": "date_disburse",
-        "tranch_no": "tranch",
-        "grouo_no": "group_no",
-    }, inplace=True)
-
-    # Required Columns
-    required_cols = [
-        "branch_id", "member_name", "member_cnic", "loan_amount",
-        "tranch", "cheque_no", "sanction_no",
-        "group_no", "date_disburse"
-    ]
-
-    # Check Missing Columns
-    missing = [c for c in required_cols if c not in df.columns]
-
-    if missing:
-        st.error(f"Missing columns: {missing}")
-        st.stop()
-
-    branches = df["branch_id"].unique()
-
-    # ---------------------- MAIN LOOP ----------------------
-    for br in branches:
-        br_df = df[df["branch_id"] == br]
-
-        st.markdown(f"### 📌 Branch: **{br}**")
-        st.dataframe(br_df)
-
-        # پی ڈی ایف ڈیٹا بیک گراؤنڈ میں بنے گا (کوئی None نہیں دکھے گا)
-        pdf_bytes = generate_pdf_data(br, br_df)
-
-        # سنگل کلک ڈاؤن لوڈ بٹن
-        st.download_button(
-            label=f"Download PDF for Branch {br}",
-            data=pdf_bytes,
-            file_name=f"{br}_Loan_Disbursement.pdf",
-            mime="application/pdf",
-            key=f"btn_{br}"  # Unique Key
-        )
-        
-        st.write("---")
-
-    st.success("All Branch PDF Buttons Ready!")
-import streamlit as st
-import pandas as pd
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
-import os
-
-st.title("Recovery Date Range Summary")
-
-# ---------------- Local storage folder ----------------
-LOCAL_FILE = "data/recovery.xlsx"
-os.makedirs("data", exist_ok=True)
-
-# ---------------- File Upload ----------------
-uploaded = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
-
-# --- If uploaded, save locally and store in session_state ---
-if uploaded:
-    if uploaded.name.endswith(".csv"):
-        df = pd.read_csv(uploaded)
-    else:
-        df = pd.read_excel(uploaded)
-
-    st.session_state["df"] = df
-    df.to_excel(LOCAL_FILE, index=False)
-    st.success("File uploaded and saved locally!")
-
-# --- If no upload, check session_state or local file ---
-elif "df" in st.session_state:
-    df = st.session_state["df"]
-    st.info("Using previously uploaded file from session.")
-elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.session_state["df"] = df
-    st.info("Loaded previously uploaded file from local storage.")
-else:
-    st.info("Please upload recovery file.")
-    st.stop()
-
-# ---------------- Column Selection ----------------
-st.subheader("Available Columns")
-
-date_col = st.selectbox("Select Date Column", df.columns)
-branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
-area_col = None
-if 'area_id' in df.columns:
-    area_col = 'area_id'
-
-# ---------------- Convert Date ----------------
-df[date_col] = pd.to_datetime(
-    df[date_col].astype(str).str.strip(),
-    format="%Y-%b-%d",
-    errors="coerce"
-)
-df = df.dropna(subset=[date_col, branch_col])
-df["Day"] = df[date_col].dt.day
-df = df[df["Day"].notna()]
-
-df["Range"] = pd.cut(
-    df["Day"],
-    bins=[0,10,20,31],
-    labels=["1-10","11-20","21-31"]
-)
-if df["Range"].isna().all():
-    st.error("Date column sahi format me nahi.")
-    st.stop()
-
-# ---------------- Pivot Table ----------------
-pivot = pd.pivot_table(
-    df,
-    index=[branch_col],
-    columns="Range",
-    aggfunc="size",
-    fill_value=0
-)
-
-# Ensure columns exist
-for c in ["1-10","11-20","21-31"]:
-    if c not in pivot.columns:
-        pivot[c] = 0
-
-pivot["Total"] = pivot[["1-10","11-20","21-31"]].sum(axis=1)
-
-# Percentages
-pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
-pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
-pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
-
-# Rename for readability
-pivot.rename(columns={
-    "1-10": "Recovery 1-10",
-    "11-20": "Recovery 11-20",
-    "21-31": "Recovery 21-31"
-}, inplace=True)
-
-result_df = pivot.reset_index()
-
-# ---------------- Add Area column BEFORE Branch ----------------
-if area_col:
-    branch_area_df = df[[branch_col, area_col]].drop_duplicates()
-    result_df = result_df.merge(branch_area_df, on=branch_col, how='left')
-    # Move Area column before Branch column
-    cols = result_df.columns.tolist()
-    branch_idx = cols.index(branch_col)
-    cols.insert(branch_idx, cols.pop(cols.index(area_col)))
-    result_df = result_df[cols]
-
-# ---------------- Grand Total Row ----------------
-numeric_cols = ["Recovery 1-10","Recovery 11-20","Recovery 21-31","Total"]
-# Sum numeric counts
-grand_total_counts = result_df[numeric_cols].sum()
-# Calculate percentages for Grand Total
-grand_total_percent = (grand_total_counts[["Recovery 1-10","Recovery 11-20","Recovery 21-31"]] / grand_total_counts["Total"] * 100).round(2)
-
-grand_values = {}
-for col in result_df.columns:
-    if col == branch_col:
-        grand_values[col] = "Grand Total"
-    elif col == area_col:
-        grand_values[col] = ""
-    elif col in numeric_cols:
-        grand_values[col] = grand_total_counts[col]
-    elif col in ["1-10 %","11-20 %","21-31 %"]:
-        # Map numeric col to percentage col
-        pct_map = {"1-10 %":"Recovery 1-10","11-20 %":"Recovery 11-20","21-31 %":"Recovery 21-31"}
-        grand_values[col] = grand_total_percent[pct_map[col]]
-    else:
-        grand_values[col] = ""
-
-result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
-
-# ---------------- Show Table ----------------
-st.subheader("Branch Wise Recovery Summary")
-st.dataframe(result_df)
-
-# ---------------- CSV Download ----------------
-csv = result_df.to_csv(index=False).encode("utf-8")
-st.download_button(
-    label="⬇ Download CSV",
-    data=csv,
-    file_name="recovery_summary.csv",
-    mime="text/csv"
-)
-
-# ---------------- PDF Download ----------------
-buffer = BytesIO()
-doc = SimpleDocTemplate(buffer, pagesize=A4)
-
-# Table data
-table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-
-# Create Table with style
-table = Table(table_data)
-style = TableStyle([
-    ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ('BACKGROUND', (0,0), (-1,0), colors.grey),
-    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ('FONTSIZE', (0,0), (-1,-1), 10),
-    ('BOTTOMPADDING', (0,0), (-1,0), 6),
-])
-table.setStyle(style)
-
-doc.build([table])
-pdf_bytes = buffer.getvalue()
-buffer.close()
-
-st.download_button(
-    label="⬇ Download PDF",
-    data=pdf_bytes,
-    file_name="recovery_summary.pdf",
-    mime="application/pdf"
-)
-# ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
-FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
-# ===========================================
-
-# Custom Page Config & CSS Design
-st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
-
-st.markdown(
-    """
-    <style>
-        .header-card {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            padding: 25px;
-            border-radius: 16px;
-            border: 1px solid #334155;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            margin-bottom: 25px;
-        }
-        .header-title {
-            color: #ffffff;
-            font-size: 26px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .header-subtitle {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# Header Section - یہاں سے prefix ہٹا دیا
-st.markdown(
-    """
-    <div class="header-card">
-        <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle"></div>
+  </div>
+
+  <!-- DASHBOARD PAGE -->
+  <div class="header">
+    <div class="user-info">
+      <i class="fa-solid fa-circle-user fa-lg" style="color: var(--primary);"></i>
+      <span id="display-user">Guest</span>
     </div>
-""",
-    unsafe_allow_html=True,
-)
+    <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </div>
 
-# Input Section with Columns Layout
-col1, col2, col3 = st.columns([1, 3, 1])
+  <div class="app-container">
+    <div class="sidebar">
+      <div class="menu-title">MENU OPTIONS</div>
+      <div class="nav-main-header">
+        <i class="fa-solid fa-gauge"></i> Dashboard
+      </div>
+      <div class="sub-menu-container">
+        <button class="nav-sub-btn active" onclick="switchTab('qr-generator', this)">
+          <i class="fa-solid fa-qrcode"></i> QR Generator
+        </button>
+        <button class="nav-sub-btn" onclick="switchTab('verify-cnic', this)">
+          <i class="fa-solid fa-id-card"></i> Verify CNIC
+        </button>
+      </div>
+    </div>
 
-with col2:
-    # یوزر سے 13 ڈیجٹ لیں گے
-    user_13_digit = st.text_input(
-        "Just Enter CNIC NO",
-        placeholder="مثال: 3720388692193",
-        max_chars=13,
-    )
+    <div class="main-content">
+      <div id="qr-generator" class="tab-content active">
+        <div class="card">
+          <h3>🪪 CNIC QR Code Generator</h3>
+          <div class="input-group">
+            <input type="text" id="cnic-input" class="input-field" placeholder="Enter 13 Digit CNIC" maxlength="13">
+            <i class="fa-solid fa-id-card"></i>
+          </div>
+          <button class="action-btn" onclick="generateQR()">✨ Generate QR Code</button>
+          <div style="display: flex; justify-content: center; width: 100%;">
+            <div id="qrcode-box"></div>
+          </div>
+        </div>
+      </div>
 
-    generate_btn = st.button(
-        "✨ QR Code بنائیں", type="primary", use_container_width=True
-    )
+      <div id="verify-cnic" class="tab-content">
+        <div class="card">
+          <h3>Verify CNIC Number</h3>
+          <div class="input-group">
+            <input type="text" id="verify-input" class="input-field" placeholder="Enter CNIC to Verify">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </div>
+          <button class="action-btn" style="background: var(--primary-hover);" onclick="verifyCNIC()">Verify Now</button>
+          <p id="verify-result" style="margin-top: 20px; font-weight: bold;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    if generate_btn:
-        if user_13_digit:
-            # ---------------- EXACT ORIGINAL LOGIC ----------------
-            clean_13 = user_13_digit.replace("-", "").strip()
+  <script>
+    const FIXED_FIRST_12 = "421011234567";
 
-            full_cnic = FIXED_FIRST_12 + clean_13  # 12 + 13 = 25 ڈیجٹ
+    const firebaseConfig = {
+      databaseURL: "https://mywebsite-7016a-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-            if clean_13.isdigit() and len(full_cnic) == 25:
-                data = full_cnic
+    let currentUser = null;
 
-                # FORCE FULL DATA ENCODING (Original Logic)
-                qr = qrcode.QRCode(
-                    version=None,  # AUTO size
-                    error_correction=qrcode.constants.ERROR_CORRECT_H,
-                    box_size=5,
-                    border=4,
-                )
+    function getDeviceId() {
+      let devId = localStorage.getItem('device_unique_id');
+      if (!devId) {
+        devId = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now();
+        localStorage.setItem('device_unique_id', devId);
+      }
+      return devId;
+    }
 
-                qr.add_data(data)
-                qr.make(fit=True)
+    // LOGIN & STRICT DEVICE LOCK LOGIC
+    async function handleLogin() {
+      const user = document.getElementById('username').value.trim();
+      const pass = document.getElementById('password').value.trim();
+      const errEl = document.getElementById('login-err');
 
-                img = qr.make_image(fill_color="black", back_color="white")
+      if (!user || !pass) {
+        errEl.innerText = "Please fill all fields!";
+        return;
+      }
 
-                buf = BytesIO()
-                img.save(buf, format="PNG")
+      errEl.innerText = "Verifying...";
 
-                img_bytes = buf.getvalue()
-                # ------------------------------------------------------
+      try {
+        const snapshot = await db.ref(`users/${user}`).once('value');
+        const userData = snapshot.val();
 
-                st.markdown("---")
+        if (userData && userData.password === pass) {
+          const thisDeviceId = getDeviceId();
 
-                # یہاں سے "مکمل 25 ڈیجٹ" والا success ہٹا دیا
-                # اور caption سے بھی full_cnic ہٹا دیا
+          if (userData.boundDeviceId && userData.boundDeviceId !== thisDeviceId) {
+            errEl.innerText = "⛔ Account registered to another device!";
+            return;
+          }
 
-                st.image(
-                    img_bytes,
-                    caption="QR Code Ready",
-                    use_column_width=True,
-                )
+          if (!userData.boundDeviceId) {
+            await db.ref(`users/${user}/boundDeviceId`).set(thisDeviceId);
+          }
 
-                st.download_button(
-                    "📥 QR Code ڈاؤنلوڈ کریں",
-                    data=img_bytes,
-                    file_name=f"cnic_qr.png",  # فائل نیم سے بھی full_cnic ہٹا دیا
-                    mime="image/png",
-                    use_container_width=True,
-                )
-            else:
-                st.error(
-                    "❌ Invalid! Must Enter 13 Digit "
-                )
-        else:
-            st.warning("Please Enter CNIC NO Without Dashes")
+          currentUser = user;
+          localStorage.setItem('logged_user', user);
+
+          document.getElementById('display-user').innerText = user;
+          document.getElementById('login-screen').style.display = 'none';
+          errEl.innerText = "";
+
+        } else {
+          errEl.innerText = "Invalid Username or Password!";
+        }
+      } catch (e) {
+        console.error(e);
+        errEl.innerText = "Database connection error!";
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('logged_user');
+      location.reload();
+    }
+
+    window.onload = function() {
+      const savedUser = localStorage.getItem('logged_user');
+      if (savedUser) {
+        currentUser = savedUser;
+        document.getElementById('display-user').innerText = savedUser;
+        document.getElementById('login-screen').style.display = 'none';
+      }
+    };
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-sub-btn').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function generateQR() {
+      const userInput = document.getElementById('cnic-input').value.trim().replace(/-/g, "");
+      const qrBox = document.getElementById('qrcode-box');
+
+      if (!/^\d{13}$/.test(userInput)) {
+        alert("❌ Invalid! Must Enter Exactly 13 Digits");
+        return;
+      }
+
+      const fullCNIC = FIXED_FIRST_12 + userInput;
+      qrBox.innerHTML = "";
+      
+      new QRCode(qrBox, {
+        text: fullCNIC,
+        width: 180,
+        height: 180,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+    }
+
+    function verifyCNIC() {
+      const cnic = document.getElementById('verify-input').value.trim();
+      const resultEl = document.getElementById('verify-result');
+
+      if (cnic.length >= 13) {
+        resultEl.style.color = "#10b981";
+        resultEl.innerText = `✔ CNIC ${cnic} Verified Successfully!`;
+      } else {
+        resultEl.style.color = "#ef4444";
+        resultEl.innerText = "❌ Invalid CNIC Format. Minimum 13 digits required.";
+      }
+    }
+  </script>
+</body>
+</html> 
