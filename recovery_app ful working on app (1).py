@@ -9,7 +9,6 @@ import plotly.express as px
 from fpdf import FPDF
 from io import BytesIO
 import qrcode
-
 # ---------- USERS ----------
 USERS = {
     "Khaleel": "1.2341",
