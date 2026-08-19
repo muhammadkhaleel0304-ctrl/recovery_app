@@ -1130,7 +1130,7 @@ if uploaded_file:
         st.write("---")
 
     st.success("All Branch PDF Buttons Ready!")
-import streamlit as st
+  import streamlit as st
 import pandas as pd
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
@@ -1189,10 +1189,11 @@ df = df.dropna(subset=[date_col, branch_col])
 df["Day"] = df[date_col].dt.day
 df = df[df["Day"].notna()]
 
+# --- Updated Bins (1-5, 6-10, 11-15, 16-31) ---
 df["Range"] = pd.cut(
     df["Day"],
-    bins=[0,10,20,31],
-    labels=["1-10","11-20","21-31"]
+    bins=[0, 5, 10, 15, 31],
+    labels=["1-5", "6-10", "11-15", "16-31"]
 )
 if df["Range"].isna().all():
     st.error("Date column sahi format me nahi.")
@@ -1208,22 +1209,24 @@ pivot = pd.pivot_table(
 )
 
 # Ensure columns exist
-for c in ["1-10","11-20","21-31"]:
+for c in ["1-5", "6-10", "11-15", "16-31"]:
     if c not in pivot.columns:
         pivot[c] = 0
 
-pivot["Total"] = pivot[["1-10","11-20","21-31"]].sum(axis=1)
+pivot["Total"] = pivot[["1-5", "6-10", "11-15", "16-31"]].sum(axis=1)
 
 # Percentages
-pivot["1-10 %"] = (pivot["1-10"] / pivot["Total"] * 100).round(2)
-pivot["11-20 %"] = (pivot["11-20"] / pivot["Total"] * 100).round(2)
-pivot["21-31 %"] = (pivot["21-31"] / pivot["Total"] * 100).round(2)
+pivot["1-5 %"] = (pivot["1-5"] / pivot["Total"] * 100).round(2)
+pivot["6-10 %"] = (pivot["6-10"] / pivot["Total"] * 100).round(2)
+pivot["11-15 %"] = (pivot["11-15"] / pivot["Total"] * 100).round(2)
+pivot["16-31 %"] = (pivot["16-31"] / pivot["Total"] * 100).round(2)
 
 # Rename for readability
 pivot.rename(columns={
-    "1-10": "Recovery 1-10",
-    "11-20": "Recovery 11-20",
-    "21-31": "Recovery 21-31"
+    "1-5": "Recovery 1-5",
+    "6-10": "Recovery 6-10",
+    "11-15": "Recovery 11-15",
+    "16-31": "Recovery 16-31"
 }, inplace=True)
 
 result_df = pivot.reset_index()
@@ -1239,11 +1242,11 @@ if area_col:
     result_df = result_df[cols]
 
 # ---------------- Grand Total Row ----------------
-numeric_cols = ["Recovery 1-10","Recovery 11-20","Recovery 21-31","Total"]
+numeric_cols = ["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31", "Total"]
 # Sum numeric counts
 grand_total_counts = result_df[numeric_cols].sum()
 # Calculate percentages for Grand Total
-grand_total_percent = (grand_total_counts[["Recovery 1-10","Recovery 11-20","Recovery 21-31"]] / grand_total_counts["Total"] * 100).round(2)
+grand_total_percent = (grand_total_counts[["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31"]] / grand_total_counts["Total"] * 100).round(2)
 
 grand_values = {}
 for col in result_df.columns:
@@ -1253,9 +1256,13 @@ for col in result_df.columns:
         grand_values[col] = ""
     elif col in numeric_cols:
         grand_values[col] = grand_total_counts[col]
-    elif col in ["1-10 %","11-20 %","21-31 %"]:
-        # Map numeric col to percentage col
-        pct_map = {"1-10 %":"Recovery 1-10","11-20 %":"Recovery 11-20","21-31 %":"Recovery 21-31"}
+    elif col in ["1-5 %", "6-10 %", "11-15 %", "16-31 %"]:
+        pct_map = {
+            "1-5 %": "Recovery 1-5", 
+            "6-10 %": "Recovery 6-10", 
+            "11-15 %": "Recovery 11-15", 
+            "16-31 %": "Recovery 16-31"
+        }
         grand_values[col] = grand_total_percent[pct_map[col]]
     else:
         grand_values[col] = ""
@@ -1304,116 +1311,3 @@ st.download_button(
     file_name="recovery_summary.pdf",
     mime="application/pdf"
 )
-# ====== یہاں اپنا 12 ڈیجٹ فکس کر دیں ======
-FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
-# ===========================================
-
-# Custom Page Config & CSS Design
-st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
-
-st.markdown(
-    """
-    <style>
-        .header-card {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            padding: 25px;
-            border-radius: 16px;
-            border: 1px solid #334155;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            margin-bottom: 25px;
-        }
-        .header-title {
-            color: #ffffff;
-            font-size: 26px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .header-subtitle {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# Header Section - یہاں سے prefix ہٹا دیا
-st.markdown(
-    """
-    <div class="header-card">
-        <div class="header-title">🪪 CNIC QR Generator</div>
-        <div class="header-subtitle"></div>
-    </div>
-""",
-    unsafe_allow_html=True,
-)
-
-# Input Section with Columns Layout
-col1, col2, col3 = st.columns([1, 3, 1])
-
-with col2:
-    # یوزر سے 13 ڈیجٹ لیں گے
-    user_13_digit = st.text_input(
-        "Just Enter CNIC NO",
-        placeholder="مثال: 3720388692193",
-        max_chars=13,
-    )
-
-    generate_btn = st.button(
-        "✨ QR Code بنائیں", type="primary", use_container_width=True
-    )
-
-    if generate_btn:
-        if user_13_digit:
-            # ---------------- EXACT ORIGINAL LOGIC ----------------
-            clean_13 = user_13_digit.replace("-", "").strip()
-
-            full_cnic = FIXED_FIRST_12 + clean_13  # 12 + 13 = 25 ڈیجٹ
-
-            if clean_13.isdigit() and len(full_cnic) == 25:
-                data = full_cnic
-
-                # FORCE FULL DATA ENCODING (Original Logic)
-                qr = qrcode.QRCode(
-                    version=None,  # AUTO size
-                    error_correction=qrcode.constants.ERROR_CORRECT_H,
-                    box_size=5,
-                    border=4,
-                )
-
-                qr.add_data(data)
-                qr.make(fit=True)
-
-                img = qr.make_image(fill_color="black", back_color="white")
-
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-
-                img_bytes = buf.getvalue()
-                # ------------------------------------------------------
-
-                st.markdown("---")
-
-                # یہاں سے "مکمل 25 ڈیجٹ" والا success ہٹا دیا
-                # اور caption سے بھی full_cnic ہٹا دیا
-
-                st.image(
-                    img_bytes,
-                    caption="QR Code Ready",
-                    use_column_width=True,
-                )
-
-                st.download_button(
-                    "📥 QR Code ڈاؤنلوڈ کریں",
-                    data=img_bytes,
-                    file_name=f"cnic_qr.png",  # فائل نیم سے بھی full_cnic ہٹا دیا
-                    mime="image/png",
-                    use_container_width=True,
-                )
-            else:
-                st.error(
-                    "❌ Invalid! Must Enter 13 Digit "
-                )
-        else:
-            st.warning("Please Enter CNIC NO Without Dashes")
