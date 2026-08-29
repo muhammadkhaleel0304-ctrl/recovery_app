@@ -249,8 +249,6 @@ for col in result_df.columns:
             "16-31 %": "Recovery 16-31"
         }
     # ---------------- 5. SECTION: RECOVERY SUMMARY & COMPARISON ----------------
-st.markdown("---")
-st.subheader("📊 Recovery Date Range & Monthly Summary")
 
 LOCAL_FILE = "data/recovery.xlsx"
 os.makedirs("data", exist_ok=True)
