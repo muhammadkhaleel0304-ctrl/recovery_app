@@ -775,13 +775,31 @@ st.subheader("📋 Branch-wise Range Comparison")
 # IMPORTANT:
 # یہاں Styler استعمال نہیں کیا گیا، اس لیے پرانا Streamlit
 # TypeError نہیں آئے گا۔
+# =========================================================
+# SAFE DATAFRAME DISPLAY
+# =========================================================
 
-st.dataframe(
-    final_table,
-    use_container_width=True,
-    height=700,
-    hide_index=True
-)
+try:
+    # Convert column names to simple strings
+    final_table.columns = final_table.columns.astype(str)
+
+    # Make sure dataframe has no problematic mixed object values
+    for col in final_table.columns:
+        if final_table[col].dtype == "object":
+            final_table[col] = final_table[col].fillna("").astype(str)
+
+    st.dataframe(
+        final_table,
+        use_container_width=True,
+        height=700
+    )
+
+except Exception as e:
+
+    st.error("Table display error occurred.")
+
+    # Fallback table
+    st.table(final_table)
 
 
 # =========================================================
