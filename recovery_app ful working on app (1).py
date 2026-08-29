@@ -249,76 +249,125 @@ for col in result_df.columns:
             "11-15 %": "Recovery 16-15", 
             "16-31 %": "Recovery 16-31"
         }
-       # ---------------- 5. SECTION: RECOVERY SUMMARY & COMPARISON ----------------
-# --- Month-over-Month Comparison (Structured Side-by-Side) ---
+    # ---------------- 5. SECTION: RECOVERY SUMMARY & COMPARISON ----------------
 st.markdown("---")
-st.subheader("📅 Month-over-Month Branch & Area Comparison")
+st.subheader("📊 Recovery Date Range & Monthly Summary")
 
-# Sort dataset chronologically
-df_sorted = df.sort_values(by="Month_Num")
+LOCAL_FILE = "data/recovery.xlsx"
+os.makedirs("data", exist_ok=True)
 
-index_cols = [area_col, branch_col] if area_col else [branch_col]
+uploaded = st.file_uploader("Upload Recovery Excel / CSV - 1 یا 2-3 مہینے ایک ساتھ", type=["xlsx", "csv"], key="recovery_main", accept_multiple_files=True)
 
-pivot_mom = pd.pivot_table(
-    df_sorted,
-    index=index_cols,
-    columns=["Month_Name", "Range"],
+if uploaded:
+    dfs = []
+    for file in uploaded:
+        df_temp = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
+        df_temp["Source_File"] = file.name # کونسی فائل سے ہے یہ ٹریک کرنے کے لیے
+        dfs.append(df_temp)
+    df = pd.concat(dfs, ignore_index=True)
+    st.session_state["df"] = df
+    df.to_excel(LOCAL_FILE, index=False)
+    st.success(f"{len(uploaded)} فائل(یں) Upload ہو گئیں اور Merge کر دی گئیں!")
+    st.rerun()
+elif "df" in st.session_state:
+    df = st.session_state["df"]
+elif os.path.exists(LOCAL_FILE):
+    df = pd.read_excel(LOCAL_FILE)
+    st.session_state["df"] = df
+else:
+    st.info("Please upload recovery file to view details.")
+    st.stop()
+
+st.write("#### Available Columns Selection")
+col1, col2 = st.columns(2)
+with col1:
+    date_col = st.selectbox("Select Date Column", df.columns, index=0)
+with col2:
+    branch_col = st.selectbox("Select Branch Column", df.columns, index=min(1, len(df.columns)-1))
+
+area_col = 'area_id' if 'area_id' in df.columns else None
+
+# Safe Date Conversion
+df[date_col] = pd.to_datetime(df[date_col].astype(str).str.strip(), errors="coerce")
+df = df.dropna(subset=[date_col, branch_col])
+
+if df.empty:
+    st.error("Selected Date column me valid data nahi hai.")
+    st.stop()
+
+df["Day"] = df[date_col].dt.day
+df["Month_Name"] = df[date_col].dt.strftime('%b-%Y') # Year بھی شامل کر دیا تاکہ Jan-2025 vs Jan-2026 کا فرق ہو
+df["Month_Num"] = df[date_col].dt.month
+df["Range"] = pd.cut(df["Day"], bins=[0, 5, 10, 15, 31], labels=["1-5", "6-10", "11-15", "16-31"])
+
+# --- SMART TABLE LOGIC ---
+unique_areas = df[area_col].nunique() if area_col else 0
+
+if unique_areas > 1:
+    st.info(f"✅ {unique_areas} Areas ملے۔ Table اب Area Wise بنے گا۔")
+    group_cols = [area_col, "Month_Name", "Range"]
+    index_col = area_col
+    display_name = "Area Wise Recovery Summary"
+else:
+    st.info("✅ صرف 1 Area ملا۔ Table اب Branch Wise بنے گا۔")
+    group_cols = [branch_col, "Month_Name", "Range"]
+    index_col = branch_col
+    display_name = "Branch Wise Recovery Summary"
+
+st.subheader(f"📈 {display_name}")
+
+# Pivot بنائیں: Index = Area/Branch, Columns = Month + Range, Values = Count
+pivot = pd.pivot_table(
+    df,
+    index=group_cols,
     aggfunc="size",
     fill_value=0
-)
+).unstack(["Month_Name", "Range"])
 
-st.dataframe(pivot_mom, use_container_width=True)
+# Column names صاف کریں
+pivot.columns = [f'{month} - {rng}' for month, rng in pivot.columns]
+pivot = pivot.reset_index()
 
-# --- Download Comparison CSV ---
-mom_csv = pivot_mom.to_csv().encode("utf-8")
-st.download_button(
-    "⬇ Download Comparison CSV",
-    data=mom_csv,
-    file_name="mom_recovery_comparison.csv",
-    mime="text/csv"
-)
+# ہر مہینے کا Total اور % نکالیں
+months = df["Month_Name"].unique()
+for month in months:
+    month_cols = [col for col in pivot.columns if month in col]
+    if month_cols:
+        pivot[f'{month} - Total'] = pivot[month_cols].sum(axis=1)
+        for rng in ["1-5", "6-10", "11-15", "16-31"]:
+            rng_col = f'{month} - {rng}'
+            pct_col = f'{month} - {rng} %'
+            if rng_col in pivot.columns:
+                pivot[pct_col] = (pivot[rng_col] / pivot[f'{month} - Total'] * 100).round(2)
 
-# ---------------- 6. VISUAL GRIP & RANGE BREAKDOWN ----------------
-st.markdown("---")
-st.subheader("📈 Recovery Range Breakdown & Visual Grip")
-
-chart_tab1, chart_tab2 = st.tabs(["📊 Range-wise Distribution %", "📍 Area-wise Comparison"])
-
-with chart_tab1:
-    st.write("##### Date Range Wise Recovery Contribution")
-    # Group data by Range to get counts
-    range_summary = df.groupby(["Month_Name", "Range"]).size().reset_index(name="Count")
-    
-    # Calculate Total per month for % breakdown
-    month_totals = range_summary.groupby("Month_Name")["Count"].transform("sum")
-    range_summary["Percentage (%)"] = (range_summary["Count"] / month_totals * 100).round(2)
-
-    # Plotly Grouped Bar Chart for high visual clarity
-    fig = px.bar(
-        range_summary,
-        x="Range",
-        y="Count",
-        color="Month_Name",
-        barmode="group",
-        text=range_summary["Percentage (%)"].apply(lambda x: f"{x}%"),
-        labels={"Count": "Total Cases / Count", "Range": "Date Range Bin"},
-        title="Month-wise Recovery Grip Across Date Ranges"
-    )
-    fig.update_traces(textposition='outside')
-    st.plotly_chart(fig, use_container_width=True)
-
-with chart_tab2:
-    if area_col:
-        st.write("##### Area-wise Total Volume Comparison")
-        area_df = df.groupby([area_col, "Month_Name"]).size().reset_index(name="Total Recovery")
-        fig_area = px.bar(
-            area_df,
-            x=area_col,
-            y="Total Recovery",
-            color="Month_Name",
-            barmode="group",
-            title="Area-wise Total Recovery Comparison"
-        )
-        st.plotly_chart(fig_area, use_container_width=True)
+# Grand Total Row
+numeric_cols = [col for col in pivot.columns if col not in [index_col]]
+grand_values = {}
+for col in pivot.columns:
+    if col == index_col:
+        grand_values[col] = "Grand Total"
+    elif "%" in col:
+        # % کا Grand Total الگ سے نہیں بنے گا
+        grand_values[col] = ""
     else:
-        st.info("Area Column dataset me nahi mila.")
+        grand_values[col] = pivot[col].sum()
+
+pivot = pd.concat([pivot, pd.DataFrame([grand_values])], ignore_index=True)
+
+st.dataframe(pivot, use_container_width=True)
+
+# Download
+out_buf = BytesIO()
+with pd.ExcelWriter(out_buf, engine='openpyxl') as writer:
+    pivot.to_excel(writer, index=False, sheet_name='Recovery_Summary')
+st.download_button("📥 Download Summary Excel", data=out_buf.getvalue(), file_name="Recovery_Summary.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# --- Month-over-Month Comparison Heatmap ---
+st.markdown("---")
+st.subheader("📅 Month-over-Month Comparison Chart")
+if len(months) > 1:
+    chart_df = df.groupby([index_col, "Month_Name"]).size().reset_index(name="Total")
+    fig = px.bar(chart_df, x=index_col, y="Total", color="Month_Name", barmode="group", title=f"{display_name} - Month Comparison")
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("Comparison کے لیے کم از کم 2 مہینے کی ڈیٹا Upload کریں۔")
