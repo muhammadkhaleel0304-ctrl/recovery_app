@@ -843,17 +843,20 @@ with c2:
 
 
 # =========================================================
-# EXCEL DOWNLOAD
+# DOWNLOAD EXCEL WITH GREEN / RED CONDITIONAL FORMATTING
 # =========================================================
+
+from io import BytesIO
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter
 
 output = BytesIO()
 
-with pd.ExcelWriter(
-    output,
-    engine="openpyxl"
-) as writer:
-
-    final_table.to_excel(
+# Excel create
+with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    display_df.to_excel(
         writer,
         index=False,
         sheet_name="Range Wise Comparison"
@@ -861,9 +864,227 @@ with pd.ExcelWriter(
 
 output.seek(0)
 
+# Workbook load
+wb = load_workbook(output)
+ws = wb["Range Wise Comparison"]
+
+
+# =========================================================
+# BASIC EXCEL FORMATTING
+# =========================================================
+
+# Header
+header_fill = PatternFill(
+    fill_type="solid",
+    fgColor="063B66"
+)
+
+header_font = Font(
+    color="FFFFFF",
+    bold=True
+)
+
+for cell in ws[1]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = Alignment(
+        horizontal="center",
+        vertical="center"
+    )
+
+
+# =========================================================
+# FIND DIFFERENCE COLUMNS
+# =========================================================
+
+difference_columns = []
+
+for col in range(1, ws.max_column + 1):
+
+    header = ws.cell(
+        row=1,
+        column=col
+    ).value
+
+    if header and (
+        str(header).startswith("Diff |")
+        or str(header) == "% Diff"
+    ):
+        difference_columns.append(col)
+
+
+# =========================================================
+# GREEN / RED CONDITIONAL FORMATTING
+# =========================================================
+
+green_fill = PatternFill(
+    fill_type="solid",
+    fgColor="C6EFCE"
+)
+
+green_font = Font(
+    color="006100",
+    bold=True
+)
+
+red_fill = PatternFill(
+    fill_type="solid",
+    fgColor="FFC7CE"
+)
+
+red_font = Font(
+    color="9C0006",
+    bold=True
+)
+
+
+# Apply to every Difference column
+for col in difference_columns:
+
+    col_letter = get_column_letter(col)
+
+    # Data rows only
+    data_range = f"{col_letter}2:{col_letter}{ws.max_row}"
+
+    # Positive = GREEN
+    ws.conditional_formatting.add(
+        data_range,
+        CellIsRule(
+            operator="greaterThan",
+            formula=["0"],
+            fill=green_fill,
+            font=green_font
+        )
+    )
+
+    # Negative = RED
+    ws.conditional_formatting.add(
+        data_range,
+        CellIsRule(
+            operator="lessThan",
+            formula=["0"],
+            fill=red_fill,
+            font=red_font
+        )
+    )
+
+
+# =========================================================
+# GRAND TOTAL ROW
+# =========================================================
+
+grand_total_row = ws.max_row
+
+grand_fill = PatternFill(
+    fill_type="solid",
+    fgColor="063B66"
+)
+
+grand_font = Font(
+    color="FFFFFF",
+    bold=True
+)
+
+for col in range(1, ws.max_column + 1):
+
+    cell = ws.cell(
+        row=grand_total_row,
+        column=col
+    )
+
+    cell.fill = grand_fill
+    cell.font = grand_font
+    cell.alignment = Alignment(
+        horizontal="center",
+        vertical="center"
+    )
+
+
+# =========================================================
+# % FORMAT
+# =========================================================
+
+for col in range(1, ws.max_column + 1):
+
+    header = ws.cell(
+        row=1,
+        column=col
+    ).value
+
+    if header == "% Diff":
+
+        for row in range(2, ws.max_row + 1):
+            ws.cell(
+                row=row,
+                column=col
+            ).number_format = '0.00"%"'
+
+
+# =========================================================
+# COLUMN WIDTH
+# =========================================================
+
+for col in range(1, ws.max_column + 1):
+
+    max_length = 0
+
+    for row in range(1, ws.max_row + 1):
+
+        value = ws.cell(
+            row=row,
+            column=col
+        ).value
+
+        if value is not None:
+            max_length = max(
+                max_length,
+                len(str(value))
+            )
+
+    ws.column_dimensions[
+        get_column_letter(col)
+    ].width = min(max_length + 3, 25)
+
+
+# =========================================================
+# CENTER ALIGNMENT
+# =========================================================
+
+for row in ws.iter_rows():
+
+    for cell in row:
+
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+
+# =========================================================
+# FREEZE HEADER
+# =========================================================
+
+ws.freeze_panes = "D2"
+
+
+# =========================================================
+# SAVE FINAL EXCEL
+# =========================================================
+
+final_output = BytesIO()
+
+wb.save(final_output)
+
+final_output.seek(0)
+
+
+# =========================================================
+# DOWNLOAD BUTTON
+# =========================================================
+
 st.download_button(
-    "⬇️ Download Range-wise Excel",
-    data=output.getvalue(),
+    "⬇️ Download Excel Report",
+    data=final_output,
     file_name="Range_Wise_Recovery_Comparison.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True
