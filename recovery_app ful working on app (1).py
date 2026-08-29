@@ -179,6 +179,205 @@ with col2:
                 )
         else:
             st.warning("Please Enter CNIC NO Without Dashes")
+            import streamlit as st
+import pandas as pd
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+import os
+
+st.set_page_config(layout="wide")
+st.title("Recovery Date Range & Monthly Comparison Summary")
+
+# ---------------- Local storage folder ----------------
+LOCAL_FILE = "data/recovery.xlsx"
+os.makedirs("data", exist_ok=True)
+
+# ---------------- File Upload ----------------
+uploaded = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
+
+if uploaded:
+    if uploaded.name.endswith(".csv"):
+        df = pd.read_csv(uploaded)
+    else:
+        df = pd.read_excel(uploaded)
+
+    st.session_state["df"] = df
+    df.to_excel(LOCAL_FILE, index=False)
+    st.success("File uploaded and saved locally!")
+elif "df" in st.session_state:
+    df = st.session_state["df"]
+    st.info("Using previously uploaded file from session.")
+elif os.path.exists(LOCAL_FILE):
+    df = pd.read_excel(LOCAL_FILE)
+    st.session_state["df"] = df
+    st.info("Loaded previously uploaded file from local storage.")
+else:
+    st.info("Please upload recovery file.")
+    st.stop()
+
+# ---------------- Column Selection ----------------
+st.subheader("Available Columns")
+col1, col2 = st.columns(2)
+with col1:
+    date_col = st.selectbox("Select Date Column", df.columns)
+with col2:
+    branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
+
+area_col = 'area_id' if 'area_id' in df.columns else None
+
+# ---------------- Convert Date ----------------
+df[date_col] = pd.to_datetime(
+    df[date_col].astype(str).str.strip(),
+    errors="coerce"
+)
+df = df.dropna(subset=[date_col, branch_col])
+df["Day"] = df[date_col].dt.day
+df["Month_Name"] = df[date_col].dt.strftime('%b')  # e.g., 'Jul', 'Aug'
+df["Month_Num"] = df[date_col].dt.month
+
+df = df[df["Day"].notna()]
+
+# --- Range Bins ---
+df["Range"] = pd.cut(
+    df["Day"],
+    bins=[0, 5, 10, 15, 31],
+    labels=["1-5", "6-10", "11-15", "16-31"]
+)
+if df["Range"].isna().all():
+    st.error("Date column format sahi nahi hai.")
+    st.stop()
+
+# ---------------- 1. Main Summary Table ----------------
+pivot = pd.pivot_table(
+    df,
+    index=[branch_col],
+    columns="Range",
+    aggfunc="size",
+    fill_value=0
+)
+
+for c in ["1-5", "6-10", "11-15", "16-31"]:
+    if c not in pivot.columns:
+        pivot[c] = 0
+
+pivot["Total"] = pivot[["1-5", "6-10", "11-15", "16-31"]].sum(axis=1)
+
+pivot["1-5 %"] = (pivot["1-5"] / pivot["Total"] * 100).round(2)
+pivot["6-10 %"] = (pivot["6-10"] / pivot["Total"] * 100).round(2)
+pivot["11-15 %"] = (pivot["11-15"] / pivot["Total"] * 100).round(2)
+pivot["16-31 %"] = (pivot["16-31"] / pivot["Total"] * 100).round(2)
+
+pivot.rename(columns={
+    "1-5": "Recovery 1-5",
+    "6-10": "Recovery 6-10",
+    "11-15": "Recovery 11-15",
+    "16-31": "Recovery 16-31"
+}, inplace=True)
+
+result_df = pivot.reset_index()
+
+if area_col:
+    branch_area_df = df[[branch_col, area_col]].drop_duplicates()
+    result_df = result_df.merge(branch_area_df, on=branch_col, how='left')
+    cols = result_df.columns.tolist()
+    branch_idx = cols.index(branch_col)
+    cols.insert(branch_idx, cols.pop(cols.index(area_col)))
+    result_df = result_df[cols]
+
+# Grand Total Row
+numeric_cols = ["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31", "Total"]
+grand_total_counts = result_df[numeric_cols].sum()
+grand_total_percent = (grand_total_counts[["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31"]] / grand_total_counts["Total"] * 100).round(2)
+
+grand_values = {}
+for col in result_df.columns:
+    if col == branch_col:
+        grand_values[col] = "Grand Total"
+    elif col == area_col:
+        grand_values[col] = ""
+    elif col in numeric_cols:
+        grand_values[col] = grand_total_counts[col]
+    elif col in ["1-5 %", "6-10 %", "11-15 %", "16-31 %"]:
+        pct_map = {
+            "1-5 %": "Recovery 1-5", 
+            "6-10 %": "Recovery 6-10", 
+            "11-15 %": "Recovery 11-15", 
+            "16-31 %": "Recovery 16-31"
+        }
+        grand_values[col] = grand_total_percent[pct_map[col]]
+    else:
+        grand_values[col] = ""
+
+result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
+
+st.subheader("📊 Overall Branch Wise Recovery Summary")
+st.dataframe(result_df, use_container_width=True)
+
+# Downloads
+col_dl1, col_dl2 = st.columns(2)
+with col_dl1:
+    csv = result_df.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇ Download Summary CSV", data=csv, file_name="recovery_summary.csv", mime="text/csv")
+
+with col_dl2:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    table_data = [result_df.columns.tolist()] + result_df.values.tolist()
+    table = Table(table_data)
+    style = TableStyle([
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+    ])
+    table.setStyle(style)
+    doc.build([table])
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    st.download_button("⬇ Download Summary PDF", data=pdf_bytes, file_name="recovery_summary.pdf", mime="application/pdf")
+
+# ---------------- 2. Month-Wise Comparison Section ----------------
+st.markdown("---")
+st.subheader("📅 Month-over-Month Branch Comparison")
+
+# Check available months in dataset
+available_months = df.sort_values("Month_Num")["Month_Name"].unique().tolist()
+
+if len(available_months) >= 2:
+    # Multi-index pivot table for month comparison
+    pivot_mom = pd.pivot_table(
+        df,
+        index=[area_col, branch_col] if area_col else [branch_col],
+        columns=["Month_Name", "Range"],
+        aggfunc="size",
+        fill_value=0
+    )
+    st.dataframe(pivot_mom, use_container_width=True)
+else:
+    st.warning("Data me comparison ke liye kam se kam 2 months hone chahiye.")
+
+# ---------------- 3. Visual Charts & Graphs ----------------
+st.markdown("---")
+st.subheader("📈 Recovery Analytics & Visual Graphs")
+
+chart_tab1, chart_tab2 = st.tabs(["Range-wise Trend", "Area-wise Total"])
+
+with chart_tab1:
+    st.write("**Month-wise Recovery Breakdown by Date Ranges**")
+    range_chart_df = df.groupby(["Month_Name", "Range"]).size().unstack(fill_value=0)
+    st.bar_chart(range_chart_df)
+
+with chart_tab2:
+    if area_col:
+        st.write("**Area-Wise Total Recovery Comparison**")
+        area_chart_df = df.groupby(area_col).size()
+        st.bar_chart(area_chart_df)
+    else:
+        st.write("Area column dataset me nahi mila.")
 
     
 import streamlit as st
