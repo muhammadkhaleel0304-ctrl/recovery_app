@@ -187,7 +187,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
 import os
 
-st.title("Recovery Date Range & Monthly Comparison Summary")
 
 # ---------------- Local storage folder ----------------
 LOCAL_FILE = "data/recovery.xlsx"
