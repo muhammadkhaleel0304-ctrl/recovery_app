@@ -1,381 +1,785 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from io import BytesIO
 
 # =========================================================
-# PAGE CONFIG
+# RANGE-WISE RECOVERY COMPARISON
 # =========================================================
-st.set_page_config(
-    page_title="Range-Wise Recovery Comparison",
-    page_icon="📊",
-    layout="wide"
-)
 
-# =========================================================
-# CSS
-# =========================================================
 st.markdown("""
 <style>
-
-.main {
-    background: #f4f7fb;
+.range-title {
+    background: linear-gradient(135deg,#063b66,#0876b9);
+    color:white;
+    padding:18px;
+    border-radius:12px;
+    text-align:center;
+    font-size:26px;
+    font-weight:800;
+    margin-bottom:18px;
 }
 
-.block-container {
-    padding-top: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+.info-box {
+    background:#f5f9ff;
+    border:1px solid #cbdff5;
+    border-radius:10px;
+    padding:12px;
 }
-
-/* Header */
-.report-header {
-    background: linear-gradient(135deg, #063b66, #0876b9);
-    color: white;
-    padding: 18px;
-    border-radius: 12px;
-    text-align: center;
-    margin-bottom: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-}
-
-.report-header h1 {
-    margin: 0;
-    font-size: 28px;
-}
-
-/* KPI Cards */
-.kpi-container {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.kpi {
-    flex: 1;
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    text-align: center;
-    border: 1px solid #d9e2ec;
-    box-shadow: 0 2px 8px rgba(0,0,0,.07);
-}
-
-.kpi-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #52616b;
-}
-
-.kpi-value {
-    font-size: 24px;
-    font-weight: 800;
-    margin-top: 5px;
-    color: #063b66;
-}
-
-/* Table */
-.dataframe {
-    font-size: 13px !important;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown(
+    '<div class="range-title">📊 RANGE-WISE RECOVERY COMPARISON REPORT</div>',
+    unsafe_allow_html=True
+)
 
 # =========================================================
-# HEADER
+# EXCEL UPLOAD
 # =========================================================
-st.markdown("""
-<div class="report-header">
-    <h1>📊 RANGE-WISE RECOVERY COMPARISON REPORT</h1>
-</div>
-""", unsafe_allow_html=True)
+
+st.subheader("📤 Upload Recovery Excel")
+
+uploaded_file = st.file_uploader(
+    "Upload your Recovery Excel File",
+    type=["xlsx", "xls"],
+    key="range_recovery_upload"
+)
+
+if uploaded_file is None:
+
+    st.info(
+        "Please upload your Recovery Excel file. "
+        "The report will be generated automatically after upload."
+    )
+
+    st.stop()
 
 
 # =========================================================
-# FILTERS
+# READ EXCEL
 # =========================================================
-c1, c2, c3, c4 = st.columns([1.2, 1.2, 1.2, 1])
 
-with c1:
-    from_month = st.selectbox(
+try:
+
+    excel_file = pd.ExcelFile(uploaded_file)
+
+    sheet_name = st.selectbox(
+        "Select Sheet",
+        excel_file.sheet_names
+    )
+
+    raw_df = pd.read_excel(
+        uploaded_file,
+        sheet_name=sheet_name
+    )
+
+except Exception as e:
+
+    st.error(f"Excel file read نہیں ہو سکی: {e}")
+    st.stop()
+
+
+# =========================================================
+# CLEAN COLUMN NAMES
+# =========================================================
+
+raw_df.columns = (
+    raw_df.columns
+    .astype(str)
+    .str.strip()
+    .str.lower()
+    .str.replace(" ", "_")
+    .str.replace("-", "_")
+)
+
+
+# =========================================================
+# FIND COLUMNS AUTOMATICALLY
+# =========================================================
+
+def find_column(df, possible_names):
+
+    for col in possible_names:
+
+        if col in df.columns:
+            return col
+
+    return None
+
+
+branch_code_col = find_column(
+    raw_df,
+    [
+        "branch_id",
+        "branch_code",
+        "branchcode",
+        "branch",
+        "branch_no",
+        "branch_number"
+    ]
+)
+
+branch_name_col = find_column(
+    raw_df,
+    [
+        "branch_name",
+        "branchname",
+        "branch_title"
+    ]
+)
+
+date_col = find_column(
+    raw_df,
+    [
+        "recovery_date",
+        "recoverydate",
+        "date",
+        "recovery_date_",
+        "receipt_date",
+        "transaction_date"
+    ]
+)
+
+
+# =========================================================
+# MANUAL COLUMN SELECTION IF NOT FOUND
+# =========================================================
+
+st.subheader("🔧 Column Mapping")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+
+    if branch_code_col is None:
+
+        branch_code_col = st.selectbox(
+            "Branch Code Column",
+            ["None"] + list(raw_df.columns)
+        )
+
+        if branch_code_col == "None":
+            branch_code_col = None
+
+    else:
+
+        st.success(
+            f"Branch Code: {branch_code_col}"
+        )
+
+
+with col2:
+
+    if branch_name_col is None:
+
+        branch_name_col = st.selectbox(
+            "Branch Name Column",
+            ["None"] + list(raw_df.columns)
+        )
+
+        if branch_name_col == "None":
+            branch_name_col = None
+
+    else:
+
+        st.success(
+            f"Branch Name: {branch_name_col}"
+        )
+
+
+with col3:
+
+    if date_col is None:
+
+        date_col = st.selectbox(
+            "Recovery Date Column",
+            ["None"] + list(raw_df.columns)
+        )
+
+        if date_col == "None":
+            date_col = None
+
+    else:
+
+        st.success(
+            f"Recovery Date: {date_col}"
+        )
+
+
+if date_col is None:
+
+    st.error(
+        "Recovery Date column نہیں ملی۔ "
+        "براہ کرم اوپر سے Recovery Date والی column select کریں۔"
+    )
+
+    st.stop()
+
+
+if branch_code_col is None and branch_name_col is None:
+
+    st.error(
+        "Branch Code یا Branch Name میں سے کم از کم ایک column ضروری ہے۔"
+    )
+
+    st.stop()
+
+
+# =========================================================
+# DATE CONVERSION
+# =========================================================
+
+df = raw_df.copy()
+
+df["_recovery_date"] = pd.to_datetime(
+    df[date_col],
+    errors="coerce",
+    dayfirst=True
+)
+
+invalid_dates = df["_recovery_date"].isna().sum()
+
+if invalid_dates > 0:
+
+    st.warning(
+        f"{invalid_dates} rows میں valid recovery date نہیں ملی۔ "
+        "یہ rows report میں شامل نہیں ہوں گی۔"
+    )
+
+df = df[df["_recovery_date"].notna()].copy()
+
+if len(df) == 0:
+
+    st.error("کوئی valid Recovery Date نہیں ملی۔")
+    st.stop()
+
+
+# =========================================================
+# BRANCH INFORMATION
+# =========================================================
+
+if branch_code_col:
+
+    df["_branch_code"] = (
+        df[branch_code_col]
+        .astype(str)
+        .str.strip()
+    )
+
+else:
+
+    df["_branch_code"] = ""
+
+
+if branch_name_col:
+
+    df["_branch_name"] = (
+        df[branch_name_col]
+        .astype(str)
+        .str.strip()
+    )
+
+else:
+
+    df["_branch_name"] = df["_branch_code"]
+
+
+# =========================================================
+# MONTH SELECTION
+# =========================================================
+
+df["_month"] = df["_recovery_date"].dt.to_period("M")
+
+available_months = sorted(
+    df["_month"].dropna().unique()
+)
+
+if len(available_months) == 0:
+
+    st.error("کوئی month data نہیں ملا۔")
+    st.stop()
+
+
+month_names = [
+    x.strftime("%b-%y")
+    for x in available_months
+]
+
+m1, m2 = st.columns(2)
+
+with m1:
+
+    from_month_label = st.selectbox(
         "From Month",
-        ["Jul-25", "Aug-25", "Sep-25", "Oct-25"]
+        month_names,
+        index=max(0, len(month_names) - 2)
     )
 
-with c2:
-    to_month = st.selectbox(
+with m2:
+
+    to_month_label = st.selectbox(
         "To Month",
-        ["Aug-25", "Sep-25", "Oct-25", "Nov-25"]
+        month_names,
+        index=len(month_names) - 1
     )
 
-with c3:
-    area = st.selectbox(
+
+from_month = pd.Period(
+    pd.to_datetime(
+        "01-" + from_month_label,
+        format="%d-%b-%y"
+    ),
+    freq="M"
+)
+
+to_month = pd.Period(
+    pd.to_datetime(
+        "01-" + to_month_label,
+        format="%d-%b-%y"
+    ),
+    freq="M"
+)
+
+
+# =========================================================
+# AREA FILTER
+# =========================================================
+
+area_col = find_column(
+    df,
+    [
+        "area",
+        "area_name",
+        "region",
+        "zone"
+    ]
+)
+
+if area_col:
+
+    areas = ["All"] + sorted(
+        df[area_col]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+    selected_area = st.selectbox(
         "Area",
-        ["All", "Chakwal", "Talagang", "Kallar Kahar"]
+        areas
     )
 
-with c4:
-    st.write("")
-    st.write("")
-    generate = st.button(
-        "📊 Generate Report",
-        use_container_width=True
+    if selected_area != "All":
+
+        df = df[
+            df[area_col].astype(str) == selected_area
+        ]
+
+
+# =========================================================
+# RANGE FUNCTION
+# =========================================================
+
+def get_range(day):
+
+    if 1 <= day <= 5:
+        return "1-5"
+
+    elif 6 <= day <= 10:
+        return "6-10"
+
+    elif 11 <= day <= 15:
+        return "11-15"
+
+    elif 16 <= day <= 25:
+        return "16-25"
+
+    else:
+        return ">25"
+
+
+df["_day"] = df["_recovery_date"].dt.day
+
+df["_range"] = df["_day"].apply(get_range)
+
+
+# =========================================================
+# REPORT FUNCTION
+# =========================================================
+
+def create_month_report(data, month_period):
+
+    temp = data[
+        data["_month"] == month_period
+    ].copy()
+
+    ranges = [
+        "1-5",
+        "6-10",
+        "11-15",
+        "16-25",
+        ">25"
+    ]
+
+    if temp.empty:
+
+        return pd.DataFrame()
+
+    result = []
+
+    branch_list = (
+        temp[
+            ["_branch_code", "_branch_name"]
+        ]
+        .drop_duplicates()
+        .sort_values(
+            ["_branch_code", "_branch_name"]
+        )
+    )
+
+    for _, branch in branch_list.iterrows():
+
+        code = branch["_branch_code"]
+        name = branch["_branch_name"]
+
+        branch_data = temp[
+            temp["_branch_code"] == code
+        ]
+
+        row = {
+            "Branch Code": code,
+            "Branch Name": name
+        }
+
+        total = 0
+
+        for r in ranges:
+
+            count = (
+                branch_data["_range"] == r
+            ).sum()
+
+            row[r] = int(count)
+
+            total += count
+
+        row["Total"] = int(total)
+
+        result.append(row)
+
+    return pd.DataFrame(result)
+
+
+# =========================================================
+# CREATE JULY / AUGUST REPORTS
+# =========================================================
+
+month1_df = create_month_report(
+    df,
+    from_month
+)
+
+month2_df = create_month_report(
+    df,
+    to_month
+)
+
+
+# =========================================================
+# EMPTY CHECK
+# =========================================================
+
+if month1_df.empty:
+
+    st.warning(
+        f"{from_month_label} میں کوئی recovery record نہیں ملا۔"
+    )
+
+if month2_df.empty:
+
+    st.warning(
+        f"{to_month_label} میں کوئی recovery record نہیں ملا۔"
     )
 
 
 # =========================================================
-# SAMPLE BRANCH DATA
+# MERGE BRANCHES
 # =========================================================
-branches = [
-    ("2901", "Head Office"),
-    ("2902", "Bhau"),
-    ("2903", "Kallar Kahar"),
-    ("2904", "Chakwal"),
-    ("2905", "Lawa"),
-    ("2906", "Talagang"),
-    ("2907", "Choa Saidan Shah"),
-    ("2908", "Gujar Khan"),
-    ("2909", "Miani"),
-    ("2910", "Dalelpur"),
-    ("2911", "Branch 11"),
-    ("2912", "Branch 12"),
-    ("2913", "Branch 13"),
-    ("2914", "Branch 14"),
-    ("2915", "Branch 15"),
-    ("2916", "Branch 16"),
-    ("2917", "Branch 17"),
-    ("2918", "Branch 18"),
-    ("2919", "Branch 19"),
-    ("2920", "Branch 20"),
-    ("2921", "Branch 21"),
-    ("2922", "Branch 22"),
-    ("2923", "Branch 23"),
-    ("2924", "Branch 24"),
-    ("2925", "Branch 25")
+
+all_branches = pd.concat(
+    [
+        month1_df[
+            ["Branch Code", "Branch Name"]
+        ] if not month1_df.empty else pd.DataFrame(),
+
+        month2_df[
+            ["Branch Code", "Branch Name"]
+        ] if not month2_df.empty else pd.DataFrame()
+    ],
+    ignore_index=True
+).drop_duplicates()
+
+
+if all_branches.empty:
+
+    st.error("Branch data نہیں ملا۔")
+    st.stop()
+
+
+# =========================================================
+# MERGE JULY / AUGUST
+# =========================================================
+
+ranges = [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-25",
+    ">25"
 ]
 
 
-# =========================================================
-# CREATE SAMPLE DATA
-# =========================================================
-np.random.seed(10)
+if not month1_df.empty:
 
-rows = []
+    month1_df = month1_df.rename(
+        columns={
+            r: f"{from_month_label} | {r}"
+            for r in ranges
+        }
+        | {
+            "Total": f"{from_month_label} | Total"
+        }
+    )
 
-for code, name in branches:
+else:
 
-    july = np.random.randint(1, 50, 5)
-    august = np.random.randint(1, 55, 5)
+    month1_df = all_branches.copy()
 
-    rows.append({
-        "Branch Code": code,
-        "Branch Name": name,
+    for r in ranges:
+        month1_df[
+            f"{from_month_label} | {r}"
+        ] = 0
 
-        "Jul 1-5": july[0],
-        "Jul 6-10": july[1],
-        "Jul 11-15": july[2],
-        "Jul 16-25": july[3],
-        "Jul >25": july[4],
-
-        "Aug 1-5": august[0],
-        "Aug 6-10": august[1],
-        "Aug 11-15": august[2],
-        "Aug 16-25": august[3],
-        "Aug >25": august[4],
-    })
+    month1_df[
+        f"{from_month_label} | Total"
+    ] = 0
 
 
-df = pd.DataFrame(rows)
+if not month2_df.empty:
+
+    month2_df = month2_df.rename(
+        columns={
+            r: f"{to_month_label} | {r}"
+            for r in ranges
+        }
+        | {
+            "Total": f"{to_month_label} | Total"
+        }
+    )
+
+else:
+
+    month2_df = all_branches.copy()
+
+    for r in ranges:
+        month2_df[
+            f"{to_month_label} | {r}"
+        ] = 0
+
+    month2_df[
+        f"{to_month_label} | Total"
+    ] = 0
 
 
-# =========================================================
-# TOTALS
-# =========================================================
-df["Jul Total"] = (
-    df["Jul 1-5"] +
-    df["Jul 6-10"] +
-    df["Jul 11-15"] +
-    df["Jul 16-25"] +
-    df["Jul >25"]
+comparison = all_branches.merge(
+    month1_df,
+    on=["Branch Code", "Branch Name"],
+    how="left"
 )
 
-df["Aug Total"] = (
-    df["Aug 1-5"] +
-    df["Aug 6-10"] +
-    df["Aug 11-15"] +
-    df["Aug 16-25"] +
-    df["Aug >25"]
+comparison = comparison.merge(
+    month2_df,
+    on=["Branch Code", "Branch Name"],
+    how="left"
 )
 
-# Differences
-df["Diff 1-5"] = df["Aug 1-5"] - df["Jul 1-5"]
-df["Diff 6-10"] = df["Aug 6-10"] - df["Jul 6-10"]
-df["Diff 11-15"] = df["Aug 11-15"] - df["Jul 11-15"]
-df["Diff 16-25"] = df["Aug 16-25"] - df["Jul 16-25"]
-df["Diff >25"] = df["Aug >25"] - df["Jul >25"]
+comparison = comparison.fillna(0)
 
-df["Total Difference"] = df["Aug Total"] - df["Jul Total"]
 
-df["% Difference"] = np.where(
-    df["Jul Total"] == 0,
+# =========================================================
+# DIFFERENCE COLUMNS
+# =========================================================
+
+for r in ranges:
+
+    comparison[
+        f"Diff | {r}"
+    ] = (
+        comparison[f"{to_month_label} | {r}"]
+        -
+        comparison[f"{from_month_label} | {r}"]
+    )
+
+
+comparison["Diff | Total"] = (
+    comparison[f"{to_month_label} | Total"]
+    -
+    comparison[f"{from_month_label} | Total"]
+)
+
+
+comparison["% Diff"] = np.where(
+    comparison[f"{from_month_label} | Total"] == 0,
     0,
-    (df["Total Difference"] / df["Jul Total"]) * 100
+    (
+        comparison["Diff | Total"]
+        /
+        comparison[f"{from_month_label} | Total"]
+    ) * 100
 )
 
 
 # =========================================================
-# KPI VALUES
+# SERIAL NUMBER
 # =========================================================
-july_total = df["Jul Total"].sum()
-aug_total = df["Aug Total"].sum()
-difference = aug_total - july_total
 
-growth = (
-    (difference / july_total) * 100
-    if july_total != 0 else 0
+comparison.insert(
+    0,
+    "Sr.",
+    range(1, len(comparison) + 1)
 )
 
 
 # =========================================================
-# KPI CARDS
-# =========================================================
-st.markdown(f"""
-<div class="kpi-container">
-
-<div class="kpi">
-<div class="kpi-title">🏢 Total Branches</div>
-<div class="kpi-value">{len(df)}</div>
-</div>
-
-<div class="kpi">
-<div class="kpi-title">📅 Total Recovery ({from_month})</div>
-<div class="kpi-value">{july_total:,}</div>
-</div>
-
-<div class="kpi">
-<div class="kpi-title">📅 Total Recovery ({to_month})</div>
-<div class="kpi-value">{aug_total:,}</div>
-</div>
-
-<div class="kpi">
-<div class="kpi-title">↕ Total Difference</div>
-<div class="kpi-value">{difference:,}</div>
-</div>
-
-<div class="kpi">
-<div class="kpi-title">📈 Overall Growth</div>
-<div class="kpi-value">{growth:.2f}%</div>
-</div>
-
-</div>
-""", unsafe_allow_html=True)
-
-
-# =========================================================
-# CREATE DISPLAY TABLE
+# GRAND TOTAL
 # =========================================================
 
-display_df = pd.DataFrame()
+grand_total = {}
 
-display_df["Sr."] = range(1, len(df) + 1)
-display_df["Branch Code"] = df["Branch Code"]
-display_df["Branch Name"] = df["Branch Name"]
+for col in comparison.columns:
 
+    if col == "Sr.":
+        grand_total[col] = ""
 
-# July
-display_df[f"{from_month} | 1-5"] = df["Jul 1-5"]
-display_df[f"{from_month} | 6-10"] = df["Jul 6-10"]
-display_df[f"{from_month} | 11-15"] = df["Jul 11-15"]
-display_df[f"{from_month} | 16-25"] = df["Jul 16-25"]
-display_df[f"{from_month} | >25"] = df["Jul >25"]
-display_df[f"{from_month} | Total"] = df["Jul Total"]
-
-
-# August
-display_df[f"{to_month} | 1-5"] = df["Aug 1-5"]
-display_df[f"{to_month} | 6-10"] = df["Aug 6-10"]
-display_df[f"{to_month} | 11-15"] = df["Aug 11-15"]
-display_df[f"{to_month} | 16-25"] = df["Aug 16-25"]
-display_df[f"{to_month} | >25"] = df["Aug >25"]
-display_df[f"{to_month} | Total"] = df["Aug Total"]
-
-
-# Difference
-display_df["Diff | 1-5"] = df["Diff 1-5"]
-display_df["Diff | 6-10"] = df["Diff 6-10"]
-display_df["Diff | 11-15"] = df["Diff 11-15"]
-display_df["Diff | 16-25"] = df["Diff 16-25"]
-display_df["Diff | >25"] = df["Diff >25"]
-display_df["Diff | Total"] = df["Total Difference"]
-display_df["% Diff"] = df["% Difference"].round(2)
-
-
-# =========================================================
-# GRAND TOTAL ROW
-# =========================================================
-total_row = {}
-
-for col in display_df.columns:
-
-    if col in ["Sr.", "Branch Code"]:
-        total_row[col] = ""
+    elif col == "Branch Code":
+        grand_total[col] = ""
 
     elif col == "Branch Name":
-        total_row[col] = "GRAND TOTAL"
+        grand_total[col] = "GRAND TOTAL"
 
     elif col == "% Diff":
-        total_row[col] = round(
-            (difference / july_total) * 100
-            if july_total else 0,
-            2
+
+        old_total = comparison[
+            f"{from_month_label} | Total"
+        ].sum()
+
+        new_total = comparison[
+            f"{to_month_label} | Total"
+        ].sum()
+
+        grand_total[col] = (
+            ((new_total - old_total) / old_total) * 100
+            if old_total != 0
+            else 0
         )
 
     else:
-        total_row[col] = display_df[col].sum()
+
+        grand_total[col] = comparison[col].sum()
 
 
-display_df = pd.concat(
+# =========================================================
+# FINAL DISPLAY TABLE
+# =========================================================
+
+final_table = pd.concat(
     [
-        display_df,
-        pd.DataFrame([total_row])
+        comparison,
+        pd.DataFrame([grand_total])
     ],
     ignore_index=True
 )
 
 
 # =========================================================
-# FORMAT TABLE
+# KPI
 # =========================================================
-def highlight_total(row):
 
-    if row["Branch Name"] == "GRAND TOTAL":
-        return [
-            "background-color: #063b66; color: white; font-weight: bold;"
-            for _ in row
-        ]
+july_total = comparison[
+    f"{from_month_label} | Total"
+].sum()
 
-    return [""] * len(row)
+aug_total = comparison[
+    f"{to_month_label} | Total"
+].sum()
 
+total_difference = aug_total - july_total
 
-styled = (
-    display_df.style
-    .apply(highlight_total, axis=1)
-    .format({
-        "% Diff": "{:.2f}%"
-    })
+overall_growth = (
+    (total_difference / july_total) * 100
+    if july_total != 0
+    else 0
 )
 
 
 # =========================================================
-# SHOW TABLE
+# KPI CARDS
 # =========================================================
+
+k1, k2, k3, k4, k5 = st.columns(5)
+
+with k1:
+
+    st.metric(
+        "🏢 Total Branches",
+        len(comparison)
+    )
+
+with k2:
+
+    st.metric(
+        f"📅 {from_month_label}",
+        f"{int(july_total):,}"
+    )
+
+with k3:
+
+    st.metric(
+        f"📅 {to_month_label}",
+        f"{int(aug_total):,}"
+    )
+
+with k4:
+
+    st.metric(
+        "↕ Difference",
+        f"{int(total_difference):,}"
+    )
+
+with k5:
+
+    st.metric(
+        "📈 Growth",
+        f"{overall_growth:.2f}%"
+    )
+
+
+# =========================================================
+# MAIN TABLE
+# =========================================================
+
 st.subheader("📋 Branch-wise Range Comparison")
 
+# IMPORTANT:
+# یہاں Styler استعمال نہیں کیا گیا، اس لیے پرانا Streamlit
+# TypeError نہیں آئے گا۔
+
 st.dataframe(
-    styled,
+    final_table,
     use_container_width=True,
-    height=720,
+    height=700,
     hide_index=True
 )
 
@@ -383,48 +787,55 @@ st.dataframe(
 # =========================================================
 # RANGE EXPLANATION
 # =========================================================
+
 st.markdown("---")
 
 c1, c2 = st.columns(2)
 
 with c1:
 
-    st.markdown("### 📌 Recovery Range")
+    st.markdown("### 📌 Recovery Ranges")
 
     st.markdown("""
-    | Range | Meaning |
-    |---|---|
-    | **1 – 5** | 1 to 5 Days |
-    | **6 – 10** | 6 to 10 Days |
-    | **11 – 15** | 11 to 15 Days |
-    | **16 – 25** | 16 to 25 Days |
-    | **>25** | More than 25 Days |
+    **1–5** → Day 1 to Day 5  
+
+    **6–10** → Day 6 to Day 10  
+
+    **11–15** → Day 11 to Day 15  
+
+    **16–25** → Day 16 to Day 25  
+
+    **>25** → More than 25 Days
     """)
 
 
 with c2:
 
-    st.markdown("### 📊 Comparison Logic")
+    st.markdown("### 📊 Comparison Formula")
 
-    st.info("""
-    **Difference = August − July**
+    st.info(
+        f"""
+        **Difference = {to_month_label} − {from_month_label}**
 
-    **% Difference = (August − July) ÷ July × 100**
+        **Growth % = Difference ÷ {from_month_label} × 100**
 
-    इस तरह हर Branch की range-wise performance और
-    overall increase/decrease एक ही table में दिखाई देगी।
-    """)
+        ہر branch کی recovery range-wise compare کی جا رہی ہے۔
+        """
+    )
 
 
 # =========================================================
-# DOWNLOAD EXCEL
+# EXCEL DOWNLOAD
 # =========================================================
-from io import BytesIO
 
 output = BytesIO()
 
-with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    display_df.to_excel(
+with pd.ExcelWriter(
+    output,
+    engine="openpyxl"
+) as writer:
+
+    final_table.to_excel(
         writer,
         index=False,
         sheet_name="Range Wise Comparison"
@@ -433,8 +844,8 @@ with pd.ExcelWriter(output, engine="openpyxl") as writer:
 output.seek(0)
 
 st.download_button(
-    "⬇️ Download Excel Report",
-    data=output,
+    "⬇️ Download Range-wise Excel",
+    data=output.getvalue(),
     file_name="Range_Wise_Recovery_Comparison.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True
