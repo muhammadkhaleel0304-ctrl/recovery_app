@@ -249,75 +249,76 @@ for col in result_df.columns:
             "11-15 %": "Recovery 16-15", 
             "16-31 %": "Recovery 16-31"
         }
-        grand_values[col] = grand_total_percent[pct_map[col]]
-    else:
-        grand_values[col] = ""
-
-result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
-
-st.write("#### Branch-Wise Recovery Summary Table")
-st.dataframe(result_df, use_container_width=True)
-
-# CSV / PDF Download
-c_dl1, c_dl2 = st.columns(2)
-with c_dl1:
-    st.download_button(
-        "⬇ Download Summary CSV",
-        data=result_df.to_csv(index=False).encode("utf-8"),
-        file_name="recovery_summary.csv",
-        mime="text/csv"
-    )
-
-with c_dl2:
-    pdf_buf = BytesIO()
-    doc = SimpleDocTemplate(pdf_buf, pagesize=A4)
-    table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-    table = Table(table_data)
-    style = TableStyle([
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
-    ])
-    table.setStyle(style)
-    doc.build([table])
-    st.download_button(
-        "⬇ Download Summary PDF",
-        data=pdf_buf.getvalue(),
-        file_name="recovery_summary.pdf",
-        mime="application/pdf"
-    )
-
-# --- Month-over-Month Comparison ---
+       # ---------------- 5. SECTION: RECOVERY SUMMARY & COMPARISON ----------------
+# --- Month-over-Month Comparison (Structured Side-by-Side) ---
 st.markdown("---")
-st.subheader("📅 Month-over-Month Branch Comparison")
-available_months = df.sort_values("Month_Num")["Month_Name"].unique().tolist()
+st.subheader("📅 Month-over-Month Branch & Area Comparison")
 
-if len(available_months) >= 2:
-    pivot_mom = pd.pivot_table(
-        df,
-        index=[area_col, branch_col] if area_col else [branch_col],
-        columns=["Month_Name", "Range"],
-        aggfunc="size",
-        fill_value=0
-    )
-    st.dataframe(pivot_mom, use_container_width=True)
-else:
-    st.info("Comparison tab ke liye dataset me kam se kam 2 mahino ka data hona chahiye.")
+# Sort dataset chronologically
+df_sorted = df.sort_values(by="Month_Num")
 
-# --- Analytics Charts ---
+index_cols = [area_col, branch_col] if area_col else [branch_col]
+
+pivot_mom = pd.pivot_table(
+    df_sorted,
+    index=index_cols,
+    columns=["Month_Name", "Range"],
+    aggfunc="size",
+    fill_value=0
+)
+
+st.dataframe(pivot_mom, use_container_width=True)
+
+# --- Download Comparison CSV ---
+mom_csv = pivot_mom.to_csv().encode("utf-8")
+st.download_button(
+    "⬇ Download Comparison CSV",
+    data=mom_csv,
+    file_name="mom_recovery_comparison.csv",
+    mime="text/csv"
+)
+
+# ---------------- 6. VISUAL GRIP & RANGE BREAKDOWN ----------------
 st.markdown("---")
-st.subheader("📈 Recovery Analytics & Visual Charts")
-chart_tab1, chart_tab2 = st.tabs(["Range-wise Monthly Trend", "Area-wise Total"])
+st.subheader("📈 Recovery Range Breakdown & Visual Grip")
+
+chart_tab1, chart_tab2 = st.tabs(["📊 Range-wise Distribution %", "📍 Area-wise Comparison"])
 
 with chart_tab1:
-    range_chart_df = df.groupby(["Month_Name", "Range"]).size().unstack(fill_value=0)
-    st.bar_chart(range_chart_df)
+    st.write("##### Date Range Wise Recovery Contribution")
+    # Group data by Range to get counts
+    range_summary = df.groupby(["Month_Name", "Range"]).size().reset_index(name="Count")
+    
+    # Calculate Total per month for % breakdown
+    month_totals = range_summary.groupby("Month_Name")["Count"].transform("sum")
+    range_summary["Percentage (%)"] = (range_summary["Count"] / month_totals * 100).round(2)
+
+    # Plotly Grouped Bar Chart for high visual clarity
+    fig = px.bar(
+        range_summary,
+        x="Range",
+        y="Count",
+        color="Month_Name",
+        barmode="group",
+        text=range_summary["Percentage (%)"].apply(lambda x: f"{x}%"),
+        labels={"Count": "Total Cases / Count", "Range": "Date Range Bin"},
+        title="Month-wise Recovery Grip Across Date Ranges"
+    )
+    fig.update_traces(textposition='outside')
+    st.plotly_chart(fig, use_container_width=True)
 
 with chart_tab2:
     if area_col:
-        area_chart_df = df.groupby(area_col).size()
-        st.bar_chart(area_chart_df)
+        st.write("##### Area-wise Total Volume Comparison")
+        area_df = df.groupby([area_col, "Month_Name"]).size().reset_index(name="Total Recovery")
+        fig_area = px.bar(
+            area_df,
+            x=area_col,
+            y="Total Recovery",
+            color="Month_Name",
+            barmode="group",
+            title="Area-wise Total Recovery Comparison"
+        )
+        st.plotly_chart(fig_area, use_container_width=True)
     else:
         st.info("Area Column dataset me nahi mila.")
