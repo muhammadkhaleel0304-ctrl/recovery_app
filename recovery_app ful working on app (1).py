@@ -179,7 +179,7 @@ with col2:
                 )
         else:
             st.warning("Please Enter CNIC NO Without Dashes")
-            import streamlit as st
+import streamlit as st
 import pandas as pd
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
@@ -187,7 +187,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
 import os
 
-st.set_page_config(layout="wide")
 st.title("Recovery Date Range & Monthly Comparison Summary")
 
 # ---------------- Local storage folder ----------------
