@@ -867,7 +867,7 @@ ws.sheet_state = "visible"
 # ---------------------------------------------------------
 # Write Headers
 # ---------------------------------------------------------
-headers = list(display_df.columns)
+headers = list(final_table.columns)
 
 for col_num, header in enumerate(headers, start=1):
 
@@ -897,7 +897,7 @@ for col_num, header in enumerate(headers, start=1):
 # Write Data
 # ---------------------------------------------------------
 for row_num, row_data in enumerate(
-    display_df.itertuples(index=False),
+    final_table.itertuples(index=False),
     start=2
 ):
 
