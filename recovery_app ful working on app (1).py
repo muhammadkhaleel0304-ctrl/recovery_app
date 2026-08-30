@@ -544,8 +544,9 @@ if do_file and recovery_file:
             zip_buf_overdue = io.BytesIO()
             with zipfile.ZipFile(zip_buf_overdue, "a", zipfile.ZIP_DEFLATED) as zf:
                 for branch in branches:
-                    branch_data = overdue_df[overdue_df['branch_id'].astype(str) == str(branch)]
-
+                    branch_data = overdue_df[
+                        overdue_df["branch_id"].astype(str) == str(branch)
+                    ]
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font("Arial", size=10)
@@ -556,13 +557,14 @@ if do_file and recovery_file:
                     pdf.cell(10, 10, "Sr#", 1)
                     pdf.cell(60, 10, "Name", 1)
                     pdf.cell(50, 10, "Sanction No", 1)
+
                     # include mobile if present
                     if "Mobile No" in branch_data.columns:
                         pdf.cell(50, 10, "Mobile No", 1)
                     pdf.ln()
 
                     pdf.set_font("Arial", size=9)
-                for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
+                    for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
                         pdf.cell(10, 10, str(i), 1)
                         pdf.cell(60, 10, str(row.get("Name", ""))[:25], 1)
                         pdf.cell(50, 10, str(row.get("Sanction No", "")), 1)
@@ -570,8 +572,8 @@ if do_file and recovery_file:
                             pdf.cell(50, 10, str(row.get("Mobile No", "")), 1)
                         pdf.ln()
 
-                    pdf_bytes = pdf.output(dest="S").encode("latin1")
-                    zf.writestr(f"{branch}_Final_Overdue.pdf", pdf_bytes)
+                        pdf_bytes = pdf.output(dest="S").encode("latin1")
+                        zf.writestr(f"{branch}_Final_Overdue.pdf", pdf_bytes)
 
             zip_buf_overdue.seek(0)
             st.download_button(
