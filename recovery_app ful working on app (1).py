@@ -992,7 +992,7 @@ def find_column(df, possible_names):
 # ---------------------------------------------------------
 # AREA COLUMN
 # ---------------------------------------------------------
-
+if uploaded_file is not None and 'raw_df' in locals():
 area_col = find_column(
     raw_df,
     [
