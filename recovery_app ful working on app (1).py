@@ -955,7 +955,7 @@ if uploaded_file is None:
         "The report will be generated automatically after upload."
     )
 
-    st.stop()
+    #st.stop()
 
 
 # =========================================================
