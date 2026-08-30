@@ -2917,8 +2917,7 @@ from openpyxl.formatting.rule import CellIsRule
 # =========================================================
 # PAGE CONFIG
 # =========================================================
-
-    page_title="MDP Comparison",
+ page_title="MDP Comparison",
     page_icon="📊",
     layout="wide"
 )
