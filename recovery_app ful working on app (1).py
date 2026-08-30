@@ -846,55 +846,12 @@ due_edit_df = display_df[
 ].copy()
 
 
-edited_due = st.data_editor(
-
-    due_edit_df,
-
-    use_container_width=True,
-
-    hide_index=True,
-
-    num_rows="fixed",
-
-    key="mdp_due_editor",
-
-    column_config={
-
-        "Sr.": st.column_config.NumberColumn(
-            "Sr.",
-            disabled=True
-        ),
-
-        "Area": st.column_config.TextColumn(
-            "Area",
-            disabled=True
-        ),
-
-        "Branch Name": st.column_config.TextColumn(
-            "Branch Name",
-            disabled=True
-        ),
-
-        **{
-
-            f"{m.strftime('%b-%y')} | Due":
-
-            st.column_config.NumberColumn(
-                f"{m.strftime('%b-%y')} | Due",
-                min_value=0,
-                step=1,
-                format="%.0f"
-            )
-
-            for m in available_months
-
-        }
-
-    }
-
-)
-
-
+AttributeError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
+Traceback:
+File "/home/adminuser/venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 565, in _run_script
+    exec(code, module.__dict__)
+File "/mount/src/recovery_app/recovery_app ful working on app (1).py", line 849, in <module>
+    edited_due = st.data_editor(
 # =========================================================
 # SAVE DUE VALUES
 # =========================================================
