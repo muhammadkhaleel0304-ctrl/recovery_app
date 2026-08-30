@@ -948,24 +948,15 @@ uploaded_file = st.file_uploader(
     key="range_recovery_upload"
 )
 
-if uploaded_file is None:
-
-    st.info(
-        "Please upload your Recovery Excel file. "
-        "The report will be generated automatically after upload."
-    )
-
-    #st.stop()
-
-
-# =========================================================
-# READ EXCEL
-# =========================================================
-
-try:
-
-    excel_file = pd.ExcelFile(uploaded_file)
-
+if uploaded_file is not None:
+    try:
+        excel_file = pd.ExcelFile(uploaded_file)
+        sheet_name = st.selectbox("Select Sheet", excel_file.sheet_names)
+        raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+    except Exception as e:
+        st.error(f"Excel file read نہیں ہو سکی: {e}")
+else:
+    st.info("Please upload your Recovery Excel file to view data.")
     sheet_name = st.selectbox(
         "Select Sheet",
         excel_file.sheet_names
