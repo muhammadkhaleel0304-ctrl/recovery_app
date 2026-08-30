@@ -947,13 +947,15 @@ uploaded_file = st.file_uploader(
     type=["xlsx", "xls"],
     key="range_recovery_upload"
 )
+
+raw_df = None
+
 if uploaded_file is not None:
     try:
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_name = st.selectbox("Select Sheet", excel_file.sheet_names)
         raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
         
-        # raw_df والی تمام لائنز اس if کے اندر ہونی چاہئیں:
         raw_df.columns = raw_df.columns.str.strip()
         st.write("### 📄 Complete Recovery Data")
         st.dataframe(raw_df)
@@ -962,11 +964,12 @@ if uploaded_file is not None:
         st.error(f"Excel file read نہیں ہو سکی: {e}")
 else:
     st.info("Please upload your Recovery Excel file to view data.")
-   
-    # =========================================================
+    st.stop()
+
+# =========================================================
 # CLEAN COLUMN NAMES
 # =========================================================
-if uploaded_file is not None and 'raw_df' in locals():
+if raw_df is not None:
     raw_df.columns = (
         raw_df.columns.astype(str)
         .str.strip()
@@ -980,12 +983,9 @@ if uploaded_file is not None and 'raw_df' in locals():
 # =========================================================
 
 def find_column(df, possible_names):
-
     for col in possible_names:
-
         if col in df.columns:
             return col
-
     return None
 
 
@@ -1049,20 +1049,15 @@ col1, col2, col3 = st.columns(3)
 # ---------------------------------------------------------
 
 with col1:
-
     if area_col is None:
-
         area_col = st.selectbox(
             "Area Column",
             ["None"] + list(raw_df.columns),
             key="area_mapping"
         )
-
         if area_col == "None":
             area_col = None
-
     else:
-
         st.success(
             f"Area: {area_col}"
         )
@@ -1073,20 +1068,15 @@ with col1:
 # ---------------------------------------------------------
 
 with col2:
-
     if branch_name_col is None:
-
         branch_name_col = st.selectbox(
             "Branch Name Column",
             ["None"] + list(raw_df.columns),
             key="branch_name_mapping"
         )
-
         if branch_name_col == "None":
             branch_name_col = None
-
     else:
-
         st.success(
             f"Branch Name: {branch_name_col}"
         )
@@ -1097,20 +1087,15 @@ with col2:
 # ---------------------------------------------------------
 
 with col3:
-
     if date_col is None:
-
         date_col = st.selectbox(
             "Recovery Date Column",
             ["None"] + list(raw_df.columns),
             key="date_mapping"
         )
-
         if date_col == "None":
             date_col = None
-
     else:
-
         st.success(
             f"Recovery Date: {date_col}"
         )
@@ -1121,32 +1106,26 @@ with col3:
 # =========================================================
 
 if date_col is None:
-
     st.error(
         "Recovery Date column نہیں ملی۔ "
         "براہ کرم اوپر سے Recovery Date والی column select کریں۔"
     )
-
     st.stop()
 
 
 if area_col is None:
-
     st.error(
         "Area column نہیں ملی۔ "
         "براہ کرم Area والی column select کریں۔"
     )
-
     st.stop()
 
 
 if branch_name_col is None:
-
     st.error(
         "Branch Name column نہیں ملی۔ "
         "براہ کرم Branch Name والی column select کریں۔"
     )
-
     st.stop()
 
 
@@ -1165,7 +1144,6 @@ df["_recovery_date"] = pd.to_datetime(
 invalid_dates = df["_recovery_date"].isna().sum()
 
 if invalid_dates > 0:
-
     st.warning(
         f"{invalid_dates} rows میں valid recovery date نہیں ملی۔ "
         "یہ rows report میں شامل نہیں ہوں گی۔"
@@ -1177,11 +1155,9 @@ df = df[
 
 
 if len(df) == 0:
-
     st.error(
         "کوئی valid Recovery Date نہیں ملی۔"
     )
-
     st.stop()
 
 
@@ -1220,11 +1196,9 @@ df = df[
 
 
 if df.empty:
-
     st.error(
         "Area یا Branch Name میں کوئی valid data نہیں ملا۔"
     )
-
     st.stop()
 
 
@@ -1246,11 +1220,9 @@ available_months = sorted(
 
 
 if len(available_months) == 0:
-
     st.error(
         "کوئی month data نہیں ملا۔"
     )
-
     st.stop()
 
 
@@ -1268,7 +1240,6 @@ m1, m2 = st.columns(2)
 
 
 with m1:
-
     from_month_label = st.selectbox(
         "From Month",
         month_names,
@@ -1277,7 +1248,6 @@ with m1:
 
 
 with m2:
-
     to_month_label = st.selectbox(
         "To Month",
         month_names,
@@ -1290,7 +1260,6 @@ with m2:
 # =========================================================
 
 try:
-
     from_month = pd.Period(
         pd.to_datetime(
             "01-" + from_month_label,
@@ -1308,11 +1277,9 @@ try:
     )
 
 except Exception as e:
-
     st.error(
         f"Month selection error: {e}"
     )
-
     st.stop()
 
 
@@ -1338,7 +1305,6 @@ selected_area = st.selectbox(
 
 
 if selected_area != "All":
-
     df = df[
         df["_area"] == selected_area
     ].copy()
@@ -1349,19 +1315,14 @@ if selected_area != "All":
 # =========================================================
 
 def get_range(day):
-
     if 1 <= day <= 5:
         return "1-5"
-
     elif 6 <= day <= 10:
         return "6-10"
-
     elif 11 <= day <= 15:
         return "11-15"
-
     elif 16 <= day <= 25:
         return "16-25"
-
     else:
         return ">25"
 
@@ -1382,11 +1343,9 @@ df["_range"] = (
 # =========================================================
 
 def create_month_report(data, month_period):
-
     temp = data[
         data["_month"] == month_period
     ].copy()
-
 
     ranges = [
         "1-5",
@@ -1396,19 +1355,14 @@ def create_month_report(data, month_period):
         ">25"
     ]
 
-
     if temp.empty:
-
         return pd.DataFrame()
 
-
     result = []
-
 
     # -----------------------------------------------------
     # AREA + BRANCH LIST
     # -----------------------------------------------------
-
     branch_list = (
         temp[
             [
@@ -1425,54 +1379,34 @@ def create_month_report(data, month_period):
         )
     )
 
-
     # -----------------------------------------------------
     # LOOP AREA + BRANCH
     # -----------------------------------------------------
-
     for _, branch in branch_list.iterrows():
-
         area = branch["_area"]
-
         name = branch["_branch_name"]
-
 
         branch_data = temp[
             (temp["_area"] == area) &
             (temp["_branch_name"] == name)
         ]
 
-
         row = {
-
             "Area": area,
-
             "Branch Name": name
-
         }
-
 
         total = 0
 
-
         for r in ranges:
-
             count = (
                 branch_data["_range"] == r
             ).sum()
-
-
             row[r] = int(count)
-
-
             total += count
 
-
         row["Total"] = int(total)
-
-
         result.append(row)
-
 
     return pd.DataFrame(result)
 
@@ -1498,14 +1432,12 @@ month2_df = create_month_report(
 # =========================================================
 
 if month1_df.empty:
-
     st.warning(
         f"{from_month_label} میں کوئی recovery record نہیں ملا۔"
     )
 
 
 if month2_df.empty:
-
     st.warning(
         f"{to_month_label} میں کوئی recovery record نہیں ملا۔"
     )
@@ -1540,11 +1472,9 @@ all_branches = pd.concat(
 
 
 if all_branches.empty:
-
     st.error(
         "Area / Branch data نہیں ملا۔"
     )
-
     st.stop()
 
 
@@ -1566,7 +1496,6 @@ ranges = [
 # =========================================================
 
 if not month1_df.empty:
-
     month1_df = month1_df.rename(
         columns={
             r: f"{from_month_label} | {r}"
@@ -1578,20 +1507,12 @@ if not month1_df.empty:
             f"{from_month_label} | Total"
         }
     )
-
-
 else:
-
     month1_df = all_branches.copy()
-
-
     for r in ranges:
-
         month1_df[
             f"{from_month_label} | {r}"
         ] = 0
-
-
     month1_df[
         f"{from_month_label} | Total"
     ] = 0
@@ -1602,7 +1523,6 @@ else:
 # =========================================================
 
 if not month2_df.empty:
-
     month2_df = month2_df.rename(
         columns={
             r: f"{to_month_label} | {r}"
@@ -1614,20 +1534,12 @@ if not month2_df.empty:
             f"{to_month_label} | Total"
         }
     )
-
-
 else:
-
     month2_df = all_branches.copy()
-
-
     for r in ranges:
-
         month2_df[
             f"{to_month_label} | {r}"
         ] = 0
-
-
     month2_df[
         f"{to_month_label} | Total"
     ] = 0
@@ -1665,7 +1577,6 @@ comparison = comparison.fillna(0)
 # =========================================================
 
 for r in ranges:
-
     comparison[
         f"Diff | {r}"
     ] = (
@@ -1703,13 +1614,10 @@ comparison[
 comparison[
     "% Diff"
 ] = np.where(
-
     comparison[
         f"{from_month_label} | Total"
     ] == 0,
-
     0,
-
     (
         comparison["Diff | Total"]
         /
@@ -1742,50 +1650,31 @@ grand_total = {}
 
 
 for col in comparison.columns:
-
     if col == "Sr.":
-
         grand_total[col] = ""
-
-
     elif col == "Area":
-
         grand_total[col] = ""
-
-
     elif col == "Branch Name":
-
         grand_total[col] = "GRAND TOTAL"
-
-
     elif col == "% Diff":
-
         old_total = comparison[
             f"{from_month_label} | Total"
         ].sum()
-
 
         new_total = comparison[
             f"{to_month_label} | Total"
         ].sum()
 
-
         grand_total[col] = (
-
             (
                 (new_total - old_total)
                 /
                 old_total
             ) * 100
-
             if old_total != 0
-
             else 0
         )
-
-
     else:
-
         grand_total[col] = (
             comparison[col].sum()
         )
@@ -1798,7 +1687,6 @@ for col in comparison.columns:
 final_table = pd.concat(
     [
         comparison,
-
         pd.DataFrame(
             [grand_total]
         )
@@ -1828,15 +1716,12 @@ total_difference = (
 
 
 overall_growth = (
-
     (
         total_difference
         /
         month1_total
     ) * 100
-
     if month1_total != 0
-
     else 0
 )
 
@@ -1849,7 +1734,6 @@ k1, k2, k3, k4, k5 = st.columns(5)
 
 
 with k1:
-
     st.metric(
         "🏢 Total Branches",
         len(comparison)
@@ -1857,7 +1741,6 @@ with k1:
 
 
 with k2:
-
     st.metric(
         f"📅 {from_month_label}",
         f"{int(month1_total):,}"
@@ -1865,7 +1748,6 @@ with k2:
 
 
 with k3:
-
     st.metric(
         f"📅 {to_month_label}",
         f"{int(month2_total):,}"
@@ -1873,7 +1755,6 @@ with k3:
 
 
 with k4:
-
     st.metric(
         "↕ Difference",
         f"{int(total_difference):,}"
@@ -1881,7 +1762,6 @@ with k4:
 
 
 with k5:
-
     st.metric(
         "📈 Growth",
         f"{overall_growth:.2f}%"
@@ -1898,31 +1778,18 @@ st.subheader(
 
 
 try:
-
-    # -----------------------------------------------------
-    # Convert column names to strings
-    # -----------------------------------------------------
-
     final_table.columns = (
         final_table.columns
         .astype(str)
     )
 
-
-    # -----------------------------------------------------
-    # Safe object columns
-    # -----------------------------------------------------
-
     for col in final_table.columns:
-
         if final_table[col].dtype == "object":
-
             final_table[col] = (
                 final_table[col]
                 .fillna("")
                 .astype(str)
             )
-
 
     st.dataframe(
         final_table,
@@ -1930,14 +1797,10 @@ try:
         height=700
     )
 
-
 except Exception:
-
     st.error(
         "Table display error occurred."
     )
-
-
     st.table(
         final_table
     )
@@ -1954,12 +1817,9 @@ c1, c2 = st.columns(2)
 
 
 with c1:
-
     st.markdown(
         "### 📌 Recovery Ranges"
     )
-
-
     st.markdown("""
     **1–5** → Day 1 to Day 5  
 
@@ -1974,12 +1834,9 @@ with c1:
 
 
 with c2:
-
     st.markdown(
         "### 📊 Comparison Formula"
     )
-
-
     st.info(
         f"""
         **Difference = {to_month_label} − {from_month_label}**
@@ -1996,12 +1853,7 @@ with c2:
 # GREEN / RED DIFFERENCE REPORT
 # =========================================================
 
-# ---------------------------------------------------------
-# CREATE WORKBOOK
-# ---------------------------------------------------------
-
 wb = Workbook()
-
 
 ws = wb.active
 
@@ -2025,25 +1877,21 @@ for col_num, header in enumerate(
     headers,
     start=1
 ):
-
     cell = ws.cell(
         row=1,
         column=col_num,
         value=header
     )
 
-
     cell.font = Font(
         bold=True,
         color="FFFFFF"
     )
 
-
     cell.fill = PatternFill(
         fill_type="solid",
         fgColor="063B66"
     )
-
 
     cell.alignment = Alignment(
         horizontal="center",
@@ -2056,28 +1904,20 @@ for col_num, header in enumerate(
 # =========================================================
 
 for row_num, row_data in enumerate(
-
     final_table.itertuples(
         index=False
     ),
-
     start=2
 ):
-
     for col_num, value in enumerate(
-
         row_data,
-
         start=1
-
     ):
-
         cell = ws.cell(
             row=row_num,
             column=col_num,
             value=value
         )
-
 
         cell.alignment = Alignment(
             horizontal="center",
@@ -2096,19 +1936,15 @@ for col_num in range(
     1,
     ws.max_column + 1
 ):
-
     header = ws.cell(
         row=1,
         column=col_num
     ).value
 
-
     if header:
-
         header_text = str(
             header
         )
-
 
         if (
             header_text.startswith(
@@ -2117,7 +1953,6 @@ for col_num in range(
             or
             header_text == "% Diff"
         ):
-
             difference_columns.append(
                 col_num
             )
@@ -2165,15 +2000,12 @@ last_data_row = (
 
 
 if last_data_row >= first_data_row:
-
     for col_num in difference_columns:
-
         col_letter = (
             get_column_letter(
                 col_num
             )
         )
-
 
         data_range = (
             f"{col_letter}"
@@ -2182,40 +2014,26 @@ if last_data_row >= first_data_row:
             f"{last_data_row}"
         )
 
-
-        # -------------------------------------------------
         # POSITIVE = GREEN
-        # -------------------------------------------------
-
         ws.conditional_formatting.add(
-
             data_range,
-
             CellIsRule(
                 operator="greaterThan",
                 formula=["0"],
                 fill=green_fill,
                 font=green_font
             )
-
         )
 
-
-        # -------------------------------------------------
         # NEGATIVE = RED
-        # -------------------------------------------------
-
         ws.conditional_formatting.add(
-
             data_range,
-
             CellIsRule(
                 operator="lessThan",
                 formula=["0"],
                 fill=red_fill,
                 font=red_font
             )
-
         )
 
 
@@ -2239,18 +2057,13 @@ for col_num in range(
     1,
     ws.max_column + 1
 ):
-
     cell = ws.cell(
         row=grand_total_row,
         column=col_num
     )
 
-
     cell.fill = grand_fill
-
     cell.font = grand_font
-
-
     cell.alignment = Alignment(
         horizontal="center",
         vertical="center"
@@ -2265,20 +2078,16 @@ for col_num in range(
     1,
     ws.max_column + 1
 ):
-
     header = ws.cell(
         row=1,
         column=col_num
     ).value
 
-
     if header == "% Diff":
-
         for row_num in range(
             2,
             ws.max_row + 1
         ):
-
             ws.cell(
                 row=row_num,
                 column=col_num
@@ -2292,22 +2101,18 @@ for col_num in range(
 # =========================================================
 
 thin_border = Border(
-
     left=Side(
         style="thin",
         color="D9E1F2"
     ),
-
     right=Side(
         style="thin",
         color="D9E1F2"
     ),
-
     top=Side(
         style="thin",
         color="D9E1F2"
     ),
-
     bottom=Side(
         style="thin",
         color="D9E1F2"
@@ -2316,9 +2121,7 @@ thin_border = Border(
 
 
 for row in ws.iter_rows():
-
     for cell in row:
-
         cell.border = thin_border
 
 
@@ -2330,55 +2133,41 @@ for col_num in range(
     1,
     ws.max_column + 1
 ):
-
     max_length = 0
-
 
     for row_num in range(
         1,
         ws.max_row + 1
     ):
-
         value = ws.cell(
             row=row_num,
             column=col_num
         ).value
 
-
         if value is not None:
-
             max_length = max(
                 max_length,
                 len(str(value))
             )
-
 
     header = ws.cell(
         row=1,
         column=col_num
     ).value
 
-
     if header == "Branch Name":
-
         ws.column_dimensions[
             get_column_letter(
                 col_num
             )
         ].width = 22
-
-
     elif header == "Area":
-
         ws.column_dimensions[
             get_column_letter(
                 col_num
             )
         ].width = 20
-
-
     else:
-
         ws.column_dimensions[
             get_column_letter(
                 col_num
@@ -2403,7 +2192,6 @@ for row_num in range(
     2,
     ws.max_row + 1
 ):
-
     ws.row_dimensions[
         row_num
     ].height = 22
@@ -2431,11 +2219,9 @@ ws.auto_filter.ref = (
 
 excel_output = BytesIO()
 
-
 wb.save(
     excel_output
 )
-
 
 excel_output.seek(0)
 
@@ -2445,22 +2231,16 @@ excel_output.seek(0)
 # =========================================================
 
 st.download_button(
-
     label="⬇️ Download Range-Wise Excel Report",
-
     data=excel_output.getvalue(),
-
     file_name=(
         "Range_Wise_Recovery_Comparison.xlsx"
     ),
-
     mime=(
         "application/vnd.openxmlformats-officedocument."
         "spreadsheetml.sheet"
     ),
-
     use_container_width=True
-
 )
 
 import streamlit as st
