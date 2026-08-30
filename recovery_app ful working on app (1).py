@@ -952,24 +952,28 @@ if uploaded_file is not None:
         excel_file = pd.ExcelFile(uploaded_file)
         sheet_name = st.selectbox("Select Sheet", excel_file.sheet_names)
         raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+        
+        # raw_df والی تمام لائنز اس if کے اندر ہونی چاہئیں:
+        raw_df.columns = raw_df.columns.str.strip()
+        st.write("### 📄 Complete Recovery Data")
+        st.dataframe(raw_df)
+        
     except Exception as e:
         st.error(f"Excel file read نہیں ہو سکی: {e}")
 else:
     st.info("Please upload your Recovery Excel file to view data.")
    
-# =========================================================
+    # =========================================================
 # CLEAN COLUMN NAMES
 # =========================================================
-
-raw_df.columns = (
-    raw_df.columns
-    .astype(str)
-    .str.strip()
-    .str.lower()
-    .str.replace(" ", "_")
-    .str.replace("-", "_")
-)
-
+if uploaded_file is not None and 'raw_df' in locals():
+    raw_df.columns = (
+        raw_df.columns.astype(str)
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+        .str.replace("-", "_")
+    )
 
 # =========================================================
 # FIND COLUMNS AUTOMATICALLY
