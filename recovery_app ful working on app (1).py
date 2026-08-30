@@ -562,7 +562,7 @@ if do_file and recovery_file:
                     pdf.ln()
 
                     pdf.set_font("Arial", size=9)
-                    for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
+                for i, (_, row) in enumerate(branch_data.iterrows(), start=1):
                         pdf.cell(10, 10, str(i), 1)
                         pdf.cell(60, 10, str(row.get("Name", ""))[:25], 1)
                         pdf.cell(50, 10, str(row.get("Sanction No", "")), 1)
@@ -992,7 +992,6 @@ def find_column(df, possible_names):
 # ---------------------------------------------------------
 # AREA COLUMN
 # ---------------------------------------------------------
-if uploaded_file is not None and 'raw_df' in locals():
 area_col = find_column(
     raw_df,
     [
