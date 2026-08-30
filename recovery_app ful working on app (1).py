@@ -846,14 +846,142 @@ due_edit_df = display_df[
 ].copy()
 
 
-AttributeError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
-Traceback:
-File "/home/adminuser/venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 565, in _run_script
-    exec(code, module.__dict__)
-File "/mount/src/recovery_app/recovery_app ful working on app (1).py", line 849, in <module>
-    edited_due = st.data_editor(
 # =========================================================
-# SAVE DUE VALUES
+# MANUAL DUE ENTRY - STREAMLIT COMPATIBLE
+# =========================================================
+
+st.markdown("---")
+
+st.subheader("✏️ Enter Due Manually")
+
+st.info(
+    "ہر Branch کے سامنے ہر Month کا Due enter کریں۔ "
+    "MDP Per Box اور Not Given خود calculate ہوں گے۔"
+)
+
+edited_due = due_edit_df.copy()
+
+
+# =========================================================
+# HEADER
+# =========================================================
+
+header_cols = st.columns(
+    3 + len(available_months)
+)
+
+with header_cols[0]:
+    st.markdown("**Sr.**")
+
+with header_cols[1]:
+    st.markdown("**Area**")
+
+with header_cols[2]:
+    st.markdown("**Branch Name**")
+
+for month_index, month_period in enumerate(
+    available_months
+):
+
+    label = month_period.strftime("%b-%y")
+
+    with header_cols[3 + month_index]:
+        st.markdown(
+            f"**{label} Due**"
+        )
+
+
+# =========================================================
+# INPUT ROWS
+# =========================================================
+
+for i in range(len(edited_due)):
+
+    row_cols = st.columns(
+        3 + len(available_months)
+    )
+
+    # -----------------------------------------------------
+    # SERIAL
+    # -----------------------------------------------------
+
+    with row_cols[0]:
+
+        st.write(
+            edited_due.loc[i, "Sr."]
+        )
+
+
+    # -----------------------------------------------------
+    # AREA
+    # -----------------------------------------------------
+
+    with row_cols[1]:
+
+        st.write(
+            edited_due.loc[i, "Area"]
+        )
+
+
+    # -----------------------------------------------------
+    # BRANCH
+    # -----------------------------------------------------
+
+    with row_cols[2]:
+
+        st.write(
+            edited_due.loc[i, "Branch Name"]
+        )
+
+
+    # -----------------------------------------------------
+    # DUE INPUT
+    # -----------------------------------------------------
+
+    for month_index, month_period in enumerate(
+        available_months
+    ):
+
+        label = month_period.strftime(
+            "%b-%y"
+        )
+
+        due_col = (
+            f"{label} | Due"
+        )
+
+        current_value = edited_due.loc[
+            i,
+            due_col
+        ]
+
+        if pd.isna(current_value):
+
+            current_value = 0
+
+
+        with row_cols[
+            3 + month_index
+        ]:
+
+            new_value = st.number_input(
+                f"Due {label}",
+                min_value=0.0,
+                value=float(
+                    current_value
+                ),
+                step=1.0,
+                key=f"mdp_due_{i}_{label}"
+            )
+
+            edited_due.loc[
+                i,
+                due_col
+            ] = new_value
+
+
+# =========================================================
+# SAVE MANUAL DUE VALUES
 # =========================================================
 
 for i, row in edited_due.iterrows():
@@ -873,13 +1001,11 @@ for i, row in edited_due.iterrows():
             "%b-%y"
         )
 
-
-        col = (
+        due_col = (
             f"{label} | Due"
         )
 
-
-        value = row[col]
+        value = row[due_col]
 
 
         if pd.isna(value):
@@ -897,8 +1023,6 @@ for i, row in edited_due.iterrows():
         st.session_state.mdp_due_values[
             key
         ] = float(value)
-
-
 # =========================================================
 # REBUILD FINAL TABLE AFTER DUE ENTRY
 # =========================================================
