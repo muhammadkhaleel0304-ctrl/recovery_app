@@ -79,7 +79,6 @@ FIXED_FIRST_12 = "421011234567"  # <-- اپنا 12 ڈیجٹ یہاں لکھیں
 # ===========================================
 
 # Custom Page Config & CSS Design
-st.set_page_config(page_title="CNIC QR Generator", page_icon="🪪", layout="centered")
 
 st.markdown(
     """
