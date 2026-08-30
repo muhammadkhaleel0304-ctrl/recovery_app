@@ -1,4 +1,12 @@
 import streamlit as st
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+st.set_page_config(
+    page_title="MDP Comparison",
+    layout="wide"
+)
+
 import qrcode
 from io import BytesIO
 import streamlit as st
@@ -2912,16 +2920,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import CellIsRule
-
-
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-st.set_page_config(
-    page_title="MDP Comparison",
-    layout="wide"
-)
-
 
 # =========================================================
 # CSS
