@@ -754,6 +754,7 @@ for month_period in available_months:
 
     # -----------------------------------------------------
     # MDP PER BOX
+    # Amount / Due
     # -----------------------------------------------------
 
     display_df[
@@ -761,15 +762,15 @@ for month_period in available_months:
     ] = np.where(
 
         display_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ] != 0,
 
         display_df[
-            f"{label} | Due"
+            f"{label} | Amount"
         ]
         /
         display_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ],
 
         0
@@ -779,6 +780,7 @@ for month_period in available_months:
 
     # -----------------------------------------------------
     # NOT GIVEN
+    # Receipts - Due
     # -----------------------------------------------------
 
     display_df[
@@ -786,13 +788,13 @@ for month_period in available_months:
     ] = (
 
         display_df[
-            f"{label} | Due"
+            f"{label} | Receipts"
         ]
 
         -
 
         display_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ]
 
     )
@@ -871,13 +873,17 @@ header_cols = st.columns(
 )
 
 with header_cols[0]:
+
     st.markdown("**Sr.**")
 
 with header_cols[1]:
+
     st.markdown("**Area**")
 
 with header_cols[2]:
+
     st.markdown("**Branch Name**")
+
 
 for month_index, month_period in enumerate(
     available_months
@@ -886,6 +892,7 @@ for month_index, month_period in enumerate(
     label = month_period.strftime("%b-%y")
 
     with header_cols[3 + month_index]:
+
         st.markdown(
             f"**{label} Due**"
         )
@@ -900,6 +907,7 @@ for i in range(len(edited_due)):
     row_cols = st.columns(
         3 + len(available_months)
     )
+
 
     # -----------------------------------------------------
     # SERIAL
@@ -1023,6 +1031,8 @@ for i, row in edited_due.iterrows():
         st.session_state.mdp_due_values[
             key
         ] = float(value)
+
+
 # =========================================================
 # REBUILD FINAL TABLE AFTER DUE ENTRY
 # =========================================================
@@ -1133,6 +1143,7 @@ for month_period in available_months:
 
     # -----------------------------------------------------
     # MDP PER BOX
+    # Amount / Due
     # -----------------------------------------------------
 
     final_df[
@@ -1140,15 +1151,15 @@ for month_period in available_months:
     ] = np.where(
 
         final_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ] != 0,
 
         final_df[
-            f"{label} | Due"
+            f"{label} | Amount"
         ]
         /
         final_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ],
 
         0
@@ -1158,6 +1169,7 @@ for month_period in available_months:
 
     # -----------------------------------------------------
     # NOT GIVEN
+    # Receipts - Due
     # -----------------------------------------------------
 
     final_df[
@@ -1165,13 +1177,13 @@ for month_period in available_months:
     ] = (
 
         final_df[
-            f"{label} | Due"
+            f"{label} | Receipts"
         ]
 
         -
 
         final_df[
-            f"{label} | Amount"
+            f"{label} | Due"
         ]
 
     )
@@ -1357,7 +1369,7 @@ for col in final_df.columns:
     elif "MDP Per Box" in col:
 
         # Weighted / overall MDP per box
-        # = Total Due / Total Amount
+        # = Total Amount / Total Due
 
         parts = col.split("|")
 
@@ -1389,10 +1401,10 @@ for col in final_df.columns:
 
             grand_total[col] = (
 
-                total_due /
-                total_amount
+                total_amount /
+                total_due
 
-                if total_amount != 0
+                if total_due != 0
 
                 else 0
 
@@ -1477,6 +1489,7 @@ st.dataframe(
     use_container_width=True,
 
     height=700
+
 )
 
 
@@ -1494,12 +1507,12 @@ with e1:
     st.markdown("### 📌 MDP Formula")
 
     st.info("""
-**MDP Per Box = Due ÷ Amount**
+**MDP Per Box = Amount ÷ Due**
 
 مثال:
 
-Due = 6,000  
-Amount = 1,000  
+Amount = 6,000  
+Due = 1,000  
 
 **6,000 ÷ 1,000 = 6**
 
@@ -1512,12 +1525,12 @@ with e2:
     st.markdown("### 📌 Not Given")
 
     st.info("""
-**Not Given = Due − Amount**
+**Not Given = Receipts − Due**
 
 مثال:
 
-Due = 1,000  
-Amount = 500  
+Receipts = 1,000  
+Due = 500  
 
 **1,000 − 500 = 500**
 
@@ -1876,7 +1889,7 @@ for row_num in range(
 # FREEZE AREA ONLY
 # =========================================================
 
-ws.freeze_panes = "D2"
+ws.freeze_panes = "B2"
 
 
 # =========================================================
