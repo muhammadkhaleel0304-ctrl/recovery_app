@@ -2766,7 +2766,7 @@ elif os.path.exists(LOCAL_FILE):
     st.info("Loaded previously uploaded file from local storage.")
 else:
     st.info("Please upload recovery file.")
-    st.stop()
+    #st.stop()
 
 # ---------------- Column Selection ----------------
 st.subheader("Available Columns")
