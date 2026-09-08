@@ -932,6 +932,86 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# =========================================================
+# RECOVERY SUMMARY RANGE-WISE
+# =========================================================
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+
+st.markdown("""
+<style>
+.recovery-summary-title {
+    background: linear-gradient(135deg,#063b66,#0876b9);
+    color:white; padding:16px; border-radius:12px; text-align:center;
+    font-size:25px; font-weight:800; margin:18px 0;
+}
+</style>
+""", unsafe_allow_html=True)
+st.markdown('<div class="recovery-summary-title">📊 RECOVERY SUMMARY RANGE-WISE</div>', unsafe_allow_html=True)
+
+summary_uploaded = st.file_uploader(
+    "Upload Recovery Excel / CSV for Range-wise Summary",
+    type=["xlsx", "xls", "csv"], key="recovery_summary_range_upload"
+)
+
+if summary_uploaded is not None:
+    try:
+        if summary_uploaded.name.lower().endswith(".csv"):
+            summary_df = pd.read_csv(summary_uploaded)
+        else:
+            summary_df = pd.read_excel(summary_uploaded)
+        summary_df.columns = [str(c).strip() for c in summary_df.columns]
+        st.subheader("Available Columns")
+        summary_date_col = st.selectbox("Select Date Column", summary_df.columns, key="summary_date_col")
+        summary_branch_col = st.selectbox("Select Branch Column", summary_df.columns, key="summary_branch_col")
+        summary_area_col = None
+        lower_cols = {str(c).lower(): c for c in summary_df.columns}
+        if "area_id" in lower_cols: summary_area_col = lower_cols["area_id"]
+        elif "area" in lower_cols: summary_area_col = lower_cols["area"]
+        elif "area_name" in lower_cols: summary_area_col = lower_cols["area_name"]
+
+        summary_df[summary_date_col] = pd.to_datetime(summary_df[summary_date_col], errors="coerce", dayfirst=True)
+        summary_df = summary_df.dropna(subset=[summary_date_col, summary_branch_col]).copy()
+        summary_df["_summary_day"] = summary_df[summary_date_col].dt.day
+        summary_df["_summary_range"] = pd.cut(summary_df["_summary_day"], bins=[0,5,10,15,31], labels=["1-5","6-10","11-15","16-31"])
+        summary_df = summary_df.dropna(subset=["_summary_range"])
+        pivot = pd.pivot_table(summary_df, index=[summary_branch_col], columns="_summary_range", aggfunc="size", fill_value=0)
+        for r in ["1-5","6-10","11-15","16-31"]:
+            if r not in pivot.columns: pivot[r] = 0
+        pivot["Total"] = pivot[["1-5","6-10","11-15","16-31"]].sum(axis=1)
+        for r in ["1-5","6-10","11-15","16-31"]:
+            pivot[f"{r} %"] = (pivot[r] / pivot["Total"].replace(0,np.nan) * 100).fillna(0).round(2)
+        pivot.rename(columns={"1-5":"Recovery 1-5","6-10":"Recovery 6-10","11-15":"Recovery 11-15","16-31":"Recovery 16-31"}, inplace=True)
+        summary_result = pivot.reset_index()
+        if summary_area_col:
+            ba = summary_df[[summary_branch_col,summary_area_col]].drop_duplicates()
+            summary_result = summary_result.merge(ba,on=summary_branch_col,how="left")
+            cols=summary_result.columns.tolist(); bi=cols.index(summary_branch_col); cols.insert(bi,cols.pop(cols.index(summary_area_col))); summary_result=summary_result[cols]
+        count_cols=["Recovery 1-5","Recovery 6-10","Recovery 11-15","Recovery 16-31","Total"]
+        totals=summary_result[count_cols].sum()
+        grand={}
+        pct_map={"1-5 %":"Recovery 1-5","6-10 %":"Recovery 6-10","11-15 %":"Recovery 11-15","16-31 %":"Recovery 16-31"}
+        for c in summary_result.columns:
+            if c==summary_branch_col: grand[c]="Grand Total"
+            elif summary_area_col and c==summary_area_col: grand[c]=""
+            elif c in count_cols: grand[c]=int(totals[c])
+            elif c in pct_map: grand[c]=round(totals[pct_map[c]]/totals["Total"]*100,2) if totals["Total"] else 0
+            else: grand[c]=""
+        summary_result=pd.concat([summary_result,pd.DataFrame([grand])],ignore_index=True)
+        st.subheader("Branch Wise Recovery Summary")
+        st.dataframe(summary_result,use_container_width=True)
+        st.download_button("⬇️ Download Recovery Summary CSV",summary_result.to_csv(index=False).encode("utf-8"),"recovery_summary_range_wise.csv","text/csv",key="download_recovery_summary_csv")
+        pb=BytesIO(); doc=SimpleDocTemplate(pb,pagesize=A4)
+        tab=Table([summary_result.columns.tolist()]+summary_result.astype(str).values.tolist(),repeatRows=1)
+        tab.setStyle(TableStyle([("GRID",(0,0),(-1,-1),1,colors.black),("BACKGROUND",(0,0),(-1,0),colors.HexColor("#063B66")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("ALIGN",(0,0),(-1,-1),"CENTER")]))
+        doc.build([tab]); pb.seek(0)
+        st.download_button("⬇️ Download Recovery Summary PDF",pb.getvalue(),"recovery_summary_range_wise.pdf","application/pdf",key="download_recovery_summary_pdf")
+    except Exception as e:
+        st.error(f"Recovery Summary read/process نہیں ہو سکی: {e}")
+else:
+    st.info("Recovery Summary کے لیے file upload optional ہے — باقی sections اس کے بغیر بھی چلیں گے۔")
+
 st.markdown(
     '<div class="range-title">📊 RANGE-WISE RECOVERY COMPARISON REPORT</div>',
     unsafe_allow_html=True
