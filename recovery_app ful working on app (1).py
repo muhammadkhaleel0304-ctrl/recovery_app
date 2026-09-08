@@ -966,388 +966,528 @@ if uploaded_file is not None:
         st.error(f"Excel file read نہیں ہو سکی: {e}")
 else:
     st.info("Please upload your Recovery Excel file to view data.")
-    st.stop()
+    raw_df = None
 
-# =========================================================
-# CLEAN COLUMN NAMES
 # =========================================================
 if raw_df is not None:
-    raw_df.columns = (
-        raw_df.columns.astype(str)
-        .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
-        .str.replace("-", "_")
+    # CLEAN COLUMN NAMES
+    # =========================================================
+    if raw_df is not None:
+        raw_df.columns = (
+            raw_df.columns.astype(str)
+            .str.strip()
+            .str.lower()
+            .str.replace(" ", "_")
+            .str.replace("-", "_")
+        )
+
+    # =========================================================
+    # FIND COLUMNS AUTOMATICALLY
+    # =========================================================
+
+    def find_column(df, possible_names):
+        for col in possible_names:
+            if col in df.columns:
+                return col
+        return None
+
+
+    # ---------------------------------------------------------
+    # AREA COLUMN
+    # ---------------------------------------------------------
+    area_col = find_column(
+        raw_df,
+        [
+            "area",
+            "area_name",
+            "region",
+            "zone"
+        ]
     )
 
-# =========================================================
-# FIND COLUMNS AUTOMATICALLY
-# =========================================================
 
-def find_column(df, possible_names):
-    for col in possible_names:
-        if col in df.columns:
-            return col
-    return None
+    # ---------------------------------------------------------
+    # BRANCH NAME COLUMN
+    # ---------------------------------------------------------
 
-
-# ---------------------------------------------------------
-# AREA COLUMN
-# ---------------------------------------------------------
-area_col = find_column(
-    raw_df,
-    [
-        "area",
-        "area_name",
-        "region",
-        "zone"
-    ]
-)
+    branch_name_col = find_column(
+        raw_df,
+        [
+            "branch_name",
+            "branchname",
+            "branch_title",
+            "branch"
+        ]
+    )
 
 
-# ---------------------------------------------------------
-# BRANCH NAME COLUMN
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # DATE COLUMN
+    # ---------------------------------------------------------
 
-branch_name_col = find_column(
-    raw_df,
-    [
-        "branch_name",
-        "branchname",
-        "branch_title",
-        "branch"
-    ]
-)
-
-
-# ---------------------------------------------------------
-# DATE COLUMN
-# ---------------------------------------------------------
-
-date_col = find_column(
-    raw_df,
-    [
-        "recovery_date",
-        "recoverydate",
-        "date",
-        "recovery_date_",
-        "receipt_date",
-        "transaction_date"
-    ]
-)
+    date_col = find_column(
+        raw_df,
+        [
+            "recovery_date",
+            "recoverydate",
+            "date",
+            "recovery_date_",
+            "receipt_date",
+            "transaction_date"
+        ]
+    )
 
 
-# =========================================================
-# MANUAL COLUMN SELECTION
-# =========================================================
+    # =========================================================
+    # MANUAL COLUMN SELECTION
+    # =========================================================
 
-st.subheader("🔧 Column Mapping")
+    st.subheader("🔧 Column Mapping")
 
-col1, col2, col3 = st.columns(3)
-
-
-# ---------------------------------------------------------
-# AREA
-# ---------------------------------------------------------
-
-with col1:
-    if area_col is None:
-        area_col = st.selectbox(
-            "Area Column",
-            ["None"] + list(raw_df.columns),
-            key="area_mapping"
-        )
-        if area_col == "None":
-            area_col = None
-    else:
-        st.success(
-            f"Area: {area_col}"
-        )
+    col1, col2, col3 = st.columns(3)
 
 
-# ---------------------------------------------------------
-# BRANCH NAME
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # AREA
+    # ---------------------------------------------------------
 
-with col2:
-    if branch_name_col is None:
-        branch_name_col = st.selectbox(
-            "Branch Name Column",
-            ["None"] + list(raw_df.columns),
-            key="branch_name_mapping"
-        )
-        if branch_name_col == "None":
-            branch_name_col = None
-    else:
-        st.success(
-            f"Branch Name: {branch_name_col}"
-        )
+    with col1:
+        if area_col is None:
+            area_col = st.selectbox(
+                "Area Column",
+                ["None"] + list(raw_df.columns),
+                key="area_mapping"
+            )
+            if area_col == "None":
+                area_col = None
+        else:
+            st.success(
+                f"Area: {area_col}"
+            )
 
 
-# ---------------------------------------------------------
-# RECOVERY DATE
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # BRANCH NAME
+    # ---------------------------------------------------------
 
-with col3:
+    with col2:
+        if branch_name_col is None:
+            branch_name_col = st.selectbox(
+                "Branch Name Column",
+                ["None"] + list(raw_df.columns),
+                key="branch_name_mapping"
+            )
+            if branch_name_col == "None":
+                branch_name_col = None
+        else:
+            st.success(
+                f"Branch Name: {branch_name_col}"
+            )
+
+
+    # ---------------------------------------------------------
+    # RECOVERY DATE
+    # ---------------------------------------------------------
+
+    with col3:
+        if date_col is None:
+            date_col = st.selectbox(
+                "Recovery Date Column",
+                ["None"] + list(raw_df.columns),
+                key="date_mapping"
+            )
+            if date_col == "None":
+                date_col = None
+        else:
+            st.success(
+                f"Recovery Date: {date_col}"
+            )
+
+
+    # =========================================================
+    # REQUIRED COLUMN CHECK
+    # =========================================================
+
     if date_col is None:
-        date_col = st.selectbox(
-            "Recovery Date Column",
-            ["None"] + list(raw_df.columns),
-            key="date_mapping"
+        st.error(
+            "Recovery Date column نہیں ملی۔ "
+            "براہ کرم اوپر سے Recovery Date والی column select کریں۔"
         )
-        if date_col == "None":
-            date_col = None
-    else:
-        st.success(
-            f"Recovery Date: {date_col}"
+        st.stop()
+
+
+    if area_col is None:
+        st.error(
+            "Area column نہیں ملی۔ "
+            "براہ کرم Area والی column select کریں۔"
+        )
+        st.stop()
+
+
+    if branch_name_col is None:
+        st.error(
+            "Branch Name column نہیں ملی۔ "
+            "براہ کرم Branch Name والی column select کریں۔"
+        )
+        st.stop()
+
+
+    # =========================================================
+    # DATE CONVERSION
+    # =========================================================
+
+    df = raw_df.copy()
+
+    df["_recovery_date"] = pd.to_datetime(
+        df[date_col],
+        errors="coerce",
+        dayfirst=True
+    )
+
+    invalid_dates = df["_recovery_date"].isna().sum()
+
+    if invalid_dates > 0:
+        st.warning(
+            f"{invalid_dates} rows میں valid recovery date نہیں ملی۔ "
+            "یہ rows report میں شامل نہیں ہوں گی۔"
         )
 
-
-# =========================================================
-# REQUIRED COLUMN CHECK
-# =========================================================
-
-if date_col is None:
-    st.error(
-        "Recovery Date column نہیں ملی۔ "
-        "براہ کرم اوپر سے Recovery Date والی column select کریں۔"
-    )
-    st.stop()
-
-
-if area_col is None:
-    st.error(
-        "Area column نہیں ملی۔ "
-        "براہ کرم Area والی column select کریں۔"
-    )
-    st.stop()
-
-
-if branch_name_col is None:
-    st.error(
-        "Branch Name column نہیں ملی۔ "
-        "براہ کرم Branch Name والی column select کریں۔"
-    )
-    st.stop()
-
-
-# =========================================================
-# DATE CONVERSION
-# =========================================================
-
-df = raw_df.copy()
-
-df["_recovery_date"] = pd.to_datetime(
-    df[date_col],
-    errors="coerce",
-    dayfirst=True
-)
-
-invalid_dates = df["_recovery_date"].isna().sum()
-
-if invalid_dates > 0:
-    st.warning(
-        f"{invalid_dates} rows میں valid recovery date نہیں ملی۔ "
-        "یہ rows report میں شامل نہیں ہوں گی۔"
-    )
-
-df = df[
-    df["_recovery_date"].notna()
-].copy()
-
-
-if len(df) == 0:
-    st.error(
-        "کوئی valid Recovery Date نہیں ملی۔"
-    )
-    st.stop()
-
-
-# =========================================================
-# AREA INFORMATION
-# =========================================================
-
-df["_area"] = (
-    df[area_col]
-    .fillna("")
-    .astype(str)
-    .str.strip()
-)
-
-
-# =========================================================
-# BRANCH INFORMATION
-# =========================================================
-
-df["_branch_name"] = (
-    df[branch_name_col]
-    .fillna("")
-    .astype(str)
-    .str.strip()
-)
-
-
-# =========================================================
-# REMOVE EMPTY AREA / BRANCH
-# =========================================================
-
-df = df[
-    (df["_area"] != "") &
-    (df["_branch_name"] != "")
-].copy()
-
-
-if df.empty:
-    st.error(
-        "Area یا Branch Name میں کوئی valid data نہیں ملا۔"
-    )
-    st.stop()
-
-
-# =========================================================
-# MONTH
-# =========================================================
-
-df["_month"] = (
-    df["_recovery_date"]
-    .dt.to_period("M")
-)
-
-
-available_months = sorted(
-    df["_month"]
-    .dropna()
-    .unique()
-)
-
-
-if len(available_months) == 0:
-    st.error(
-        "کوئی month data نہیں ملا۔"
-    )
-    st.stop()
-
-
-month_names = [
-    x.strftime("%b-%y")
-    for x in available_months
-]
-
-
-# =========================================================
-# MONTH SELECTION
-# =========================================================
-
-m1, m2 = st.columns(2)
-
-
-with m1:
-    from_month_label = st.selectbox(
-        "From Month",
-        month_names,
-        index=max(0, len(month_names) - 2)
-    )
-
-
-with m2:
-    to_month_label = st.selectbox(
-        "To Month",
-        month_names,
-        index=len(month_names) - 1
-    )
-
-
-# =========================================================
-# CONVERT MONTH LABEL TO PERIOD
-# =========================================================
-
-try:
-    from_month = pd.Period(
-        pd.to_datetime(
-            "01-" + from_month_label,
-            format="%d-%b-%y"
-        ),
-        freq="M"
-    )
-
-    to_month = pd.Period(
-        pd.to_datetime(
-            "01-" + to_month_label,
-            format="%d-%b-%y"
-        ),
-        freq="M"
-    )
-
-except Exception as e:
-    st.error(
-        f"Month selection error: {e}"
-    )
-    st.stop()
-
-
-# =========================================================
-# OPTIONAL AREA FILTER
-# =========================================================
-
-area_filter_values = [
-    "All"
-] + sorted(
-    df["_area"]
-    .dropna()
-    .astype(str)
-    .unique()
-    .tolist()
-)
-
-
-selected_area = st.selectbox(
-    "📍 Area Filter",
-    area_filter_values
-)
-
-
-if selected_area != "All":
     df = df[
-        df["_area"] == selected_area
+        df["_recovery_date"].notna()
     ].copy()
 
 
-# =========================================================
-# RANGE FUNCTION
-# =========================================================
-
-def get_range(day):
-    if 1 <= day <= 5:
-        return "1-5"
-    elif 6 <= day <= 10:
-        return "6-10"
-    elif 11 <= day <= 15:
-        return "11-15"
-    elif 16 <= day <= 25:
-        return "16-25"
-    else:
-        return ">25"
+    if len(df) == 0:
+        st.error(
+            "کوئی valid Recovery Date نہیں ملی۔"
+        )
+        st.stop()
 
 
-df["_day"] = (
-    df["_recovery_date"]
-    .dt.day
-)
+    # =========================================================
+    # AREA INFORMATION
+    # =========================================================
 
-df["_range"] = (
-    df["_day"]
-    .apply(get_range)
-)
+    df["_area"] = (
+        df[area_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
 
 
-# =========================================================
-# REPORT FUNCTION
-# =========================================================
+    # =========================================================
+    # BRANCH INFORMATION
+    # =========================================================
 
-def create_month_report(data, month_period):
-    temp = data[
-        data["_month"] == month_period
+    df["_branch_name"] = (
+        df[branch_name_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    # =========================================================
+    # REMOVE EMPTY AREA / BRANCH
+    # =========================================================
+
+    df = df[
+        (df["_area"] != "") &
+        (df["_branch_name"] != "")
     ].copy()
+
+
+    if df.empty:
+        st.error(
+            "Area یا Branch Name میں کوئی valid data نہیں ملا۔"
+        )
+        st.stop()
+
+
+    # =========================================================
+    # MONTH
+    # =========================================================
+
+    df["_month"] = (
+        df["_recovery_date"]
+        .dt.to_period("M")
+    )
+
+
+    available_months = sorted(
+        df["_month"]
+        .dropna()
+        .unique()
+    )
+
+
+    if len(available_months) == 0:
+        st.error(
+            "کوئی month data نہیں ملا۔"
+        )
+        st.stop()
+
+
+    month_names = [
+        x.strftime("%b-%y")
+        for x in available_months
+    ]
+
+
+    # =========================================================
+    # MONTH SELECTION
+    # =========================================================
+
+    m1, m2 = st.columns(2)
+
+
+    with m1:
+        from_month_label = st.selectbox(
+            "From Month",
+            month_names,
+            index=max(0, len(month_names) - 2)
+        )
+
+
+    with m2:
+        to_month_label = st.selectbox(
+            "To Month",
+            month_names,
+            index=len(month_names) - 1
+        )
+
+
+    # =========================================================
+    # Internal column-key labels (keeps same-month comparison safe)
+    from_month_key = from_month_label
+    to_month_key = to_month_label if to_month_label != from_month_label else f"{to_month_label} (2)"
+
+    # CONVERT MONTH LABEL TO PERIOD
+    # =========================================================
+
+    try:
+        from_month = pd.Period(
+            pd.to_datetime(
+                "01-" + from_month_label,
+                format="%d-%b-%y"
+            ),
+            freq="M"
+        )
+
+        to_month = pd.Period(
+            pd.to_datetime(
+                "01-" + to_month_label,
+                format="%d-%b-%y"
+            ),
+            freq="M"
+        )
+
+    except Exception as e:
+        st.error(
+            f"Month selection error: {e}"
+        )
+        st.stop()
+
+
+    # =========================================================
+    # OPTIONAL AREA FILTER
+    # =========================================================
+
+    area_filter_values = [
+        "All"
+    ] + sorted(
+        df["_area"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+
+    selected_area = st.selectbox(
+        "📍 Area Filter",
+        area_filter_values
+    )
+
+
+    if selected_area != "All":
+        df = df[
+            df["_area"] == selected_area
+        ].copy()
+
+
+    # =========================================================
+    # RANGE FUNCTION
+    # =========================================================
+
+    def get_range(day):
+        if 1 <= day <= 5:
+            return "1-5"
+        elif 6 <= day <= 10:
+            return "6-10"
+        elif 11 <= day <= 15:
+            return "11-15"
+        elif 16 <= day <= 25:
+            return "16-25"
+        else:
+            return ">25"
+
+
+    df["_day"] = (
+        df["_recovery_date"]
+        .dt.day
+    )
+
+    df["_range"] = (
+        df["_day"]
+        .apply(get_range)
+    )
+
+
+    # =========================================================
+    # REPORT FUNCTION
+    # =========================================================
+
+    def create_month_report(data, month_period):
+        temp = data[
+            data["_month"] == month_period
+        ].copy()
+
+        ranges = [
+            "1-5",
+            "6-10",
+            "11-15",
+            "16-25",
+            ">25"
+        ]
+
+        if temp.empty:
+            return pd.DataFrame()
+
+        result = []
+
+        # -----------------------------------------------------
+        # AREA + BRANCH LIST
+        # -----------------------------------------------------
+        branch_list = (
+            temp[
+                [
+                    "_area",
+                    "_branch_name"
+                ]
+            ]
+            .drop_duplicates()
+            .sort_values(
+                [
+                    "_area",
+                    "_branch_name"
+                ]
+            )
+        )
+
+        # -----------------------------------------------------
+        # LOOP AREA + BRANCH
+        # -----------------------------------------------------
+        for _, branch in branch_list.iterrows():
+            area = branch["_area"]
+            name = branch["_branch_name"]
+
+            branch_data = temp[
+                (temp["_area"] == area) &
+                (temp["_branch_name"] == name)
+            ]
+
+            row = {
+                "Area": area,
+                "Branch Name": name
+            }
+
+            total = 0
+
+            for r in ranges:
+                count = (
+                    branch_data["_range"] == r
+                ).sum()
+                row[r] = int(count)
+                total += count
+
+            row["Total"] = int(total)
+            result.append(row)
+
+        return pd.DataFrame(result)
+
+
+    # =========================================================
+    # CREATE REPORTS
+    # =========================================================
+
+    month1_df = create_month_report(
+        df,
+        from_month
+    )
+
+
+    month2_df = create_month_report(
+        df,
+        to_month
+    )
+
+
+    # =========================================================
+    # EMPTY CHECK
+    # =========================================================
+
+    if month1_df.empty:
+        st.warning(
+            f"{from_month_label} میں کوئی recovery record نہیں ملا۔"
+        )
+
+
+    if month2_df.empty:
+        st.warning(
+            f"{to_month_label} میں کوئی recovery record نہیں ملا۔"
+        )
+
+
+    # =========================================================
+    # MERGE AREAS + BRANCHES
+    # =========================================================
+
+    all_branches = pd.concat(
+        [
+            month1_df[
+                [
+                    "Area",
+                    "Branch Name"
+                ]
+            ]
+            if not month1_df.empty
+            else pd.DataFrame(),
+
+            month2_df[
+                [
+                    "Area",
+                    "Branch Name"
+                ]
+            ]
+            if not month2_df.empty
+            else pd.DataFrame()
+        ],
+        ignore_index=True
+    ).drop_duplicates()
+
+
+    if all_branches.empty:
+        st.error(
+            "Area / Branch data نہیں ملا۔"
+        )
+        st.stop()
+
+
+    # =========================================================
+    # RANGES
+    # =========================================================
 
     ranges = [
         "1-5",
@@ -1357,568 +1497,407 @@ def create_month_report(data, month_period):
         ">25"
     ]
 
-    if temp.empty:
-        return pd.DataFrame()
 
-    result = []
+    # =========================================================
+    # MONTH 1
+    # =========================================================
 
-    # -----------------------------------------------------
-    # AREA + BRANCH LIST
-    # -----------------------------------------------------
-    branch_list = (
-        temp[
-            [
-                "_area",
-                "_branch_name"
+    if not month1_df.empty:
+        month1_df = month1_df.rename(
+            columns={
+                r: f"{from_month_key} | {r}"
+                for r in ranges
+            }
+            |
+            {
+                "Total":
+                f"{from_month_key} | Total"
+            }
+        )
+    else:
+        month1_df = all_branches.copy()
+        for r in ranges:
+            month1_df[
+                f"{from_month_key} | {r}"
+            ] = 0
+        month1_df[
+            f"{from_month_key} | Total"
+        ] = 0
+
+
+    # =========================================================
+    # MONTH 2
+    # =========================================================
+
+    if not month2_df.empty:
+        month2_df = month2_df.rename(
+            columns={
+                r: f"{to_month_key} | {r}"
+                for r in ranges
+            }
+            |
+            {
+                "Total":
+                f"{to_month_key} | Total"
+            }
+        )
+    else:
+        month2_df = all_branches.copy()
+        for r in ranges:
+            month2_df[
+                f"{to_month_key} | {r}"
+            ] = 0
+        month2_df[
+            f"{to_month_key} | Total"
+        ] = 0
+
+
+    # =========================================================
+    # MERGE MONTHS
+    # =========================================================
+
+    comparison = all_branches.merge(
+        month1_df,
+        on=[
+            "Area",
+            "Branch Name"
+        ],
+        how="left"
+    )
+
+
+    comparison = comparison.merge(
+        month2_df,
+        on=[
+            "Area",
+            "Branch Name"
+        ],
+        how="left"
+    )
+
+
+    comparison = comparison.fillna(0)
+
+
+    # =========================================================
+    # DIFFERENCE COLUMNS
+    # =========================================================
+
+    for r in ranges:
+        comparison[
+            f"Diff | {r}"
+        ] = (
+            comparison[
+                f"{to_month_key} | {r}"
             ]
-        ]
-        .drop_duplicates()
-        .sort_values(
-            [
-                "_area",
-                "_branch_name"
+            -
+            comparison[
+                f"{from_month_key} | {r}"
             ]
         )
-    )
-
-    # -----------------------------------------------------
-    # LOOP AREA + BRANCH
-    # -----------------------------------------------------
-    for _, branch in branch_list.iterrows():
-        area = branch["_area"]
-        name = branch["_branch_name"]
-
-        branch_data = temp[
-            (temp["_area"] == area) &
-            (temp["_branch_name"] == name)
-        ]
-
-        row = {
-            "Area": area,
-            "Branch Name": name
-        }
-
-        total = 0
-
-        for r in ranges:
-            count = (
-                branch_data["_range"] == r
-            ).sum()
-            row[r] = int(count)
-            total += count
-
-        row["Total"] = int(total)
-        result.append(row)
-
-    return pd.DataFrame(result)
 
 
-# =========================================================
-# CREATE REPORTS
-# =========================================================
+    # ---------------------------------------------------------
+    # TOTAL DIFFERENCE
+    # ---------------------------------------------------------
 
-month1_df = create_month_report(
-    df,
-    from_month
-)
-
-
-month2_df = create_month_report(
-    df,
-    to_month
-)
-
-
-# =========================================================
-# EMPTY CHECK
-# =========================================================
-
-if month1_df.empty:
-    st.warning(
-        f"{from_month_label} میں کوئی recovery record نہیں ملا۔"
-    )
-
-
-if month2_df.empty:
-    st.warning(
-        f"{to_month_label} میں کوئی recovery record نہیں ملا۔"
-    )
-
-
-# =========================================================
-# MERGE AREAS + BRANCHES
-# =========================================================
-
-all_branches = pd.concat(
-    [
-        month1_df[
-            [
-                "Area",
-                "Branch Name"
-            ]
-        ]
-        if not month1_df.empty
-        else pd.DataFrame(),
-
-        month2_df[
-            [
-                "Area",
-                "Branch Name"
-            ]
-        ]
-        if not month2_df.empty
-        else pd.DataFrame()
-    ],
-    ignore_index=True
-).drop_duplicates()
-
-
-if all_branches.empty:
-    st.error(
-        "Area / Branch data نہیں ملا۔"
-    )
-    st.stop()
-
-
-# =========================================================
-# RANGES
-# =========================================================
-
-ranges = [
-    "1-5",
-    "6-10",
-    "11-15",
-    "16-25",
-    ">25"
-]
-
-
-# =========================================================
-# MONTH 1
-# =========================================================
-
-if not month1_df.empty:
-    month1_df = month1_df.rename(
-        columns={
-            r: f"{from_month_label} | {r}"
-            for r in ranges
-        }
-        |
-        {
-            "Total":
-            f"{from_month_label} | Total"
-        }
-    )
-else:
-    month1_df = all_branches.copy()
-    for r in ranges:
-        month1_df[
-            f"{from_month_label} | {r}"
-        ] = 0
-    month1_df[
-        f"{from_month_label} | Total"
-    ] = 0
-
-
-# =========================================================
-# MONTH 2
-# =========================================================
-
-if not month2_df.empty:
-    month2_df = month2_df.rename(
-        columns={
-            r: f"{to_month_label} | {r}"
-            for r in ranges
-        }
-        |
-        {
-            "Total":
-            f"{to_month_label} | Total"
-        }
-    )
-else:
-    month2_df = all_branches.copy()
-    for r in ranges:
-        month2_df[
-            f"{to_month_label} | {r}"
-        ] = 0
-    month2_df[
-        f"{to_month_label} | Total"
-    ] = 0
-
-
-# =========================================================
-# MERGE MONTHS
-# =========================================================
-
-comparison = all_branches.merge(
-    month1_df,
-    on=[
-        "Area",
-        "Branch Name"
-    ],
-    how="left"
-)
-
-
-comparison = comparison.merge(
-    month2_df,
-    on=[
-        "Area",
-        "Branch Name"
-    ],
-    how="left"
-)
-
-
-comparison = comparison.fillna(0)
-
-
-# =========================================================
-# DIFFERENCE COLUMNS
-# =========================================================
-
-for r in ranges:
     comparison[
-        f"Diff | {r}"
+        "Diff | Total"
     ] = (
         comparison[
-            f"{to_month_label} | {r}"
+            f"{to_month_key} | Total"
         ]
         -
         comparison[
-            f"{from_month_label} | {r}"
+            f"{from_month_key} | Total"
         ]
     )
 
 
-# ---------------------------------------------------------
-# TOTAL DIFFERENCE
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # PERCENTAGE DIFFERENCE
+    # ---------------------------------------------------------
 
-comparison[
-    "Diff | Total"
-] = (
     comparison[
-        f"{to_month_label} | Total"
-    ]
-    -
-    comparison[
-        f"{from_month_label} | Total"
-    ]
-)
-
-
-# ---------------------------------------------------------
-# PERCENTAGE DIFFERENCE
-# ---------------------------------------------------------
-
-comparison[
-    "% Diff"
-] = np.where(
-    comparison[
-        f"{from_month_label} | Total"
-    ] == 0,
-    0,
-    (
-        comparison["Diff | Total"]
-        /
+        "% Diff"
+    ] = np.where(
         comparison[
-            f"{from_month_label} | Total"
-        ]
-    ) * 100
-)
-
-
-# =========================================================
-# SERIAL NUMBER
-# =========================================================
-
-comparison.insert(
-    0,
-    "Sr.",
-    range(
-        1,
-        len(comparison) + 1
+            f"{from_month_key} | Total"
+        ] == 0,
+        0,
+        (
+            comparison["Diff | Total"]
+            /
+            comparison[
+                f"{from_month_key} | Total"
+            ]
+        ) * 100
     )
-)
 
 
-# =========================================================
-# GRAND TOTAL
-# =========================================================
+    # =========================================================
+    # SERIAL NUMBER
+    # =========================================================
 
-grand_total = {}
-
-
-for col in comparison.columns:
-    if col == "Sr.":
-        grand_total[col] = ""
-    elif col == "Area":
-        grand_total[col] = ""
-    elif col == "Branch Name":
-        grand_total[col] = "GRAND TOTAL"
-    elif col == "% Diff":
-        old_total = comparison[
-            f"{from_month_label} | Total"
-        ].sum()
-
-        new_total = comparison[
-            f"{to_month_label} | Total"
-        ].sum()
-
-        grand_total[col] = (
-            (
-                (new_total - old_total)
-                /
-                old_total
-            ) * 100
-            if old_total != 0
-            else 0
+    comparison.insert(
+        0,
+        "Sr.",
+        range(
+            1,
+            len(comparison) + 1
         )
-    else:
-        grand_total[col] = (
-            comparison[col].sum()
-        )
-
-
-# =========================================================
-# FINAL DISPLAY TABLE
-# =========================================================
-
-final_table = pd.concat(
-    [
-        comparison,
-        pd.DataFrame(
-            [grand_total]
-        )
-    ],
-    ignore_index=True
-)
-
-
-# =========================================================
-# KPI
-# =========================================================
-
-month1_total = comparison[
-    f"{from_month_label} | Total"
-].sum()
-
-
-month2_total = comparison[
-    f"{to_month_label} | Total"
-].sum()
-
-
-total_difference = (
-    month2_total -
-    month1_total
-)
-
-
-overall_growth = (
-    (
-        total_difference
-        /
-        month1_total
-    ) * 100
-    if month1_total != 0
-    else 0
-)
-
-
-# =========================================================
-# KPI CARDS
-# =========================================================
-
-k1, k2, k3, k4, k5 = st.columns(5)
-
-
-with k1:
-    st.metric(
-        "🏢 Total Branches",
-        len(comparison)
     )
 
 
-with k2:
-    st.metric(
-        f"📅 {from_month_label}",
-        f"{int(month1_total):,}"
-    )
+    # =========================================================
+    # GRAND TOTAL
+    # =========================================================
+
+    grand_total = {}
 
 
-with k3:
-    st.metric(
-        f"📅 {to_month_label}",
-        f"{int(month2_total):,}"
-    )
+    for col in comparison.columns:
+        if col == "Sr.":
+            grand_total[col] = ""
+        elif col == "Area":
+            grand_total[col] = ""
+        elif col == "Branch Name":
+            grand_total[col] = "GRAND TOTAL"
+        elif col == "% Diff":
+            old_total = comparison[
+                f"{from_month_key} | Total"
+            ].sum()
 
+            new_total = comparison[
+                f"{to_month_key} | Total"
+            ].sum()
 
-with k4:
-    st.metric(
-        "↕ Difference",
-        f"{int(total_difference):,}"
-    )
-
-
-with k5:
-    st.metric(
-        "📈 Growth",
-        f"{overall_growth:.2f}%"
-    )
-
-
-# =========================================================
-# MAIN TABLE
-# =========================================================
-
-st.subheader(
-    "📋 Area-wise / Branch-wise Range Comparison"
-)
-
-
-try:
-    final_table.columns = (
-        final_table.columns
-        .astype(str)
-    )
-
-    for col in final_table.columns:
-        if final_table[col].dtype == "object":
-            final_table[col] = (
-                final_table[col]
-                .fillna("")
-                .astype(str)
+            grand_total[col] = (
+                (
+                    (new_total - old_total)
+                    /
+                    old_total
+                ) * 100
+                if old_total != 0
+                else 0
+            )
+        else:
+            grand_total[col] = (
+                comparison[col].sum()
             )
 
-    st.dataframe(
-        final_table,
-        use_container_width=True,
-        height=700
-    )
 
-except Exception:
-    st.error(
-        "Table display error occurred."
-    )
-    st.table(
-        final_table
-    )
+    # =========================================================
+    # FINAL DISPLAY TABLE
+    # =========================================================
 
-
-# =========================================================
-# RANGE EXPLANATION
-# =========================================================
-
-st.markdown("---")
-
-
-c1, c2 = st.columns(2)
-
-
-with c1:
-    st.markdown(
-        "### 📌 Recovery Ranges"
-    )
-    st.markdown("""
-    **1–5** → Day 1 to Day 5  
-
-    **6–10** → Day 6 to Day 10  
-
-    **11–15** → Day 11 to Day 15  
-
-    **16–25** → Day 16 to Day 25  
-
-    **>25** → More than 25 Days
-    """)
-
-
-with c2:
-    st.markdown(
-        "### 📊 Comparison Formula"
-    )
-    st.info(
-        f"""
-        **Difference = {to_month_label} − {from_month_label}**
-
-        **Growth % = Difference ÷ {from_month_label} × 100**
-
-        ہر Area اور Branch کی recovery range-wise compare کی جا رہی ہے۔
-        """
+    final_table = pd.concat(
+        [
+            comparison,
+            pd.DataFrame(
+                [grand_total]
+            )
+        ],
+        ignore_index=True
     )
 
 
-# =========================================================
-# DOWNLOAD EXCEL
-# GREEN / RED DIFFERENCE REPORT
-# =========================================================
+    # =========================================================
+    # KPI
+    # =========================================================
 
-wb = Workbook()
-
-ws = wb.active
-
-ws.title = (
-    "Range Wise Comparison"
-)
-
-ws.sheet_state = "visible"
+    month1_total = comparison[
+        f"{from_month_key} | Total"
+    ].sum()
 
 
-# =========================================================
-# WRITE HEADERS
-# =========================================================
-
-headers = list(
-    final_table.columns
-)
+    month2_total = comparison[
+        f"{to_month_key} | Total"
+    ].sum()
 
 
-for col_num, header in enumerate(
-    headers,
-    start=1
-):
-    cell = ws.cell(
-        row=1,
-        column=col_num,
-        value=header
-    )
-
-    cell.font = Font(
-        bold=True,
-        color="FFFFFF"
-    )
-
-    cell.fill = PatternFill(
-        fill_type="solid",
-        fgColor="063B66"
-    )
-
-    cell.alignment = Alignment(
-        horizontal="center",
-        vertical="center"
+    total_difference = (
+        month2_total -
+        month1_total
     )
 
 
-# =========================================================
-# WRITE DATA
-# =========================================================
+    overall_growth = (
+        (
+            total_difference
+            /
+            month1_total
+        ) * 100
+        if month1_total != 0
+        else 0
+    )
 
-for row_num, row_data in enumerate(
-    final_table.itertuples(
-        index=False
-    ),
-    start=2
-):
-    for col_num, value in enumerate(
-        row_data,
+
+    # =========================================================
+    # KPI CARDS
+    # =========================================================
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+
+
+    with k1:
+        st.metric(
+            "🏢 Total Branches",
+            len(comparison)
+        )
+
+
+    with k2:
+        st.metric(
+            f"📅 {from_month_label}",
+            f"{int(month1_total):,}"
+        )
+
+
+    with k3:
+        st.metric(
+            f"📅 {to_month_label}",
+            f"{int(month2_total):,}"
+        )
+
+
+    with k4:
+        st.metric(
+            "↕ Difference",
+            f"{int(total_difference):,}"
+        )
+
+
+    with k5:
+        st.metric(
+            "📈 Growth",
+            f"{overall_growth:.2f}%"
+        )
+
+
+    # =========================================================
+    # MAIN TABLE
+    # =========================================================
+
+    st.subheader(
+        "📋 Area-wise / Branch-wise Range Comparison"
+    )
+
+
+    try:
+        final_table.columns = (
+            final_table.columns
+            .astype(str)
+        )
+
+        for col in final_table.columns:
+            if final_table[col].dtype == "object":
+                final_table[col] = (
+                    final_table[col]
+                    .fillna("")
+                    .astype(str)
+                )
+
+        st.dataframe(
+            final_table,
+            use_container_width=True,
+            height=700
+        )
+
+    except Exception:
+        st.error(
+            "Table display error occurred."
+        )
+        st.table(
+            final_table
+        )
+
+
+    # =========================================================
+    # RANGE EXPLANATION
+    # =========================================================
+
+    st.markdown("---")
+
+
+    c1, c2 = st.columns(2)
+
+
+    with c1:
+        st.markdown(
+            "### 📌 Recovery Ranges"
+        )
+        st.markdown("""
+        **1–5** → Day 1 to Day 5  
+
+        **6–10** → Day 6 to Day 10  
+
+        **11–15** → Day 11 to Day 15  
+
+        **16–25** → Day 16 to Day 25  
+
+        **>25** → More than 25 Days
+        """)
+
+
+    with c2:
+        st.markdown(
+            "### 📊 Comparison Formula"
+        )
+        st.info(
+            f"""
+            **Difference = {to_month_label} − {from_month_label}**
+
+            **Growth % = Difference ÷ {from_month_label} × 100**
+
+            ہر Area اور Branch کی recovery range-wise compare کی جا رہی ہے۔
+            """
+        )
+
+
+    # =========================================================
+    # DOWNLOAD EXCEL
+    # GREEN / RED DIFFERENCE REPORT
+    # =========================================================
+
+    wb = Workbook()
+
+    ws = wb.active
+
+    ws.title = (
+        "Range Wise Comparison"
+    )
+
+    ws.sheet_state = "visible"
+
+
+    # =========================================================
+    # WRITE HEADERS
+    # =========================================================
+
+    headers = list(
+        final_table.columns
+    )
+
+
+    for col_num, header in enumerate(
+        headers,
         start=1
     ):
         cell = ws.cell(
-            row=row_num,
+            row=1,
             column=col_num,
-            value=value
+            value=header
+        )
+
+        cell.font = Font(
+            bold=True,
+            color="FFFFFF"
+        )
+
+        cell.fill = PatternFill(
+            fill_type="solid",
+            fgColor="063B66"
         )
 
         cell.alignment = Alignment(
@@ -1927,1741 +1906,1408 @@ for row_num, row_data in enumerate(
         )
 
 
-# =========================================================
-# FIND DIFFERENCE COLUMNS
-# =========================================================
+    # =========================================================
+    # WRITE DATA
+    # =========================================================
 
-difference_columns = []
-
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
-
-    if header:
-        header_text = str(
-            header
-        )
-
-        if (
-            header_text.startswith(
-                "Diff |"
-            )
-            or
-            header_text == "% Diff"
-        ):
-            difference_columns.append(
-                col_num
-            )
-
-
-# =========================================================
-# GREEN / RED COLORS
-# =========================================================
-
-green_fill = PatternFill(
-    fill_type="solid",
-    fgColor="C6EFCE"
-)
-
-
-green_font = Font(
-    color="006100",
-    bold=True
-)
-
-
-red_fill = PatternFill(
-    fill_type="solid",
-    fgColor="FFC7CE"
-)
-
-
-red_font = Font(
-    color="9C0006",
-    bold=True
-)
-
-
-# =========================================================
-# CONDITIONAL FORMATTING
-# =========================================================
-
-grand_total_row = ws.max_row
-
-first_data_row = 2
-
-last_data_row = (
-    grand_total_row - 1
-)
-
-
-if last_data_row >= first_data_row:
-    for col_num in difference_columns:
-        col_letter = (
-            get_column_letter(
-                col_num
-            )
-        )
-
-        data_range = (
-            f"{col_letter}"
-            f"{first_data_row}:"
-            f"{col_letter}"
-            f"{last_data_row}"
-        )
-
-        # POSITIVE = GREEN
-        ws.conditional_formatting.add(
-            data_range,
-            CellIsRule(
-                operator="greaterThan",
-                formula=["0"],
-                fill=green_fill,
-                font=green_font
-            )
-        )
-
-        # NEGATIVE = RED
-        ws.conditional_formatting.add(
-            data_range,
-            CellIsRule(
-                operator="lessThan",
-                formula=["0"],
-                fill=red_fill,
-                font=red_font
-            )
-        )
-
-
-# =========================================================
-# GRAND TOTAL ROW
-# =========================================================
-
-grand_fill = PatternFill(
-    fill_type="solid",
-    fgColor="063B66"
-)
-
-
-grand_font = Font(
-    bold=True,
-    color="FFFFFF"
-)
-
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-    cell = ws.cell(
-        row=grand_total_row,
-        column=col_num
-    )
-
-    cell.fill = grand_fill
-    cell.font = grand_font
-    cell.alignment = Alignment(
-        horizontal="center",
-        vertical="center"
-    )
-
-
-# =========================================================
-# % DIFFERENCE FORMAT
-# =========================================================
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
-
-    if header == "% Diff":
-        for row_num in range(
-            2,
-            ws.max_row + 1
-        ):
-            ws.cell(
-                row=row_num,
-                column=col_num
-            ).number_format = (
-                '0.00"%"'
-            )
-
-
-# =========================================================
-# BORDERS
-# =========================================================
-
-thin_border = Border(
-    left=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
-    right=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
-    top=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
-    bottom=Side(
-        style="thin",
-        color="D9E1F2"
-    )
-)
-
-
-for row in ws.iter_rows():
-    for cell in row:
-        cell.border = thin_border
-
-
-# =========================================================
-# COLUMN WIDTH
-# =========================================================
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-    max_length = 0
-
-    for row_num in range(
-        1,
-        ws.max_row + 1
+    for row_num, row_data in enumerate(
+        final_table.itertuples(
+            index=False
+        ),
+        start=2
     ):
-        value = ws.cell(
-            row=row_num,
+        for col_num, value in enumerate(
+            row_data,
+            start=1
+        ):
+            cell = ws.cell(
+                row=row_num,
+                column=col_num,
+                value=value
+            )
+
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center"
+            )
+
+
+    # =========================================================
+    # FIND DIFFERENCE COLUMNS
+    # =========================================================
+
+    difference_columns = []
+
+
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+        header = ws.cell(
+            row=1,
             column=col_num
         ).value
 
-        if value is not None:
-            max_length = max(
-                max_length,
-                len(str(value))
+        if header:
+            header_text = str(
+                header
             )
 
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
+            if (
+                header_text.startswith(
+                    "Diff |"
+                )
+                or
+                header_text == "% Diff"
+            ):
+                difference_columns.append(
+                    col_num
+                )
 
-    if header == "Branch Name":
-        ws.column_dimensions[
-            get_column_letter(
-                col_num
+
+    # =========================================================
+    # GREEN / RED COLORS
+    # =========================================================
+
+    green_fill = PatternFill(
+        fill_type="solid",
+        fgColor="C6EFCE"
+    )
+
+
+    green_font = Font(
+        color="006100",
+        bold=True
+    )
+
+
+    red_fill = PatternFill(
+        fill_type="solid",
+        fgColor="FFC7CE"
+    )
+
+
+    red_font = Font(
+        color="9C0006",
+        bold=True
+    )
+
+
+    # =========================================================
+    # CONDITIONAL FORMATTING
+    # =========================================================
+
+    grand_total_row = ws.max_row
+
+    first_data_row = 2
+
+    last_data_row = (
+        grand_total_row - 1
+    )
+
+
+    if last_data_row >= first_data_row:
+        for col_num in difference_columns:
+            col_letter = (
+                get_column_letter(
+                    col_num
+                )
             )
-        ].width = 22
-    elif header == "Area":
-        ws.column_dimensions[
-            get_column_letter(
-                col_num
+
+            data_range = (
+                f"{col_letter}"
+                f"{first_data_row}:"
+                f"{col_letter}"
+                f"{last_data_row}"
             )
-        ].width = 20
-    else:
-        ws.column_dimensions[
-            get_column_letter(
-                col_num
+
+            # POSITIVE = GREEN
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(
+                    operator="greaterThan",
+                    formula=["0"],
+                    fill=green_fill,
+                    font=green_font
+                )
             )
-        ].width = min(
-            max(
-                max_length + 3,
-                10
-            ),
-            18
+
+            # NEGATIVE = RED
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(
+                    operator="lessThan",
+                    formula=["0"],
+                    fill=red_fill,
+                    font=red_font
+                )
+            )
+
+
+    # =========================================================
+    # GRAND TOTAL ROW
+    # =========================================================
+
+    grand_fill = PatternFill(
+        fill_type="solid",
+        fgColor="063B66"
+    )
+
+
+    grand_font = Font(
+        bold=True,
+        color="FFFFFF"
+    )
+
+
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+        cell = ws.cell(
+            row=grand_total_row,
+            column=col_num
+        )
+
+        cell.fill = grand_fill
+        cell.font = grand_font
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
         )
 
 
-# =========================================================
-# ROW HEIGHT
-# =========================================================
+    # =========================================================
+    # % DIFFERENCE FORMAT
+    # =========================================================
 
-ws.row_dimensions[1].height = 30
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+        header = ws.cell(
+            row=1,
+            column=col_num
+        ).value
 
-
-for row_num in range(
-    2,
-    ws.max_row + 1
-):
-    ws.row_dimensions[
-        row_num
-    ].height = 22
-
-
-# =========================================================
-# FREEZE PANES
-# =========================================================
-
-ws.freeze_panes = "D2"
-
-
-# =========================================================
-# AUTO FILTER
-# =========================================================
-
-ws.auto_filter.ref = (
-    ws.dimensions
-)
+        if header == "% Diff":
+            for row_num in range(
+                2,
+                ws.max_row + 1
+            ):
+                ws.cell(
+                    row=row_num,
+                    column=col_num
+                ).number_format = (
+                    '0.00"%"'
+                )
 
 
-# =========================================================
-# SAVE TO MEMORY
-# =========================================================
+    # =========================================================
+    # BORDERS
+    # =========================================================
 
-excel_output = BytesIO()
-
-wb.save(
-    excel_output
-)
-
-excel_output.seek(0)
-
-
-# =========================================================
-# DOWNLOAD BUTTON
-# =========================================================
-
-st.download_button(
-    label="⬇️ Download Range-Wise Excel Report",
-    data=excel_output.getvalue(),
-    file_name=(
-        "Range_Wise_Recovery_Comparison.xlsx"
-    ),
-    mime=(
-        "application/vnd.openxmlformats-officedocument."
-        "spreadsheetml.sheet"
-    ),
-    use_container_width=True
-)
-
-import streamlit as st
-import pandas as pd
-import os
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.lib.styles import getSampleStyleSheet
-from io import BytesIO
-from zipfile import ZipFile
-
-st.header("📑 Cheque-wise Analysis")
-
-uploaded_cheque = st.file_uploader("Upload Cheque-wise List", type=["xlsx", "csv"])
-
-if uploaded_cheque:
-
-    if uploaded_cheque.name.endswith(".csv"):
-        cheque_df = pd.read_csv(uploaded_cheque)
-    else:
-        cheque_df = pd.read_excel(uploaded_cheque)
-
-    cheque_df.columns = [str(c).strip() for c in cheque_df.columns]
-
-    required_cols = ["branch_id","date_disbursed","sanction_no","tranch_no","member_name","member_cnic"]
-    cheque_df = cheque_df[[c for c in required_cols if c in cheque_df.columns]]
-
-    cheque_df["Name"] = cheque_df["member_name"]
-    cheque_df.drop(columns=["member_name"], inplace=True)
-
-    cheque_df["date_disbursed"] = pd.to_datetime(cheque_df["date_disbursed"], errors="coerce")
-
-    today = datetime.today()
-
-    cheque_df["Months Passed"] = cheque_df["date_disbursed"].apply(
-        lambda x: relativedelta(today, x).months + relativedelta(today, x).years*12 if pd.notnull(x) else ""
+    thin_border = Border(
+        left=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+        right=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+        top=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+        bottom=Side(
+            style="thin",
+            color="D9E1F2"
+        )
     )
 
-    cheque_df["Days Passed"] = cheque_df["date_disbursed"].apply(
-        lambda x: (today-x).days if pd.notnull(x) else ""
+
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.border = thin_border
+
+
+    # =========================================================
+    # COLUMN WIDTH
+    # =========================================================
+
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+        max_length = 0
+
+        for row_num in range(
+            1,
+            ws.max_row + 1
+        ):
+            value = ws.cell(
+                row=row_num,
+                column=col_num
+            ).value
+
+            if value is not None:
+                max_length = max(
+                    max_length,
+                    len(str(value))
+                )
+
+        header = ws.cell(
+            row=1,
+            column=col_num
+        ).value
+
+        if header == "Branch Name":
+            ws.column_dimensions[
+                get_column_letter(
+                    col_num
+                )
+            ].width = 22
+        elif header == "Area":
+            ws.column_dimensions[
+                get_column_letter(
+                    col_num
+                )
+            ].width = 20
+        else:
+            ws.column_dimensions[
+                get_column_letter(
+                    col_num
+                )
+            ].width = min(
+                max(
+                    max_length + 3,
+                    10
+                ),
+                18
+            )
+
+
+    # =========================================================
+    # ROW HEIGHT
+    # =========================================================
+
+    ws.row_dimensions[1].height = 30
+
+
+    for row_num in range(
+        2,
+        ws.max_row + 1
+    ):
+        ws.row_dimensions[
+            row_num
+        ].height = 22
+
+
+    # =========================================================
+    # FREEZE PANES
+    # =========================================================
+
+    ws.freeze_panes = "D2"
+
+
+    # =========================================================
+    # AUTO FILTER
+    # =========================================================
+
+    ws.auto_filter.ref = (
+        ws.dimensions
     )
 
-    for col in ["House Complete","Shifted","Design"]:
-        if col not in cheque_df.columns:
-            cheque_df[col] = ""
 
-    cheque_df["2nd Tranch Status"] = ""
+    # =========================================================
+    # SAVE TO MEMORY
+    # =========================================================
 
-    second_map = cheque_df[cheque_df["tranch_no"]==2].groupby("sanction_no").size().to_dict()
+    excel_output = BytesIO()
 
-    first_df = cheque_df[cheque_df["tranch_no"]==1].copy()
-    first_df["2nd Tranch Status"] = first_df["sanction_no"].apply(lambda x:"OK" if x in second_map else "")
+    wb.save(
+        excel_output
+    )
 
-    display_cols = ["branch_id","sanction_no","tranch_no","Name","member_cnic",
-                    "date_disbursed","Months Passed","2nd Tranch Status",
-                    "House Complete","Shifted","Design"]
+    excel_output.seek(0)
 
-    editable_df = first_df[display_cols]
 
-    # -------- Editable Table --------
-    edited_df = st.experimental_data_editor(editable_df, use_container_width=True)
-
-    # -------- CSV Download --------
-    csv_data = edited_df.to_csv(index=False).encode("utf-8")
+    # =========================================================
+    # DOWNLOAD BUTTON
+    # =========================================================
 
     st.download_button(
-        "⬇️ Download Edited CSV",
-        csv_data,
-        "cheque_analysis.csv",
-        "text/csv"
+        label="⬇️ Download Range-Wise Excel Report",
+        data=excel_output.getvalue(),
+        file_name=(
+            "Range_Wise_Recovery_Comparison.xlsx"
+        ),
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        use_container_width=True
     )
 
-    # -------- Save Flags --------
-    if st.button("💾 Save Flags"):
-        edited_df[["sanction_no","tranch_no","House Complete","Shifted","Design"]].to_csv(
-            "cheque_flags.csv", index=False
+    import streamlit as st
+    import pandas as pd
+    import os
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from io import BytesIO
+    from zipfile import ZipFile
+
+    st.header("📑 Cheque-wise Analysis")
+
+    uploaded_cheque = st.file_uploader("Upload Cheque-wise List", type=["xlsx", "csv"])
+
+    if uploaded_cheque:
+
+        if uploaded_cheque.name.endswith(".csv"):
+            cheque_df = pd.read_csv(uploaded_cheque)
+        else:
+            cheque_df = pd.read_excel(uploaded_cheque)
+
+        cheque_df.columns = [str(c).strip() for c in cheque_df.columns]
+
+        required_cols = ["branch_id","date_disbursed","sanction_no","tranch_no","member_name","member_cnic"]
+        cheque_df = cheque_df[[c for c in required_cols if c in cheque_df.columns]]
+
+        cheque_df["Name"] = cheque_df["member_name"]
+        cheque_df.drop(columns=["member_name"], inplace=True)
+
+        cheque_df["date_disbursed"] = pd.to_datetime(cheque_df["date_disbursed"], errors="coerce")
+
+        today = datetime.today()
+
+        cheque_df["Months Passed"] = cheque_df["date_disbursed"].apply(
+            lambda x: relativedelta(today, x).months + relativedelta(today, x).years*12 if pd.notnull(x) else ""
         )
-        st.success("Saved")
 
-    # -------- ZIP PDFs --------
-    if st.button("⬇️ Download All Branch PDFs (ZIP)"):
+        cheque_df["Days Passed"] = cheque_df["date_disbursed"].apply(
+            lambda x: (today-x).days if pd.notnull(x) else ""
+        )
 
-        zip_buffer = BytesIO()
+        for col in ["House Complete","Shifted","Design"]:
+            if col not in cheque_df.columns:
+                cheque_df[col] = ""
 
-        with ZipFile(zip_buffer,"w") as zipf:
+        cheque_df["2nd Tranch Status"] = ""
 
-            for branch in edited_df["branch_id"].unique():
+        second_map = cheque_df[cheque_df["tranch_no"]==2].groupby("sanction_no").size().to_dict()
 
-                bdf = edited_df[edited_df["branch_id"]==branch]
+        first_df = cheque_df[cheque_df["tranch_no"]==1].copy()
+        first_df["2nd Tranch Status"] = first_df["sanction_no"].apply(lambda x:"OK" if x in second_map else "")
 
-                pdf = BytesIO()
-                doc = SimpleDocTemplate(pdf, pagesize=landscape(A4))
-                styles = getSampleStyleSheet()
-                elements=[]
+        display_cols = ["branch_id","sanction_no","tranch_no","Name","member_cnic",
+                        "date_disbursed","Months Passed","2nd Tranch Status",
+                        "House Complete","Shifted","Design"]
 
-                elements.append(Paragraph(f"Branch {branch}",styles["Heading1"]))
-                elements.append(Spacer(1,10))
+        editable_df = first_df[display_cols]
 
-                table_df = bdf.drop(columns=["branch_id","tranch_no"],errors="ignore")
-                table_df.insert(0,"S.No",range(1,len(table_df)+1))
+        # -------- Editable Table --------
+        edited_df = st.experimental_data_editor(editable_df, use_container_width=True)
 
-                data=[table_df.columns.tolist()]+table_df.astype(str).values.tolist()
-
-                table=Table(data,repeatRows=1)
-                table.setStyle(TableStyle([
-                    ("GRID",(0,0),(-1,-1),0.5,colors.black),
-                    ("ALIGN",(0,0),(-1,-1),"CENTER")
-                ]))
-
-                elements.append(table)
-                doc.build(elements)
-                pdf.seek(0)
-
-                zipf.writestr(f"branch_{branch}.pdf",pdf.getvalue())
-
-        zip_buffer.seek(0)
+        # -------- CSV Download --------
+        csv_data = edited_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            "Download ZIP",
-            zip_buffer.getvalue(),
-            "branches.zip",
-            "application/zip"
+            "⬇️ Download Edited CSV",
+            csv_data,
+            "cheque_analysis.csv",
+            "text/csv"
         )
-import streamlit as st
-import pandas as pd
-from fpdf import FPDF
 
-st.title("Loan Disbursement PDF Generator (Branchwise)")
+        # -------- Save Flags --------
+        if st.button("💾 Save Flags"):
+            edited_df[["sanction_no","tranch_no","House Complete","Shifted","Design"]].to_csv(
+                "cheque_flags.csv", index=False
+            )
+            st.success("Saved")
 
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+        # -------- ZIP PDFs --------
+        if st.button("⬇️ Download All Branch PDFs (ZIP)"):
 
-# ---------------------- Safe Functions ----------------------
-def safe(val):
-    try:
-        if pd.isna(val):
+            zip_buffer = BytesIO()
+
+            with ZipFile(zip_buffer,"w") as zipf:
+
+                for branch in edited_df["branch_id"].unique():
+
+                    bdf = edited_df[edited_df["branch_id"]==branch]
+
+                    pdf = BytesIO()
+                    doc = SimpleDocTemplate(pdf, pagesize=landscape(A4))
+                    styles = getSampleStyleSheet()
+                    elements=[]
+
+                    elements.append(Paragraph(f"Branch {branch}",styles["Heading1"]))
+                    elements.append(Spacer(1,10))
+
+                    table_df = bdf.drop(columns=["branch_id","tranch_no"],errors="ignore")
+                    table_df.insert(0,"S.No",range(1,len(table_df)+1))
+
+                    data=[table_df.columns.tolist()]+table_df.astype(str).values.tolist()
+
+                    table=Table(data,repeatRows=1)
+                    table.setStyle(TableStyle([
+                        ("GRID",(0,0),(-1,-1),0.5,colors.black),
+                        ("ALIGN",(0,0),(-1,-1),"CENTER")
+                    ]))
+
+                    elements.append(table)
+                    doc.build(elements)
+                    pdf.seek(0)
+
+                    zipf.writestr(f"branch_{branch}.pdf",pdf.getvalue())
+
+            zip_buffer.seek(0)
+
+            st.download_button(
+                "Download ZIP",
+                zip_buffer.getvalue(),
+                "branches.zip",
+                "application/zip"
+            )
+    import streamlit as st
+    import pandas as pd
+    from fpdf import FPDF
+
+    st.title("Loan Disbursement PDF Generator (Branchwise)")
+
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+    # ---------------------- Safe Functions ----------------------
+    def safe(val):
+        try:
+            if pd.isna(val):
+                return ""
+            return str(val)
+        except:
             return ""
-        return str(val)
-    except:
-        return ""
 
-# ---------------------- PDF Class ----------------------
-class PDF(FPDF):
-    def header(self):
-        self.set_font("Arial", 'B', 12)
-        self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
-        self.ln(3)
+    # ---------------------- PDF Class ----------------------
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", 'B', 12)
+            self.cell(0, 8, "Loan Disbursement Report", ln=True, align="C")
+            self.ln(3)
 
-# ---------------------- PDF GENERATION FUNCTION ----------------------
-# لاجک بالکل سیم ہے، بس فنکشن میں ڈالنے سے اسکرین پر None پرنٹ ہونا بند ہو جائے گا
-def generate_pdf_data(br_name, br_data):
-    pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
-    pdf.set_auto_page_break(auto=True, margin=10)
-    pdf.add_page()
+    # ---------------------- PDF GENERATION FUNCTION ----------------------
+    # لاجک بالکل سیم ہے، بس فنکشن میں ڈالنے سے اسکرین پر None پرنٹ ہونا بند ہو جائے گا
+    def generate_pdf_data(br_name, br_data):
+        pdf = PDF(orientation="L", unit="mm", format="A4")  # LANDSCAPE
+        pdf.set_auto_page_break(auto=True, margin=10)
+        pdf.add_page()
 
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 8, f"Branch: {br_name}", ln=True, align="C")
-    pdf.ln(3)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 8, f"Branch: {br_name}", ln=True, align="C")
+        pdf.ln(3)
 
-    # ---------------------- TABLE HEADER ----------------------
-    headers = [
-        "Date Disburse", "Sanction No", "Tranch", "Cheque No",
-        "Loan Amount", "Group No", "Member Name", "CNIC"
-    ]
-    col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
+        # ---------------------- TABLE HEADER ----------------------
+        headers = [
+            "Date Disburse", "Sanction No", "Tranch", "Cheque No",
+            "Loan Amount", "Group No", "Member Name", "CNIC"
+        ]
+        col_widths = [30, 35, 15, 40, 30, 30, 55, 45]
 
-    pdf.set_fill_color(200, 200, 200)
-    pdf.set_font("Arial", 'B', 9)
+        pdf.set_fill_color(200, 200, 200)
+        pdf.set_font("Arial", 'B', 9)
 
-    for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
-    pdf.ln()
-
-    # ---------------------- TABLE ROWS ----------------------
-    fill = False
-    for _, row in br_data.iterrows():
-        pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
-        pdf.set_font("Arial", '', 9)
-
-        pdf.cell(col_widths[0], 7, safe(row["date_disburse"]), border=1, fill=True)
-        pdf.cell(col_widths[1], 7, safe(row["sanction_no"]), border=1, fill=True)
-        pdf.cell(col_widths[2], 7, safe(row["tranch"]), border=1, fill=True)
-        pdf.cell(col_widths[3], 7, safe(row["cheque_no"]), border=1, fill=True)
-        pdf.cell(col_widths[4], 7, safe(row["loan_amount"]), border=1, fill=True)
-        pdf.cell(col_widths[5], 7, safe(row["group_no"]), border=1, fill=True)
-        pdf.cell(col_widths[6], 7, safe(row["member_name"]), border=1, fill=True)
-        pdf.cell(col_widths[7], 7, safe(row["member_cnic"]), border=1, fill=True)
-
+        for i, h in enumerate(headers):
+            pdf.cell(col_widths[i], 8, h, border=1, align="C", fill=True)
         pdf.ln()
-        fill = not fill
 
-    return pdf.output(dest="S").encode("latin-1")
+        # ---------------------- TABLE ROWS ----------------------
+        fill = False
+        for _, row in br_data.iterrows():
+            pdf.set_fill_color(235, 245, 255) if fill else pdf.set_fill_color(255, 255, 255)
+            pdf.set_font("Arial", '', 9)
 
-# ---------------------- MAIN ----------------------
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
+            pdf.cell(col_widths[0], 7, safe(row["date_disburse"]), border=1, fill=True)
+            pdf.cell(col_widths[1], 7, safe(row["sanction_no"]), border=1, fill=True)
+            pdf.cell(col_widths[2], 7, safe(row["tranch"]), border=1, fill=True)
+            pdf.cell(col_widths[3], 7, safe(row["cheque_no"]), border=1, fill=True)
+            pdf.cell(col_widths[4], 7, safe(row["loan_amount"]), border=1, fill=True)
+            pdf.cell(col_widths[5], 7, safe(row["group_no"]), border=1, fill=True)
+            pdf.cell(col_widths[6], 7, safe(row["member_name"]), border=1, fill=True)
+            pdf.cell(col_widths[7], 7, safe(row["member_cnic"]), border=1, fill=True)
 
-    # Fix column spellings
-    df.rename(columns={
-        "date_disbursed": "date_disburse",
-        "date_of_disbursement": "date_disburse",
-        "tranch_no": "tranch",
-        "grouo_no": "group_no",
-    }, inplace=True)
+            pdf.ln()
+            fill = not fill
 
-    # Required Columns
-    required_cols = [
-        "branch_id", "member_name", "member_cnic", "loan_amount",
-        "tranch", "cheque_no", "sanction_no",
-        "group_no", "date_disburse"
-    ]
+        return pdf.output(dest="S").encode("latin-1")
 
-    # Check Missing Columns
-    missing = [c for c in required_cols if c not in df.columns]
+    # ---------------------- MAIN ----------------------
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
 
-    if missing:
-        st.error(f"Missing columns: {missing}")
+        # Fix column spellings
+        df.rename(columns={
+            "date_disbursed": "date_disburse",
+            "date_of_disbursement": "date_disburse",
+            "tranch_no": "tranch",
+            "grouo_no": "group_no",
+        }, inplace=True)
+
+        # Required Columns
+        required_cols = [
+            "branch_id", "member_name", "member_cnic", "loan_amount",
+            "tranch", "cheque_no", "sanction_no",
+            "group_no", "date_disburse"
+        ]
+
+        # Check Missing Columns
+        missing = [c for c in required_cols if c not in df.columns]
+
+        if missing:
+            st.error(f"Missing columns: {missing}")
+            st.stop()
+
+        branches = df["branch_id"].unique()
+
+        # ---------------------- MAIN LOOP ----------------------
+        for br in branches:
+            br_df = df[df["branch_id"] == br]
+
+            st.markdown(f"### 📌 Branch: **{br}**")
+            st.dataframe(br_df)
+
+            # پی ڈی ایف ڈیٹا بیک گراؤنڈ میں بنے گا (کوئی None نہیں دکھے گا)
+            pdf_bytes = generate_pdf_data(br, br_df)
+
+            # سنگل کلک ڈاؤن لوڈ بٹن
+            st.download_button(
+                label=f"Download PDF for Branch {br}",
+                data=pdf_bytes,
+                file_name=f"{br}_Loan_Disbursement.pdf",
+                mime="application/pdf",
+                key=f"btn_{br}"  # Unique Key
+            )
+        
+            st.write("---")
+
+        st.success("All Branch PDF Buttons Ready!")
+    import streamlit as st
+    import pandas as pd
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+    from reportlab.lib import colors
+    import os
+
+    st.title("Recovery Date Range Summary")
+
+    # ---------------- Local storage folder ----------------
+    LOCAL_FILE = "data/recovery.xlsx"
+    os.makedirs("data", exist_ok=True)
+
+    # ---------------- File Upload ----------------
+    uploaded = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
+
+    # --- If uploaded, save locally and store in session_state ---
+    if uploaded:
+        if uploaded.name.endswith(".csv"):
+            df = pd.read_csv(uploaded)
+        else:
+            df = pd.read_excel(uploaded)
+
+        st.session_state["df"] = df
+        df.to_excel(LOCAL_FILE, index=False)
+        st.success("File uploaded and saved locally!")
+
+    # --- If no upload, check session_state or local file ---
+    elif "df" in st.session_state:
+        df = st.session_state["df"]
+        st.info("Using previously uploaded file from session.")
+    elif os.path.exists(LOCAL_FILE):
+        df = pd.read_excel(LOCAL_FILE)
+        st.session_state["df"] = df
+        st.info("Loaded previously uploaded file from local storage.")
+    else:
+        st.info("Please upload recovery file.")
+        #st.stop()
+
+    # ---------------- Column Selection ----------------
+    st.subheader("Available Columns")
+
+    date_col = st.selectbox("Select Date Column", df.columns)
+    branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
+    area_col = None
+    if 'area_id' in df.columns:
+        area_col = 'area_id'
+
+    # ---------------- Convert Date ----------------
+    df[date_col] = pd.to_datetime(
+        df[date_col].astype(str).str.strip(),
+        format="%Y-%b-%d",
+        errors="coerce"
+    )
+    df = df.dropna(subset=[date_col, branch_col])
+    df["Day"] = df[date_col].dt.day
+    df = df[df["Day"].notna()]
+
+    # --- Updated Bins (1-5, 6-10, 11-15, 16-31) ---
+    df["Range"] = pd.cut(
+        df["Day"],
+        bins=[0, 5, 10, 15, 31],
+        labels=["1-5", "6-10", "11-15", "16-31"]
+    )
+    if df["Range"].isna().all():
+        st.error("Date column sahi format me nahi.")
         st.stop()
 
-    branches = df["branch_id"].unique()
-
-    # ---------------------- MAIN LOOP ----------------------
-    for br in branches:
-        br_df = df[df["branch_id"] == br]
-
-        st.markdown(f"### 📌 Branch: **{br}**")
-        st.dataframe(br_df)
-
-        # پی ڈی ایف ڈیٹا بیک گراؤنڈ میں بنے گا (کوئی None نہیں دکھے گا)
-        pdf_bytes = generate_pdf_data(br, br_df)
-
-        # سنگل کلک ڈاؤن لوڈ بٹن
-        st.download_button(
-            label=f"Download PDF for Branch {br}",
-            data=pdf_bytes,
-            file_name=f"{br}_Loan_Disbursement.pdf",
-            mime="application/pdf",
-            key=f"btn_{br}"  # Unique Key
-        )
-        
-        st.write("---")
-
-    st.success("All Branch PDF Buttons Ready!")
-import streamlit as st
-import pandas as pd
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
-import os
-
-st.title("Recovery Date Range Summary")
-
-# ---------------- Local storage folder ----------------
-LOCAL_FILE = "data/recovery.xlsx"
-os.makedirs("data", exist_ok=True)
-
-# ---------------- File Upload ----------------
-uploaded = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
-
-# --- If uploaded, save locally and store in session_state ---
-if uploaded:
-    if uploaded.name.endswith(".csv"):
-        df = pd.read_csv(uploaded)
-    else:
-        df = pd.read_excel(uploaded)
-
-    st.session_state["df"] = df
-    df.to_excel(LOCAL_FILE, index=False)
-    st.success("File uploaded and saved locally!")
-
-# --- If no upload, check session_state or local file ---
-elif "df" in st.session_state:
-    df = st.session_state["df"]
-    st.info("Using previously uploaded file from session.")
-elif os.path.exists(LOCAL_FILE):
-    df = pd.read_excel(LOCAL_FILE)
-    st.session_state["df"] = df
-    st.info("Loaded previously uploaded file from local storage.")
-else:
-    st.info("Please upload recovery file.")
-    #st.stop()
-
-# ---------------- Column Selection ----------------
-st.subheader("Available Columns")
-
-date_col = st.selectbox("Select Date Column", df.columns)
-branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
-area_col = None
-if 'area_id' in df.columns:
-    area_col = 'area_id'
-
-# ---------------- Convert Date ----------------
-df[date_col] = pd.to_datetime(
-    df[date_col].astype(str).str.strip(),
-    format="%Y-%b-%d",
-    errors="coerce"
-)
-df = df.dropna(subset=[date_col, branch_col])
-df["Day"] = df[date_col].dt.day
-df = df[df["Day"].notna()]
-
-# --- Updated Bins (1-5, 6-10, 11-15, 16-31) ---
-df["Range"] = pd.cut(
-    df["Day"],
-    bins=[0, 5, 10, 15, 31],
-    labels=["1-5", "6-10", "11-15", "16-31"]
-)
-if df["Range"].isna().all():
-    st.error("Date column sahi format me nahi.")
-    st.stop()
-
-# ---------------- Pivot Table ----------------
-pivot = pd.pivot_table(
-    df,
-    index=[branch_col],
-    columns="Range",
-    aggfunc="size",
-    fill_value=0
-)
-
-# Ensure columns exist
-for c in ["1-5", "6-10", "11-15", "16-31"]:
-    if c not in pivot.columns:
-        pivot[c] = 0
-
-pivot["Total"] = pivot[["1-5", "6-10", "11-15", "16-31"]].sum(axis=1)
-
-# Percentages
-pivot["1-5 %"] = (pivot["1-5"] / pivot["Total"] * 100).round(2)
-pivot["6-10 %"] = (pivot["6-10"] / pivot["Total"] * 100).round(2)
-pivot["11-15 %"] = (pivot["11-15"] / pivot["Total"] * 100).round(2)
-pivot["16-31 %"] = (pivot["16-31"] / pivot["Total"] * 100).round(2)
-
-# Rename for readability
-pivot.rename(columns={
-    "1-5": "Recovery 1-5",
-    "6-10": "Recovery 6-10",
-    "11-15": "Recovery 11-15",
-    "16-31": "Recovery 16-31"
-}, inplace=True)
-
-result_df = pivot.reset_index()
-
-# ---------------- Add Area column BEFORE Branch ----------------
-if area_col:
-    branch_area_df = df[[branch_col, area_col]].drop_duplicates()
-    result_df = result_df.merge(branch_area_df, on=branch_col, how='left')
-    # Move Area column before Branch column
-    cols = result_df.columns.tolist()
-    branch_idx = cols.index(branch_col)
-    cols.insert(branch_idx, cols.pop(cols.index(area_col)))
-    result_df = result_df[cols]
-
-# ---------------- Grand Total Row ----------------
-numeric_cols = ["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31", "Total"]
-# Sum numeric counts
-grand_total_counts = result_df[numeric_cols].sum()
-# Calculate percentages for Grand Total
-grand_total_percent = (grand_total_counts[["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31"]] / grand_total_counts["Total"] * 100).round(2)
-
-grand_values = {}
-for col in result_df.columns:
-    if col == branch_col:
-        grand_values[col] = "Grand Total"
-    elif col == area_col:
-        grand_values[col] = ""
-    elif col in numeric_cols:
-        grand_values[col] = grand_total_counts[col]
-    elif col in ["1-5 %", "6-10 %", "11-15 %", "16-31 %"]:
-        pct_map = {
-            "1-5 %": "Recovery 1-5", 
-            "6-10 %": "Recovery 6-10", 
-            "11-15 %": "Recovery 11-15", 
-            "16-31 %": "Recovery 16-31"
-        }
-        grand_values[col] = grand_total_percent[pct_map[col]]
-    else:
-        grand_values[col] = ""
-
-result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
-
-# ---------------- Show Table ----------------
-st.subheader("Branch Wise Recovery Summary")
-st.dataframe(result_df)
-
-# ---------------- CSV Download ----------------
-csv = result_df.to_csv(index=False).encode("utf-8")
-st.download_button(
-    label="⬇ Download CSV",
-    data=csv,
-    file_name="recovery_summary.csv",
-    mime="text/csv"
-)
-
-# ---------------- PDF Download ----------------
-buffer = BytesIO()
-doc = SimpleDocTemplate(buffer, pagesize=A4)
-
-# Table data
-table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-
-# Create Table with style
-table = Table(table_data)
-style = TableStyle([
-    ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ('BACKGROUND', (0,0), (-1,0), colors.grey),
-    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ('FONTSIZE', (0,0), (-1,-1), 10),
-    ('BOTTOMPADDING', (0,0), (-1,0), 6),
-])
-table.setStyle(style)
-
-doc.build([table])
-pdf_bytes = buffer.getvalue()
-buffer.close()
-
-st.download_button(
-    label="⬇ Download PDF",
-    data=pdf_bytes,
-    file_name="recovery_summary.pdf",
-    mime="application/pdf"
-)
-
-import streamlit as st
-import pandas as pd
-import numpy as np
-from io import BytesIO
-
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from openpyxl.formatting.rule import CellIsRule
-
-# =========================================================
-# CSS
-# =========================================================
-
-st.markdown("""
-<style>
-
-.mdp-title {
-    background: linear-gradient(135deg,#063b66,#0876b9);
-    color:white;
-    padding:18px;
-    border-radius:12px;
-    text-align:center;
-    font-size:27px;
-    font-weight:800;
-    margin-bottom:20px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-st.markdown(
-    '<div class="mdp-title">📊 MDP MONTH-WISE COMPARISON REPORT</div>',
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# UPLOAD
-# =========================================================
-
-st.subheader("📤 Upload MDP Excel")
-
-uploaded_file = st.file_uploader(
-    "Upload MDP Excel File",
-    type=["xlsx", "xls"],
-    key="mdp_comparison_upload"
-)
-
-if uploaded_file is None:
-
-    st.info(
-        "Please upload your MDP Excel file."
+    # ---------------- Pivot Table ----------------
+    pivot = pd.pivot_table(
+        df,
+        index=[branch_col],
+        columns="Range",
+        aggfunc="size",
+        fill_value=0
     )
 
-    st.stop()
+    # Ensure columns exist
+    for c in ["1-5", "6-10", "11-15", "16-31"]:
+        if c not in pivot.columns:
+            pivot[c] = 0
 
+    pivot["Total"] = pivot[["1-5", "6-10", "11-15", "16-31"]].sum(axis=1)
 
-# =========================================================
-# READ EXCEL
-# =========================================================
+    # Percentages
+    pivot["1-5 %"] = (pivot["1-5"] / pivot["Total"] * 100).round(2)
+    pivot["6-10 %"] = (pivot["6-10"] / pivot["Total"] * 100).round(2)
+    pivot["11-15 %"] = (pivot["11-15"] / pivot["Total"] * 100).round(2)
+    pivot["16-31 %"] = (pivot["16-31"] / pivot["Total"] * 100).round(2)
 
-try:
+    # Rename for readability
+    pivot.rename(columns={
+        "1-5": "Recovery 1-5",
+        "6-10": "Recovery 6-10",
+        "11-15": "Recovery 11-15",
+        "16-31": "Recovery 16-31"
+    }, inplace=True)
 
-    excel_file = pd.ExcelFile(uploaded_file)
+    result_df = pivot.reset_index()
 
-    sheet_name = st.selectbox(
-        "Select Sheet",
-        excel_file.sheet_names
+    # ---------------- Add Area column BEFORE Branch ----------------
+    if area_col:
+        branch_area_df = df[[branch_col, area_col]].drop_duplicates()
+        result_df = result_df.merge(branch_area_df, on=branch_col, how='left')
+        # Move Area column before Branch column
+        cols = result_df.columns.tolist()
+        branch_idx = cols.index(branch_col)
+        cols.insert(branch_idx, cols.pop(cols.index(area_col)))
+        result_df = result_df[cols]
+
+    # ---------------- Grand Total Row ----------------
+    numeric_cols = ["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31", "Total"]
+    # Sum numeric counts
+    grand_total_counts = result_df[numeric_cols].sum()
+    # Calculate percentages for Grand Total
+    grand_total_percent = (grand_total_counts[["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31"]] / grand_total_counts["Total"] * 100).round(2)
+
+    grand_values = {}
+    for col in result_df.columns:
+        if col == branch_col:
+            grand_values[col] = "Grand Total"
+        elif col == area_col:
+            grand_values[col] = ""
+        elif col in numeric_cols:
+            grand_values[col] = grand_total_counts[col]
+        elif col in ["1-5 %", "6-10 %", "11-15 %", "16-31 %"]:
+            pct_map = {
+                "1-5 %": "Recovery 1-5", 
+                "6-10 %": "Recovery 6-10", 
+                "11-15 %": "Recovery 11-15", 
+                "16-31 %": "Recovery 16-31"
+            }
+            grand_values[col] = grand_total_percent[pct_map[col]]
+        else:
+            grand_values[col] = ""
+
+    result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
+
+    # ---------------- Show Table ----------------
+    st.subheader("Branch Wise Recovery Summary")
+    st.dataframe(result_df)
+
+    # ---------------- CSV Download ----------------
+    csv = result_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇ Download CSV",
+        data=csv,
+        file_name="recovery_summary.csv",
+        mime="text/csv"
     )
 
-    raw_df = pd.read_excel(
-        uploaded_file,
-        sheet_name=sheet_name
+    # ---------------- PDF Download ----------------
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+
+    # Table data
+    table_data = [result_df.columns.tolist()] + result_df.values.tolist()
+
+    # Create Table with style
+    table = Table(table_data)
+    style = TableStyle([
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+    ])
+    table.setStyle(style)
+
+    doc.build([table])
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    st.download_button(
+        label="⬇ Download PDF",
+        data=pdf_bytes,
+        file_name="recovery_summary.pdf",
+        mime="application/pdf"
     )
 
-except Exception as e:
-
-    st.error(
-        f"Excel file read نہیں ہو سکی: {e}"
-    )
-
-    st.stop()
-
-
-# =========================================================
-# CLEAN COLUMN NAMES
-# =========================================================
-
-raw_df.columns = (
-    raw_df.columns
-    .astype(str)
-    .str.strip()
-    .str.lower()
-    .str.replace(" ", "_", regex=False)
-    .str.replace("-", "_", regex=False)
-)
-
-
-# =========================================================
-# FIND COLUMN
-# =========================================================
-
-def find_column(df, possible_names):
-
-    for col in possible_names:
-
-        if col in df.columns:
-            return col
-
-    return None
-
-
-# =========================================================
-# AUTO DETECT COLUMNS
-# =========================================================
-
-area_col = find_column(
-    raw_df,
-    [
-        "area",
-        "area_name",
-        "region",
-        "zone"
-    ]
-)
-
-
-branch_col = find_column(
-    raw_df,
-    [
-        "branch_name",
-        "branchname",
-        "branch_title",
-        "branch"
-    ]
-)
-
-
-date_col = find_column(
-    raw_df,
-    [
-        "date",
-        "mdp_date",
-        "recovery_date",
-        "transaction_date",
-        "disbursement_date"
-    ]
-)
-
-
-amount_col = find_column(
-    raw_df,
-    [
-        "amount",
-        "mdp_amount",
-        "total_amount",
-        "given_amount",
-        "paid_amount",
-        "recovery_amount"
-    ]
-)
-
-
-receipt_col = find_column(
-    raw_df,
-    [
-        "receipts",
-        "receipt",
-        "receipt_count",
-        "receipt_no",
-        "slips",
-        "slip_count",
-        "total_receipts"
-    ]
-)
-
-
-# =========================================================
-# COLUMN MAPPING
-# =========================================================
-
-st.subheader("🔧 Column Mapping")
-
-c1, c2, c3 = st.columns(3)
-
-
-# ---------------------------------------------------------
-# AREA
-# ---------------------------------------------------------
-
-with c1:
-
-    if area_col is None:
-
-        area_col = st.selectbox(
-            "Area Column",
-            ["None"] + list(raw_df.columns),
-            key="mdp_area"
-        )
-
-        if area_col == "None":
-            area_col = None
-
-    else:
-
-        st.success(
-            f"Area: {area_col}"
-        )
-
-
-# ---------------------------------------------------------
-# BRANCH
-# ---------------------------------------------------------
-
-with c2:
-
-    if branch_col is None:
-
-        branch_col = st.selectbox(
-            "Branch Name Column",
-            ["None"] + list(raw_df.columns),
-            key="mdp_branch"
-        )
-
-        if branch_col == "None":
-            branch_col = None
-
-    else:
-
-        st.success(
-            f"Branch: {branch_col}"
-        )
-
-
-# ---------------------------------------------------------
-# DATE
-# ---------------------------------------------------------
-
-with c3:
-
-    if date_col is None:
-
-        date_col = st.selectbox(
-            "Month / Date Column",
-            ["None"] + list(raw_df.columns),
-            key="mdp_date"
-        )
-
-        if date_col == "None":
-            date_col = None
-
-    else:
-
-        st.success(
-            f"Date: {date_col}"
-        )
-
-
-c4, c5 = st.columns(2)
-
-
-# ---------------------------------------------------------
-# AMOUNT
-# ---------------------------------------------------------
-
-with c4:
-
-    if amount_col is None:
-
-        amount_col = st.selectbox(
-            "Amount Column",
-            ["None"] + list(raw_df.columns),
-            key="mdp_amount"
-        )
-
-        if amount_col == "None":
-            amount_col = None
-
-    else:
-
-        st.success(
-            f"Amount: {amount_col}"
-        )
-
-
-# ---------------------------------------------------------
-# RECEIPTS
-# ---------------------------------------------------------
-
-with c5:
-
-    if receipt_col is None:
-
-        receipt_col = st.selectbox(
-            "Receipts Column",
-            ["None"] + list(raw_df.columns),
-            key="mdp_receipts"
-        )
-
-        if receipt_col == "None":
-            receipt_col = None
-
-    else:
-
-        st.success(
-            f"Receipts: {receipt_col}"
-        )
-
-
-# =========================================================
-# REQUIRED CHECK
-# =========================================================
-
-missing = []
-
-if area_col is None:
-    missing.append("Area")
-
-if branch_col is None:
-    missing.append("Branch Name")
-
-if date_col is None:
-    missing.append("Date / Month")
-
-if amount_col is None:
-    missing.append("Amount")
-
-if receipt_col is None:
-    missing.append("Receipts")
-
-
-if missing:
-
-    st.error(
-        "یہ columns ضروری ہیں: "
-        + ", ".join(missing)
-    )
-
-    st.stop()
-
-
-# =========================================================
-# PREPARE DATA
-# =========================================================
-
-df = raw_df.copy()
-
-
-df["_area"] = (
-    df[area_col]
-    .fillna("")
-    .astype(str)
-    .str.strip()
-)
-
-
-df["_branch"] = (
-    df[branch_col]
-    .fillna("")
-    .astype(str)
-    .str.strip()
-)
-
-
-# =========================================================
-# DATE
-# =========================================================
-
-df["_date"] = pd.to_datetime(
-    df[date_col],
-    errors="coerce",
-    dayfirst=True
-)
-
-
-invalid_dates = df["_date"].isna().sum()
-
-
-if invalid_dates:
-
-    st.warning(
-        f"{invalid_dates} rows میں valid date نہیں ملی۔ "
-        "یہ rows شامل نہیں ہوں گی۔"
+    import streamlit as st
+    import pandas as pd
+    import numpy as np
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.formatting.rule import CellIsRule
+
+    # =========================================================
+    # CSS
+    # =========================================================
+
+    st.markdown("""
+    <style>
+
+    .mdp-title {
+        background: linear-gradient(135deg,#063b66,#0876b9);
+        color:white;
+        padding:18px;
+        border-radius:12px;
+        text-align:center;
+        font-size:27px;
+        font-weight:800;
+        margin-bottom:20px;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+
+    st.markdown(
+        '<div class="mdp-title">📊 MDP MONTH-WISE COMPARISON REPORT</div>',
+        unsafe_allow_html=True
     )
 
 
-df = df[
-    df["_date"].notna()
-].copy()
+    # =========================================================
+    # UPLOAD
+    # =========================================================
 
+    st.subheader("📤 Upload MDP Excel")
 
-if df.empty:
-
-    st.error(
-        "کوئی valid date نہیں ملی۔"
+    uploaded_file = st.file_uploader(
+        "Upload MDP Excel File",
+        type=["xlsx", "xls"],
+        key="mdp_comparison_upload"
     )
 
-    st.stop()
+    if uploaded_file is None:
 
-
-# =========================================================
-# AMOUNT
-# =========================================================
-
-df["_amount"] = pd.to_numeric(
-    df[amount_col],
-    errors="coerce"
-).fillna(0)
-
-
-# =========================================================
-# RECEIPTS
-# =========================================================
-
-df["_receipts"] = pd.to_numeric(
-    df[receipt_col],
-    errors="coerce"
-)
-
-
-# If receipt column is numeric
-# use numeric values.
-# Otherwise count rows.
-
-if df["_receipts"].isna().all():
-
-    df["_receipts"] = 1
-
-else:
-
-    df["_receipts"] = (
-        df["_receipts"]
-        .fillna(0)
-    )
-
-
-# =========================================================
-# MONTH
-# =========================================================
-
-df["_month"] = (
-    df["_date"]
-    .dt.to_period("M")
-)
-
-
-available_months = sorted(
-    df["_month"]
-    .unique()
-)
-
-
-if not available_months:
-
-    st.error(
-        "کوئی month data نہیں ملا۔"
-    )
-
-    st.stop()
-
-
-# =========================================================
-# MONTH NAMES
-# =========================================================
-
-month_names = [
-    x.strftime("%b-%y")
-    for x in available_months
-]
-
-
-st.success(
-    f"{len(month_names)} months found: "
-    + ", ".join(month_names)
-)
-
-
-# =========================================================
-# MONTH REPORT FUNCTION
-# =========================================================
-
-def create_month_report(data, month_period):
-
-    temp = data[
-        data["_month"] == month_period
-    ].copy()
-
-
-    if temp.empty:
-
-        return pd.DataFrame()
-
-
-    result = []
-
-
-    grouped = (
-        temp
-        .groupby(
-            [
-                "_area",
-                "_branch"
-            ],
-            dropna=False
+        st.info(
+            "Please upload your MDP Excel file."
         )
-        .agg(
-            Amount=(
-                "_amount",
-                "sum"
-            ),
 
-            Receipts=(
-                "_receipts",
-                "sum"
-            )
+        st.stop()
+
+
+    # =========================================================
+    # READ EXCEL
+    # =========================================================
+
+    try:
+
+        excel_file = pd.ExcelFile(uploaded_file)
+
+        sheet_name = st.selectbox(
+            "Select Sheet",
+            excel_file.sheet_names
         )
-        .reset_index()
+
+        raw_df = pd.read_excel(
+            uploaded_file,
+            sheet_name=sheet_name
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Excel file read نہیں ہو سکی: {e}"
+        )
+
+        st.stop()
+
+
+    # =========================================================
+    # CLEAN COLUMN NAMES
+    # =========================================================
+
+    raw_df.columns = (
+        raw_df.columns
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_", regex=False)
+        .str.replace("-", "_", regex=False)
     )
 
 
-    grouped = grouped.sort_values(
+    # =========================================================
+    # FIND COLUMN
+    # =========================================================
+
+    def find_column(df, possible_names):
+
+        for col in possible_names:
+
+            if col in df.columns:
+                return col
+
+        return None
+
+
+    # =========================================================
+    # AUTO DETECT COLUMNS
+    # =========================================================
+
+    area_col = find_column(
+        raw_df,
         [
-            "_area",
-            "_branch"
+            "area",
+            "area_name",
+            "region",
+            "zone"
         ]
     )
 
 
-    for _, row in grouped.iterrows():
-
-        result.append({
-
-            "Area": row["_area"],
-
-            "Branch Name": row["_branch"],
-
-            "Amount": float(
-                row["Amount"]
-            ),
-
-            "Receipts": float(
-                row["Receipts"]
-            )
-
-        })
-
-
-    return pd.DataFrame(result)
-
-
-# =========================================================
-# CREATE ALL MONTH REPORTS
-# =========================================================
-
-monthly_reports = {}
-
-
-for month_period in available_months:
-
-    monthly_reports[
-        month_period
-    ] = create_month_report(
-        df,
-        month_period
+    branch_col = find_column(
+        raw_df,
+        [
+            "branch_name",
+            "branchname",
+            "branch_title",
+            "branch"
+        ]
     )
 
 
-# =========================================================
-# ALL BRANCHES
-# =========================================================
+    date_col = find_column(
+        raw_df,
+        [
+            "date",
+            "mdp_date",
+            "recovery_date",
+            "transaction_date",
+            "disbursement_date"
+        ]
+    )
 
-all_branches = pd.concat(
 
-    [
-        report[
+    amount_col = find_column(
+        raw_df,
+        [
+            "amount",
+            "mdp_amount",
+            "total_amount",
+            "given_amount",
+            "paid_amount",
+            "recovery_amount"
+        ]
+    )
+
+
+    receipt_col = find_column(
+        raw_df,
+        [
+            "receipts",
+            "receipt",
+            "receipt_count",
+            "receipt_no",
+            "slips",
+            "slip_count",
+            "total_receipts"
+        ]
+    )
+
+
+    # =========================================================
+    # COLUMN MAPPING
+    # =========================================================
+
+    st.subheader("🔧 Column Mapping")
+
+    c1, c2, c3 = st.columns(3)
+
+
+    # ---------------------------------------------------------
+    # AREA
+    # ---------------------------------------------------------
+
+    with c1:
+
+        if area_col is None:
+
+            area_col = st.selectbox(
+                "Area Column",
+                ["None"] + list(raw_df.columns),
+                key="mdp_area"
+            )
+
+            if area_col == "None":
+                area_col = None
+
+        else:
+
+            st.success(
+                f"Area: {area_col}"
+            )
+
+
+    # ---------------------------------------------------------
+    # BRANCH
+    # ---------------------------------------------------------
+
+    with c2:
+
+        if branch_col is None:
+
+            branch_col = st.selectbox(
+                "Branch Name Column",
+                ["None"] + list(raw_df.columns),
+                key="mdp_branch"
+            )
+
+            if branch_col == "None":
+                branch_col = None
+
+        else:
+
+            st.success(
+                f"Branch: {branch_col}"
+            )
+
+
+    # ---------------------------------------------------------
+    # DATE
+    # ---------------------------------------------------------
+
+    with c3:
+
+        if date_col is None:
+
+            date_col = st.selectbox(
+                "Month / Date Column",
+                ["None"] + list(raw_df.columns),
+                key="mdp_date"
+            )
+
+            if date_col == "None":
+                date_col = None
+
+        else:
+
+            st.success(
+                f"Date: {date_col}"
+            )
+
+
+    c4, c5 = st.columns(2)
+
+
+    # ---------------------------------------------------------
+    # AMOUNT
+    # ---------------------------------------------------------
+
+    with c4:
+
+        if amount_col is None:
+
+            amount_col = st.selectbox(
+                "Amount Column",
+                ["None"] + list(raw_df.columns),
+                key="mdp_amount"
+            )
+
+            if amount_col == "None":
+                amount_col = None
+
+        else:
+
+            st.success(
+                f"Amount: {amount_col}"
+            )
+
+
+    # ---------------------------------------------------------
+    # RECEIPTS
+    # ---------------------------------------------------------
+
+    with c5:
+
+        if receipt_col is None:
+
+            receipt_col = st.selectbox(
+                "Receipts Column",
+                ["None"] + list(raw_df.columns),
+                key="mdp_receipts"
+            )
+
+            if receipt_col == "None":
+                receipt_col = None
+
+        else:
+
+            st.success(
+                f"Receipts: {receipt_col}"
+            )
+
+
+    # =========================================================
+    # REQUIRED CHECK
+    # =========================================================
+
+    missing = []
+
+    if area_col is None:
+        missing.append("Area")
+
+    if branch_col is None:
+        missing.append("Branch Name")
+
+    if date_col is None:
+        missing.append("Date / Month")
+
+    if amount_col is None:
+        missing.append("Amount")
+
+    if receipt_col is None:
+        missing.append("Receipts")
+
+
+    if missing:
+
+        st.error(
+            "یہ columns ضروری ہیں: "
+            + ", ".join(missing)
+        )
+
+        st.stop()
+
+
+    # =========================================================
+    # PREPARE DATA
+    # =========================================================
+
+    df = raw_df.copy()
+
+
+    df["_area"] = (
+        df[area_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    df["_branch"] = (
+        df[branch_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    # =========================================================
+    # DATE
+    # =========================================================
+
+    df["_date"] = pd.to_datetime(
+        df[date_col],
+        errors="coerce",
+        dayfirst=True
+    )
+
+
+    invalid_dates = df["_date"].isna().sum()
+
+
+    if invalid_dates:
+
+        st.warning(
+            f"{invalid_dates} rows میں valid date نہیں ملی۔ "
+            "یہ rows شامل نہیں ہوں گی۔"
+        )
+
+
+    df = df[
+        df["_date"].notna()
+    ].copy()
+
+
+    if df.empty:
+
+        st.error(
+            "کوئی valid date نہیں ملی۔"
+        )
+
+        st.stop()
+
+
+    # =========================================================
+    # AMOUNT
+    # =========================================================
+
+    df["_amount"] = pd.to_numeric(
+        df[amount_col],
+        errors="coerce"
+    ).fillna(0)
+
+
+    # =========================================================
+    # RECEIPTS
+    # =========================================================
+
+    df["_receipts"] = pd.to_numeric(
+        df[receipt_col],
+        errors="coerce"
+    )
+
+
+    # If receipt column is numeric
+    # use numeric values.
+    # Otherwise count rows.
+
+    if df["_receipts"].isna().all():
+
+        df["_receipts"] = 1
+
+    else:
+
+        df["_receipts"] = (
+            df["_receipts"]
+            .fillna(0)
+        )
+
+
+    # =========================================================
+    # MONTH
+    # =========================================================
+
+    df["_month"] = (
+        df["_date"]
+        .dt.to_period("M")
+    )
+
+
+    available_months = sorted(
+        df["_month"]
+        .unique()
+    )
+
+
+    if not available_months:
+
+        st.error(
+            "کوئی month data نہیں ملا۔"
+        )
+
+        st.stop()
+
+
+    # =========================================================
+    # MONTH NAMES
+    # =========================================================
+
+    month_names = [
+        x.strftime("%b-%y")
+        for x in available_months
+    ]
+
+
+    st.success(
+        f"{len(month_names)} months found: "
+        + ", ".join(month_names)
+    )
+
+
+    # =========================================================
+    # MONTH REPORT FUNCTION
+    # =========================================================
+
+    def create_month_report(data, month_period):
+
+        temp = data[
+            data["_month"] == month_period
+        ].copy()
+
+
+        if temp.empty:
+
+            return pd.DataFrame()
+
+
+        result = []
+
+
+        grouped = (
+            temp
+            .groupby(
+                [
+                    "_area",
+                    "_branch"
+                ],
+                dropna=False
+            )
+            .agg(
+                Amount=(
+                    "_amount",
+                    "sum"
+                ),
+
+                Receipts=(
+                    "_receipts",
+                    "sum"
+                )
+            )
+            .reset_index()
+        )
+
+
+        grouped = grouped.sort_values(
+            [
+                "_area",
+                "_branch"
+            ]
+        )
+
+
+        for _, row in grouped.iterrows():
+
+            result.append({
+
+                "Area": row["_area"],
+
+                "Branch Name": row["_branch"],
+
+                "Amount": float(
+                    row["Amount"]
+                ),
+
+                "Receipts": float(
+                    row["Receipts"]
+                )
+
+            })
+
+
+        return pd.DataFrame(result)
+
+
+    # =========================================================
+    # CREATE ALL MONTH REPORTS
+    # =========================================================
+
+    monthly_reports = {}
+
+
+    for month_period in available_months:
+
+        monthly_reports[
+            month_period
+        ] = create_month_report(
+            df,
+            month_period
+        )
+
+
+    # =========================================================
+    # ALL BRANCHES
+    # =========================================================
+
+    all_branches = pd.concat(
+
+        [
+            report[
+                [
+                    "Area",
+                    "Branch Name"
+                ]
+            ]
+
+            for report in monthly_reports.values()
+
+            if not report.empty
+        ],
+
+        ignore_index=True
+
+    ).drop_duplicates()
+
+
+    if all_branches.empty:
+
+        st.error(
+            "Area / Branch data نہیں ملا۔"
+        )
+
+        st.stop()
+
+
+    all_branches = (
+        all_branches
+        .sort_values(
             [
                 "Area",
                 "Branch Name"
             ]
-        ]
-
-        for report in monthly_reports.values()
-
-        if not report.empty
-    ],
-
-    ignore_index=True
-
-).drop_duplicates()
-
-
-if all_branches.empty:
-
-    st.error(
-        "Area / Branch data نہیں ملا۔"
-    )
-
-    st.stop()
-
-
-all_branches = (
-    all_branches
-    .sort_values(
-        [
-            "Area",
-            "Branch Name"
-        ]
-    )
-    .reset_index(drop=True)
-)
-
-
-# =========================================================
-# BUILD DISPLAY TABLE
-# =========================================================
-
-display_df = all_branches.copy()
-
-
-# ---------------------------------------------------------
-# Keep due values in session
-# ---------------------------------------------------------
-
-if "mdp_due_values" not in st.session_state:
-
-    st.session_state.mdp_due_values = {}
-
-
-# =========================================================
-# ADD MONTH COLUMNS
-# =========================================================
-
-for month_period in available_months:
-
-    label = month_period.strftime(
-        "%b-%y"
-    )
-
-    report = monthly_reports[
-        month_period
-    ]
-
-
-    if report.empty:
-
-        temp = all_branches.copy()
-
-        temp[
-            "Amount"
-        ] = 0
-
-        temp[
-            "Receipts"
-        ] = 0
-
-    else:
-
-        temp = all_branches.merge(
-
-            report,
-
-            on=[
-                "Area",
-                "Branch Name"
-            ],
-
-            how="left"
-
         )
-
-        temp[
-            "Amount"
-        ] = temp[
-            "Amount"
-        ].fillna(0)
-
-        temp[
-            "Receipts"
-        ] = temp[
-            "Receipts"
-        ].fillna(0)
-
-
-    # -----------------------------------------------------
-    # Amount
-    # -----------------------------------------------------
-
-    display_df[
-        f"{label} | Amount"
-    ] = temp[
-        "Amount"
-    ].values
-
-
-    # -----------------------------------------------------
-    # Receipts
-    # -----------------------------------------------------
-
-    display_df[
-        f"{label} | Receipts"
-    ] = temp[
-        "Receipts"
-    ].values
-
-
-    # -----------------------------------------------------
-    # Due
-    # -----------------------------------------------------
-
-    due_values = []
-
-
-    for i in range(
-        len(display_df)
-    ):
-
-        key = (
-            str(
-                display_df.iloc[i]["Area"]
-            ),
-            str(
-                display_df.iloc[i]["Branch Name"]
-            ),
-            str(label)
-        )
-
-
-        due_values.append(
-            st.session_state.mdp_due_values.get(
-                key,
-                0.0
-            )
-        )
-
-
-    display_df[
-        f"{label} | Due"
-    ] = due_values
-
-
-    # -----------------------------------------------------
-    # MDP PER BOX
-    # Amount / Due
-    # -----------------------------------------------------
-
-    display_df[
-        f"{label} | MDP Per Box"
-    ] = np.where(
-
-        display_df[
-            f"{label} | Due"
-        ] != 0,
-
-        display_df[
-            f"{label} | Amount"
-        ]
-        /
-        display_df[
-            f"{label} | Due"
-        ],
-
-        0
-
+        .reset_index(drop=True)
     )
 
 
-    # -----------------------------------------------------
-    # NOT GIVEN
-    # Receipts - Due
-    # -----------------------------------------------------
+    # =========================================================
+    # BUILD DISPLAY TABLE
+    # =========================================================
 
-    display_df[
-        f"{label} | Not Given"
-    ] = (
+    display_df = all_branches.copy()
 
-        display_df[
-            f"{label} | Receipts"
-        ]
 
-        -
+    # ---------------------------------------------------------
+    # Keep due values in session
+    # ---------------------------------------------------------
 
-        display_df[
-            f"{label} | Due"
-        ]
+    if "mdp_due_values" not in st.session_state:
 
-    )
+        st.session_state.mdp_due_values = {}
 
 
-# =========================================================
-# SERIAL NUMBER
-# =========================================================
-
-display_df.insert(
-    0,
-    "Sr.",
-    range(
-        1,
-        len(display_df) + 1
-    )
-)
-
-
-# =========================================================
-# MANUAL DUE ENTRY
-# =========================================================
-
-st.markdown("---")
-
-st.subheader(
-    "✏️ Enter Due Manually"
-)
-
-st.info(
-    "صرف **Due** columns میں values enter کریں۔ "
-    "MDP Per Box اور Not Given خود calculate ہوں گے۔"
-)
-
-
-# =========================================================
-# EDITABLE DUE TABLE
-# =========================================================
-
-due_edit_df = display_df[
-    [
-        "Sr.",
-        "Area",
-        "Branch Name"
-    ]
-    +
-    [
-        f"{m.strftime('%b-%y')} | Due"
-        for m in available_months
-    ]
-].copy()
-
-
-# =========================================================
-# MANUAL DUE ENTRY - STREAMLIT COMPATIBLE
-# =========================================================
-
-st.markdown("---")
-
-st.subheader("✏️ Enter Due Manually")
-
-st.info(
-    "ہر Branch کے سامنے ہر Month کا Due enter کریں۔ "
-    "MDP Per Box اور Not Given خود calculate ہوں گے۔"
-)
-
-edited_due = due_edit_df.copy()
-
-
-# =========================================================
-# HEADER
-# =========================================================
-
-header_cols = st.columns(
-    3 + len(available_months)
-)
-
-with header_cols[0]:
-
-    st.markdown("**Sr.**")
-
-with header_cols[1]:
-
-    st.markdown("**Area**")
-
-with header_cols[2]:
-
-    st.markdown("**Branch Name**")
-
-
-for month_index, month_period in enumerate(
-    available_months
-):
-
-    label = month_period.strftime("%b-%y")
-
-    with header_cols[3 + month_index]:
-
-        st.markdown(
-            f"**{label} Due**"
-        )
-
-
-# =========================================================
-# INPUT ROWS
-# =========================================================
-
-for i in range(len(edited_due)):
-
-    row_cols = st.columns(
-        3 + len(available_months)
-    )
-
-
-    # -----------------------------------------------------
-    # SERIAL
-    # -----------------------------------------------------
-
-    with row_cols[0]:
-
-        st.write(
-            edited_due.loc[i, "Sr."]
-        )
-
-
-    # -----------------------------------------------------
-    # AREA
-    # -----------------------------------------------------
-
-    with row_cols[1]:
-
-        st.write(
-            edited_due.loc[i, "Area"]
-        )
-
-
-    # -----------------------------------------------------
-    # BRANCH
-    # -----------------------------------------------------
-
-    with row_cols[2]:
-
-        st.write(
-            edited_due.loc[i, "Branch Name"]
-        )
-
-
-    # -----------------------------------------------------
-    # DUE INPUT
-    # -----------------------------------------------------
-
-    for month_index, month_period in enumerate(
-        available_months
-    ):
-
-        label = month_period.strftime(
-            "%b-%y"
-        )
-
-        due_col = (
-            f"{label} | Due"
-        )
-
-        current_value = edited_due.loc[
-            i,
-            due_col
-        ]
-
-        if pd.isna(current_value):
-
-            current_value = 0
-
-
-        with row_cols[
-            3 + month_index
-        ]:
-
-            new_value = st.number_input(
-                f"Due {label}",
-                min_value=0.0,
-                value=float(
-                    current_value
-                ),
-                step=1.0,
-                key=f"mdp_due_{i}_{label}"
-            )
-
-            edited_due.loc[
-                i,
-                due_col
-            ] = new_value
-
-
-# =========================================================
-# SAVE MANUAL DUE VALUES
-# =========================================================
-
-for i, row in edited_due.iterrows():
-
-    area = str(
-        row["Area"]
-    )
-
-    branch = str(
-        row["Branch Name"]
-    )
-
+    # =========================================================
+    # ADD MONTH COLUMNS
+    # =========================================================
 
     for month_period in available_months:
 
@@ -3669,406 +3315,772 @@ for i, row in edited_due.iterrows():
             "%b-%y"
         )
 
-        due_col = (
+        report = monthly_reports[
+            month_period
+        ]
+
+
+        if report.empty:
+
+            temp = all_branches.copy()
+
+            temp[
+                "Amount"
+            ] = 0
+
+            temp[
+                "Receipts"
+            ] = 0
+
+        else:
+
+            temp = all_branches.merge(
+
+                report,
+
+                on=[
+                    "Area",
+                    "Branch Name"
+                ],
+
+                how="left"
+
+            )
+
+            temp[
+                "Amount"
+            ] = temp[
+                "Amount"
+            ].fillna(0)
+
+            temp[
+                "Receipts"
+            ] = temp[
+                "Receipts"
+            ].fillna(0)
+
+
+        # -----------------------------------------------------
+        # Amount
+        # -----------------------------------------------------
+
+        display_df[
+            f"{label} | Amount"
+        ] = temp[
+            "Amount"
+        ].values
+
+
+        # -----------------------------------------------------
+        # Receipts
+        # -----------------------------------------------------
+
+        display_df[
+            f"{label} | Receipts"
+        ] = temp[
+            "Receipts"
+        ].values
+
+
+        # -----------------------------------------------------
+        # Due
+        # -----------------------------------------------------
+
+        due_values = []
+
+
+        for i in range(
+            len(display_df)
+        ):
+
+            key = (
+                str(
+                    display_df.iloc[i]["Area"]
+                ),
+                str(
+                    display_df.iloc[i]["Branch Name"]
+                ),
+                str(label)
+            )
+
+
+            due_values.append(
+                st.session_state.mdp_due_values.get(
+                    key,
+                    0.0
+                )
+            )
+
+
+        display_df[
             f"{label} | Due"
+        ] = due_values
+
+
+        # -----------------------------------------------------
+        # MDP PER BOX
+        # Amount / Due
+        # -----------------------------------------------------
+
+        display_df[
+            f"{label} | MDP Per Box"
+        ] = np.where(
+
+            display_df[
+                f"{label} | Due"
+            ] != 0,
+
+            display_df[
+                f"{label} | Amount"
+            ]
+            /
+            display_df[
+                f"{label} | Due"
+            ],
+
+            0
+
         )
 
-        value = row[due_col]
 
+        # -----------------------------------------------------
+        # NOT GIVEN
+        # Receipts - Due
+        # -----------------------------------------------------
 
-        if pd.isna(value):
+        display_df[
+            f"{label} | Not Given"
+        ] = (
 
-            value = 0
+            display_df[
+                f"{label} | Receipts"
+            ]
 
+            -
 
-        key = (
-            area,
-            branch,
-            label
+            display_df[
+                f"{label} | Due"
+            ]
+
         )
 
 
-        st.session_state.mdp_due_values[
-            key
-        ] = float(value)
+    # =========================================================
+    # SERIAL NUMBER
+    # =========================================================
 
-
-# =========================================================
-# REBUILD FINAL TABLE AFTER DUE ENTRY
-# =========================================================
-
-final_df = all_branches.copy()
-
-
-# =========================================================
-# MONTH DATA AGAIN
-# =========================================================
-
-for month_period in available_months:
-
-    label = month_period.strftime(
-        "%b-%y"
+    display_df.insert(
+        0,
+        "Sr.",
+        range(
+            1,
+            len(display_df) + 1
+        )
     )
 
 
-    report = monthly_reports[
-        month_period
-    ]
+    # =========================================================
+    # MANUAL DUE ENTRY
+    # =========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "✏️ Enter Due Manually"
+    )
+
+    st.info(
+        "صرف **Due** columns میں values enter کریں۔ "
+        "MDP Per Box اور Not Given خود calculate ہوں گے۔"
+    )
 
 
-    if report.empty:
+    # =========================================================
+    # EDITABLE DUE TABLE
+    # =========================================================
 
-        temp = all_branches.copy()
-
-        temp["Amount"] = 0
-
-        temp["Receipts"] = 0
-
-    else:
-
-        temp = all_branches.merge(
-
-            report,
-
-            on=[
-                "Area",
-                "Branch Name"
-            ],
-
-            how="left"
-
-        )
-
-        temp["Amount"] = (
-            temp["Amount"]
-            .fillna(0)
-        )
-
-        temp["Receipts"] = (
-            temp["Receipts"]
-            .fillna(0)
-        )
+    due_edit_df = display_df[
+        [
+            "Sr.",
+            "Area",
+            "Branch Name"
+        ]
+        +
+        [
+            f"{m.strftime('%b-%y')} | Due"
+            for m in available_months
+        ]
+    ].copy()
 
 
-    final_df[
-        f"{label} | Amount"
-    ] = temp[
-        "Amount"
-    ].values
+    # =========================================================
+    # MANUAL DUE ENTRY - STREAMLIT COMPATIBLE
+    # =========================================================
+
+    st.markdown("---")
+
+    st.subheader("✏️ Enter Due Manually")
+
+    st.info(
+        "ہر Branch کے سامنے ہر Month کا Due enter کریں۔ "
+        "MDP Per Box اور Not Given خود calculate ہوں گے۔"
+    )
+
+    edited_due = due_edit_df.copy()
 
 
-    final_df[
-        f"{label} | Receipts"
-    ] = temp[
-        "Receipts"
-    ].values
+    # =========================================================
+    # HEADER
+    # =========================================================
+
+    header_cols = st.columns(
+        3 + len(available_months)
+    )
+
+    with header_cols[0]:
+
+        st.markdown("**Sr.**")
+
+    with header_cols[1]:
+
+        st.markdown("**Area**")
+
+    with header_cols[2]:
+
+        st.markdown("**Branch Name**")
 
 
-    due_values = []
-
-
-    for i in range(
-        len(final_df)
+    for month_index, month_period in enumerate(
+        available_months
     ):
 
-        key = (
+        label = month_period.strftime("%b-%y")
 
-            str(
-                final_df.iloc[i]["Area"]
-            ),
+        with header_cols[3 + month_index]:
 
-            str(
-                final_df.iloc[i]["Branch Name"]
-            ),
-
-            label
-
-        )
-
-
-        due_values.append(
-
-            st.session_state.mdp_due_values.get(
-                key,
-                0.0
+            st.markdown(
+                f"**{label} Due**"
             )
 
+
+    # =========================================================
+    # INPUT ROWS
+    # =========================================================
+
+    for i in range(len(edited_due)):
+
+        row_cols = st.columns(
+            3 + len(available_months)
         )
 
 
-    final_df[
-        f"{label} | Due"
-    ] = due_values
+        # -----------------------------------------------------
+        # SERIAL
+        # -----------------------------------------------------
+
+        with row_cols[0]:
+
+            st.write(
+                edited_due.loc[i, "Sr."]
+            )
 
 
-    # -----------------------------------------------------
-    # MDP PER BOX
-    # Amount / Due
-    # -----------------------------------------------------
+        # -----------------------------------------------------
+        # AREA
+        # -----------------------------------------------------
 
-    final_df[
-        f"{label} | MDP Per Box"
-    ] = np.where(
+        with row_cols[1]:
 
-        final_df[
-            f"{label} | Due"
-        ] != 0,
+            st.write(
+                edited_due.loc[i, "Area"]
+            )
+
+
+        # -----------------------------------------------------
+        # BRANCH
+        # -----------------------------------------------------
+
+        with row_cols[2]:
+
+            st.write(
+                edited_due.loc[i, "Branch Name"]
+            )
+
+
+        # -----------------------------------------------------
+        # DUE INPUT
+        # -----------------------------------------------------
+
+        for month_index, month_period in enumerate(
+            available_months
+        ):
+
+            label = month_period.strftime(
+                "%b-%y"
+            )
+
+            due_col = (
+                f"{label} | Due"
+            )
+
+            current_value = edited_due.loc[
+                i,
+                due_col
+            ]
+
+            if pd.isna(current_value):
+
+                current_value = 0
+
+
+            with row_cols[
+                3 + month_index
+            ]:
+
+                new_value = st.number_input(
+                    f"Due {label}",
+                    min_value=0.0,
+                    value=float(
+                        current_value
+                    ),
+                    step=1.0,
+                    key=f"mdp_due_{i}_{label}"
+                )
+
+                edited_due.loc[
+                    i,
+                    due_col
+                ] = new_value
+
+
+    # =========================================================
+    # SAVE MANUAL DUE VALUES
+    # =========================================================
+
+    for i, row in edited_due.iterrows():
+
+        area = str(
+            row["Area"]
+        )
+
+        branch = str(
+            row["Branch Name"]
+        )
+
+
+        for month_period in available_months:
+
+            label = month_period.strftime(
+                "%b-%y"
+            )
+
+            due_col = (
+                f"{label} | Due"
+            )
+
+            value = row[due_col]
+
+
+            if pd.isna(value):
+
+                value = 0
+
+
+            key = (
+                area,
+                branch,
+                label
+            )
+
+
+            st.session_state.mdp_due_values[
+                key
+            ] = float(value)
+
+
+    # =========================================================
+    # REBUILD FINAL TABLE AFTER DUE ENTRY
+    # =========================================================
+
+    final_df = all_branches.copy()
+
+
+    # =========================================================
+    # MONTH DATA AGAIN
+    # =========================================================
+
+    for month_period in available_months:
+
+        label = month_period.strftime(
+            "%b-%y"
+        )
+
+
+        report = monthly_reports[
+            month_period
+        ]
+
+
+        if report.empty:
+
+            temp = all_branches.copy()
+
+            temp["Amount"] = 0
+
+            temp["Receipts"] = 0
+
+        else:
+
+            temp = all_branches.merge(
+
+                report,
+
+                on=[
+                    "Area",
+                    "Branch Name"
+                ],
+
+                how="left"
+
+            )
+
+            temp["Amount"] = (
+                temp["Amount"]
+                .fillna(0)
+            )
+
+            temp["Receipts"] = (
+                temp["Receipts"]
+                .fillna(0)
+            )
+
 
         final_df[
             f"{label} | Amount"
-        ]
-        /
-        final_df[
-            f"{label} | Due"
-        ],
+        ] = temp[
+            "Amount"
+        ].values
 
-        0
-
-    )
-
-
-    # -----------------------------------------------------
-    # NOT GIVEN
-    # Receipts - Due
-    # -----------------------------------------------------
-
-    final_df[
-        f"{label} | Not Given"
-    ] = (
 
         final_df[
             f"{label} | Receipts"
-        ]
+        ] = temp[
+            "Receipts"
+        ].values
 
-        -
+
+        due_values = []
+
+
+        for i in range(
+            len(final_df)
+        ):
+
+            key = (
+
+                str(
+                    final_df.iloc[i]["Area"]
+                ),
+
+                str(
+                    final_df.iloc[i]["Branch Name"]
+                ),
+
+                label
+
+            )
+
+
+            due_values.append(
+
+                st.session_state.mdp_due_values.get(
+                    key,
+                    0.0
+                )
+
+            )
+
 
         final_df[
             f"{label} | Due"
-        ]
-
-    )
+        ] = due_values
 
 
-# =========================================================
-# DIFFERENCE COLUMNS
-# =========================================================
+        # -----------------------------------------------------
+        # MDP PER BOX
+        # Amount / Due
+        # -----------------------------------------------------
 
-# Difference is made between consecutive months.
+        final_df[
+            f"{label} | MDP Per Box"
+        ] = np.where(
 
-for i in range(
-    1,
-    len(available_months)
-):
+            final_df[
+                f"{label} | Due"
+            ] != 0,
 
-    previous_month = (
-        available_months[i - 1]
-    )
+            final_df[
+                f"{label} | Amount"
+            ]
+            /
+            final_df[
+                f"{label} | Due"
+            ],
 
-    current_month = (
-        available_months[i]
-    )
+            0
 
-
-    previous_label = (
-        previous_month.strftime(
-            "%b-%y"
         )
-    )
 
 
-    current_label = (
-        current_month.strftime(
-            "%b-%y"
+        # -----------------------------------------------------
+        # NOT GIVEN
+        # Receipts - Due
+        # -----------------------------------------------------
+
+        final_df[
+            f"{label} | Not Given"
+        ] = (
+
+            final_df[
+                f"{label} | Receipts"
+            ]
+
+            -
+
+            final_df[
+                f"{label} | Due"
+            ]
+
         )
-    )
 
 
-    # -----------------------------------------------------
-    # Amount Difference
-    # -----------------------------------------------------
+    # =========================================================
+    # DIFFERENCE COLUMNS
+    # =========================================================
 
-    final_df[
-        f"Diff {current_label}-{previous_label} | Amount"
-    ] = (
+    # Difference is made between consecutive months.
 
-        final_df[
-            f"{current_label} | Amount"
-        ]
-
-        -
-
-        final_df[
-            f"{previous_label} | Amount"
-        ]
-
-    )
-
-
-    # -----------------------------------------------------
-    # Receipts Difference
-    # -----------------------------------------------------
-
-    final_df[
-        f"Diff {current_label}-{previous_label} | Receipts"
-    ] = (
-
-        final_df[
-            f"{current_label} | Receipts"
-        ]
-
-        -
-
-        final_df[
-            f"{previous_label} | Receipts"
-        ]
-
-    )
-
-
-    # -----------------------------------------------------
-    # Due Difference
-    # -----------------------------------------------------
-
-    final_df[
-        f"Diff {current_label}-{previous_label} | Due"
-    ] = (
-
-        final_df[
-            f"{current_label} | Due"
-        ]
-
-        -
-
-        final_df[
-            f"{previous_label} | Due"
-        ]
-
-    )
-
-
-    # -----------------------------------------------------
-    # MDP PER BOX DIFFERENCE
-    # -----------------------------------------------------
-
-    final_df[
-        f"Diff {current_label}-{previous_label} | MDP Per Box"
-    ] = (
-
-        final_df[
-            f"{current_label} | MDP Per Box"
-        ]
-
-        -
-
-        final_df[
-            f"{previous_label} | MDP Per Box"
-        ]
-
-    )
-
-
-    # -----------------------------------------------------
-    # NOT GIVEN DIFFERENCE
-    # -----------------------------------------------------
-
-    final_df[
-        f"Diff {current_label}-{previous_label} | Not Given"
-    ] = (
-
-        final_df[
-            f"{current_label} | Not Given"
-        ]
-
-        -
-
-        final_df[
-            f"{previous_label} | Not Given"
-        ]
-
-    )
-
-
-# =========================================================
-# SERIAL
-# =========================================================
-
-final_df.insert(
-    0,
-    "Sr.",
-    range(
+    for i in range(
         1,
-        len(final_df) + 1
+        len(available_months)
+    ):
+
+        previous_month = (
+            available_months[i - 1]
+        )
+
+        current_month = (
+            available_months[i]
+        )
+
+
+        previous_label = (
+            previous_month.strftime(
+                "%b-%y"
+            )
+        )
+
+
+        current_label = (
+            current_month.strftime(
+                "%b-%y"
+            )
+        )
+
+
+        # -----------------------------------------------------
+        # Amount Difference
+        # -----------------------------------------------------
+
+        final_df[
+            f"Diff {current_label}-{previous_label} | Amount"
+        ] = (
+
+            final_df[
+                f"{current_label} | Amount"
+            ]
+
+            -
+
+            final_df[
+                f"{previous_label} | Amount"
+            ]
+
+        )
+
+
+        # -----------------------------------------------------
+        # Receipts Difference
+        # -----------------------------------------------------
+
+        final_df[
+            f"Diff {current_label}-{previous_label} | Receipts"
+        ] = (
+
+            final_df[
+                f"{current_label} | Receipts"
+            ]
+
+            -
+
+            final_df[
+                f"{previous_label} | Receipts"
+            ]
+
+        )
+
+
+        # -----------------------------------------------------
+        # Due Difference
+        # -----------------------------------------------------
+
+        final_df[
+            f"Diff {current_label}-{previous_label} | Due"
+        ] = (
+
+            final_df[
+                f"{current_label} | Due"
+            ]
+
+            -
+
+            final_df[
+                f"{previous_label} | Due"
+            ]
+
+        )
+
+
+        # -----------------------------------------------------
+        # MDP PER BOX DIFFERENCE
+        # -----------------------------------------------------
+
+        final_df[
+            f"Diff {current_label}-{previous_label} | MDP Per Box"
+        ] = (
+
+            final_df[
+                f"{current_label} | MDP Per Box"
+            ]
+
+            -
+
+            final_df[
+                f"{previous_label} | MDP Per Box"
+            ]
+
+        )
+
+
+        # -----------------------------------------------------
+        # NOT GIVEN DIFFERENCE
+        # -----------------------------------------------------
+
+        final_df[
+            f"Diff {current_label}-{previous_label} | Not Given"
+        ] = (
+
+            final_df[
+                f"{current_label} | Not Given"
+            ]
+
+            -
+
+            final_df[
+                f"{previous_label} | Not Given"
+            ]
+
+        )
+
+
+    # =========================================================
+    # SERIAL
+    # =========================================================
+
+    final_df.insert(
+        0,
+        "Sr.",
+        range(
+            1,
+            len(final_df) + 1
+        )
     )
-)
 
 
-# =========================================================
-# GRAND TOTAL
-# =========================================================
+    # =========================================================
+    # GRAND TOTAL
+    # =========================================================
 
-grand_total = {}
-
-
-for col in final_df.columns:
-
-    if col == "Sr.":
-
-        grand_total[col] = ""
+    grand_total = {}
 
 
-    elif col == "Area":
+    for col in final_df.columns:
 
-        grand_total[col] = ""
+        if col == "Sr.":
 
-
-    elif col == "Branch Name":
-
-        grand_total[col] = "GRAND TOTAL"
+            grand_total[col] = ""
 
 
-    elif "MDP Per Box" in col:
+        elif col == "Area":
 
-        # Weighted / overall MDP per box
-        # = Total Amount / Total Due
+            grand_total[col] = ""
 
-        parts = col.split("|")
 
-        if len(parts) == 2:
+        elif col == "Branch Name":
 
-            month_label = (
-                parts[0].strip()
-            )
+            grand_total[col] = "GRAND TOTAL"
 
-            amount_col_name = (
-                f"{month_label} | Amount"
-            )
 
-            due_col_name = (
-                f"{month_label} | Due"
-            )
+        elif "MDP Per Box" in col:
 
-            total_amount = (
-                final_df[
-                    amount_col_name
-                ].sum()
-            )
+            # Weighted / overall MDP per box
+            # = Total Amount / Total Due
 
-            total_due = (
-                final_df[
-                    due_col_name
-                ].sum()
-            )
+            parts = col.split("|")
 
-            grand_total[col] = (
+            if len(parts) == 2:
 
-                total_amount /
-                total_due
+                month_label = (
+                    parts[0].strip()
+                )
 
-                if total_due != 0
+                amount_col_name = (
+                    f"{month_label} | Amount"
+                )
 
-                else 0
+                due_col_name = (
+                    f"{month_label} | Due"
+                )
 
-            )
+                total_amount = (
+                    final_df[
+                        amount_col_name
+                    ].sum()
+                )
+
+                total_due = (
+                    final_df[
+                        due_col_name
+                    ].sum()
+                )
+
+                grand_total[col] = (
+
+                    total_amount /
+                    total_due
+
+                    if total_due != 0
+
+                    else 0
+
+                )
+
+            else:
+
+                grand_total[col] = (
+                    final_df[col].sum()
+                )
+
 
         else:
 
@@ -4077,199 +4089,161 @@ for col in final_df.columns:
             )
 
 
-    else:
+    final_table = pd.concat(
 
-        grand_total[col] = (
-            final_df[col].sum()
-        )
+        [
+            final_df,
 
+            pd.DataFrame(
+                [grand_total]
+            )
 
-final_table = pd.concat(
+        ],
 
-    [
-        final_df,
+        ignore_index=True
 
-        pd.DataFrame(
-            [grand_total]
-        )
-
-    ],
-
-    ignore_index=True
-
-)
-
-
-# =========================================================
-# DISPLAY
-# =========================================================
-
-st.markdown("---")
-
-st.subheader(
-    "📋 MDP Month-wise Comparison"
-)
-
-
-# =========================================================
-# FORMAT DISPLAY COPY
-# =========================================================
-
-display_final = final_table.copy()
-
-
-for col in display_final.columns:
-
-    if col in [
-        "Area",
-        "Branch Name"
-    ]:
-
-        display_final[col] = (
-            display_final[col]
-            .astype(str)
-        )
-
-    elif col != "Sr.":
-
-        display_final[col] = pd.to_numeric(
-            display_final[col],
-            errors="coerce"
-        ).fillna(0)
-
-
-# =========================================================
-# SHOW TABLE
-# =========================================================
-
-st.dataframe(
-
-    display_final,
-
-    use_container_width=True,
-
-    height=700
-
-)
-
-
-# =========================================================
-# EXPLANATION
-# =========================================================
-
-st.markdown("---")
-
-e1, e2 = st.columns(2)
-
-
-with e1:
-
-    st.markdown("### 📌 MDP Formula")
-
-    st.info("""
-**MDP Per Box = Amount ÷ Due**
-
-مثال:
-
-Amount = 6,000  
-Due = 1,000  
-
-**6,000 ÷ 1,000 = 6**
-
-یعنی **MDP Per Box = 6**
-""")
-
-
-with e2:
-
-    st.markdown("### 📌 Not Given")
-
-    st.info("""
-**Not Given = Receipts − Due**
-
-مثال:
-
-Receipts = 1,000  
-Due = 500  
-
-**1,000 − 500 = 500**
-
-یعنی **500 Not Given**
-""")
-
-
-# =========================================================
-# EXCEL DOWNLOAD
-# =========================================================
-
-st.markdown("---")
-
-st.subheader(
-    "📥 Download Excel"
-)
-
-
-wb = Workbook()
-
-ws = wb.active
-
-ws.title = "MDP Comparison"
-
-
-# =========================================================
-# HEADERS
-# =========================================================
-
-for col_num, header in enumerate(
-    final_table.columns,
-    start=1
-):
-
-    cell = ws.cell(
-        row=1,
-        column=col_num,
-        value=header
-    )
-
-    cell.font = Font(
-        bold=True,
-        color="FFFFFF"
-    )
-
-    cell.fill = PatternFill(
-        fill_type="solid",
-        fgColor="063B66"
-    )
-
-    cell.alignment = Alignment(
-        horizontal="center",
-        vertical="center"
     )
 
 
-# =========================================================
-# DATA
-# =========================================================
+    # =========================================================
+    # DISPLAY
+    # =========================================================
 
-for row_num, row_data in enumerate(
+    st.markdown("---")
 
-    final_table.itertuples(
-        index=False
-    ),
+    st.subheader(
+        "📋 MDP Month-wise Comparison"
+    )
 
-    start=2
 
-):
+    # =========================================================
+    # FORMAT DISPLAY COPY
+    # =========================================================
 
-    for col_num, value in enumerate(
-        row_data,
+    display_final = final_table.copy()
+
+
+    for col in display_final.columns:
+
+        if col in [
+            "Area",
+            "Branch Name"
+        ]:
+
+            display_final[col] = (
+                display_final[col]
+                .astype(str)
+            )
+
+        elif col != "Sr.":
+
+            display_final[col] = pd.to_numeric(
+                display_final[col],
+                errors="coerce"
+            ).fillna(0)
+
+
+    # =========================================================
+    # SHOW TABLE
+    # =========================================================
+
+    st.dataframe(
+
+        display_final,
+
+        use_container_width=True,
+
+        height=700
+
+    )
+
+
+    # =========================================================
+    # EXPLANATION
+    # =========================================================
+
+    st.markdown("---")
+
+    e1, e2 = st.columns(2)
+
+
+    with e1:
+
+        st.markdown("### 📌 MDP Formula")
+
+        st.info("""
+    **MDP Per Box = Amount ÷ Due**
+
+    مثال:
+
+    Amount = 6,000  
+    Due = 1,000  
+
+    **6,000 ÷ 1,000 = 6**
+
+    یعنی **MDP Per Box = 6**
+    """)
+
+
+    with e2:
+
+        st.markdown("### 📌 Not Given")
+
+        st.info("""
+    **Not Given = Receipts − Due**
+
+    مثال:
+
+    Receipts = 1,000  
+    Due = 500  
+
+    **1,000 − 500 = 500**
+
+    یعنی **500 Not Given**
+    """)
+
+
+    # =========================================================
+    # EXCEL DOWNLOAD
+    # =========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "📥 Download Excel"
+    )
+
+
+    wb = Workbook()
+
+    ws = wb.active
+
+    ws.title = "MDP Comparison"
+
+
+    # =========================================================
+    # HEADERS
+    # =========================================================
+
+    for col_num, header in enumerate(
+        final_table.columns,
         start=1
     ):
 
         cell = ws.cell(
-            row=row_num,
+            row=1,
             column=col_num,
-            value=value
+            value=header
+        )
+
+        cell.font = Font(
+            bold=True,
+            color="FFFFFF"
+        )
+
+        cell.fill = PatternFill(
+            fill_type="solid",
+            fgColor="063B66"
         )
 
         cell.alignment = Alignment(
@@ -4278,321 +4252,352 @@ for row_num, row_data in enumerate(
         )
 
 
-# =========================================================
-# GRAND TOTAL STYLE
-# =========================================================
+    # =========================================================
+    # DATA
+    # =========================================================
 
-grand_total_row = ws.max_row
+    for row_num, row_data in enumerate(
 
+        final_table.itertuples(
+            index=False
+        ),
 
-grand_fill = PatternFill(
-    fill_type="solid",
-    fgColor="063B66"
-)
+        start=2
 
-
-grand_font = Font(
-    bold=True,
-    color="FFFFFF"
-)
-
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-
-    cell = ws.cell(
-        row=grand_total_row,
-        column=col_num
-    )
-
-    cell.fill = grand_fill
-
-    cell.font = grand_font
-
-    cell.alignment = Alignment(
-        horizontal="center",
-        vertical="center"
-    )
-
-
-# =========================================================
-# GREEN / RED DIFFERENCE
-# =========================================================
-
-green_fill = PatternFill(
-    fill_type="solid",
-    fgColor="C6EFCE"
-)
-
-green_font = Font(
-    color="006100",
-    bold=True
-)
-
-
-red_fill = PatternFill(
-    fill_type="solid",
-    fgColor="FFC7CE"
-)
-
-red_font = Font(
-    color="9C0006",
-    bold=True
-)
-
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
-
-
-    if header and str(
-        header
-    ).startswith("Diff"):
-
-        col_letter = get_column_letter(
-            col_num
-        )
-
-
-        if grand_total_row > 2:
-
-            data_range = (
-                f"{col_letter}2:"
-                f"{col_letter}"
-                f"{grand_total_row - 1}"
-            )
-
-
-            ws.conditional_formatting.add(
-
-                data_range,
-
-                CellIsRule(
-                    operator="greaterThan",
-                    formula=["0"],
-                    fill=green_fill,
-                    font=green_font
-                )
-
-            )
-
-
-            ws.conditional_formatting.add(
-
-                data_range,
-
-                CellIsRule(
-                    operator="lessThan",
-                    formula=["0"],
-                    fill=red_fill,
-                    font=red_font
-                )
-
-            )
-
-
-# =========================================================
-# NUMBER FORMAT
-# =========================================================
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
-
-
-    if header and (
-        "MDP Per Box" in str(header)
     ):
 
-        for row_num in range(
-            2,
-            ws.max_row + 1
+        for col_num, value in enumerate(
+            row_data,
+            start=1
         ):
 
-            ws.cell(
+            cell = ws.cell(
                 row=row_num,
-                column=col_num
-            ).number_format = "0.00"
+                column=col_num,
+                value=value
+            )
+
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center"
+            )
 
 
-# =========================================================
-# BORDERS
-# =========================================================
+    # =========================================================
+    # GRAND TOTAL STYLE
+    # =========================================================
 
-thin_border = Border(
+    grand_total_row = ws.max_row
 
-    left=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
 
-    right=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
-
-    top=Side(
-        style="thin",
-        color="D9E1F2"
-    ),
-
-    bottom=Side(
-        style="thin",
-        color="D9E1F2"
+    grand_fill = PatternFill(
+        fill_type="solid",
+        fgColor="063B66"
     )
 
-)
+
+    grand_font = Font(
+        bold=True,
+        color="FFFFFF"
+    )
 
 
-for row in ws.iter_rows():
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
 
-    for cell in row:
+        cell = ws.cell(
+            row=grand_total_row,
+            column=col_num
+        )
 
-        cell.border = thin_border
+        cell.fill = grand_fill
 
+        cell.font = grand_font
 
-# =========================================================
-# COLUMN WIDTH
-# =========================================================
-
-for col_num in range(
-    1,
-    ws.max_column + 1
-):
-
-    header = ws.cell(
-        row=1,
-        column=col_num
-    ).value
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
 
 
-    if header == "Area":
+    # =========================================================
+    # GREEN / RED DIFFERENCE
+    # =========================================================
 
-        width = 20
+    green_fill = PatternFill(
+        fill_type="solid",
+        fgColor="C6EFCE"
+    )
 
-    elif header == "Branch Name":
-
-        width = 22
-
-    else:
-
-        max_length = 0
-
-        for row_num in range(
-            1,
-            ws.max_row + 1
-        ):
-
-            value = ws.cell(
-                row=row_num,
-                column=col_num
-            ).value
+    green_font = Font(
+        color="006100",
+        bold=True
+    )
 
 
-            if value is not None:
+    red_fill = PatternFill(
+        fill_type="solid",
+        fgColor="FFC7CE"
+    )
 
-                max_length = max(
-                    max_length,
-                    len(str(value))
+    red_font = Font(
+        color="9C0006",
+        bold=True
+    )
+
+
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+
+        header = ws.cell(
+            row=1,
+            column=col_num
+        ).value
+
+
+        if header and str(
+            header
+        ).startswith("Diff"):
+
+            col_letter = get_column_letter(
+                col_num
+            )
+
+
+            if grand_total_row > 2:
+
+                data_range = (
+                    f"{col_letter}2:"
+                    f"{col_letter}"
+                    f"{grand_total_row - 1}"
                 )
 
 
-        width = min(
-            max(
-                max_length + 3,
-                12
-            ),
-            22
+                ws.conditional_formatting.add(
+
+                    data_range,
+
+                    CellIsRule(
+                        operator="greaterThan",
+                        formula=["0"],
+                        fill=green_fill,
+                        font=green_font
+                    )
+
+                )
+
+
+                ws.conditional_formatting.add(
+
+                    data_range,
+
+                    CellIsRule(
+                        operator="lessThan",
+                        formula=["0"],
+                        fill=red_fill,
+                        font=red_font
+                    )
+
+                )
+
+
+    # =========================================================
+    # NUMBER FORMAT
+    # =========================================================
+
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
+
+        header = ws.cell(
+            row=1,
+            column=col_num
+        ).value
+
+
+        if header and (
+            "MDP Per Box" in str(header)
+        ):
+
+            for row_num in range(
+                2,
+                ws.max_row + 1
+            ):
+
+                ws.cell(
+                    row=row_num,
+                    column=col_num
+                ).number_format = "0.00"
+
+
+    # =========================================================
+    # BORDERS
+    # =========================================================
+
+    thin_border = Border(
+
+        left=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+
+        right=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+
+        top=Side(
+            style="thin",
+            color="D9E1F2"
+        ),
+
+        bottom=Side(
+            style="thin",
+            color="D9E1F2"
         )
 
-
-    ws.column_dimensions[
-        get_column_letter(
-            col_num
-        )
-    ].width = width
+    )
 
 
-# =========================================================
-# ROW HEIGHT
-# =========================================================
+    for row in ws.iter_rows():
 
-ws.row_dimensions[1].height = 30
+        for cell in row:
 
-
-for row_num in range(
-    2,
-    ws.max_row + 1
-):
-
-    ws.row_dimensions[
-        row_num
-    ].height = 22
+            cell.border = thin_border
 
 
-# =========================================================
-# FREEZE AREA ONLY
-# =========================================================
+    # =========================================================
+    # COLUMN WIDTH
+    # =========================================================
 
-ws.freeze_panes = "B2"
+    for col_num in range(
+        1,
+        ws.max_column + 1
+    ):
 
-
-# =========================================================
-# FILTER
-# =========================================================
-
-ws.auto_filter.ref = (
-    ws.dimensions
-)
-
-
-# =========================================================
-# SAVE
-# =========================================================
-
-excel_output = BytesIO()
-
-wb.save(
-    excel_output
-)
-
-excel_output.seek(0)
+        header = ws.cell(
+            row=1,
+            column=col_num
+        ).value
 
 
-# =========================================================
-# DOWNLOAD
-# =========================================================
+        if header == "Area":
 
-st.download_button(
+            width = 20
 
-    label="⬇️ Download MDP Comparison Excel",
+        elif header == "Branch Name":
 
-    data=excel_output.getvalue(),
+            width = 22
 
-    file_name=(
-        "MDP_Month_Wise_Comparison.xlsx"
-    ),
+        else:
 
-    mime=(
-        "application/vnd.openxmlformats-officedocument."
-        "spreadsheetml.sheet"
-    ),
+            max_length = 0
 
-    use_container_width=True
+            for row_num in range(
+                1,
+                ws.max_row + 1
+            ):
 
-)
+                value = ws.cell(
+                    row=row_num,
+                    column=col_num
+                ).value
+
+
+                if value is not None:
+
+                    max_length = max(
+                        max_length,
+                        len(str(value))
+                    )
+
+
+            width = min(
+                max(
+                    max_length + 3,
+                    12
+                ),
+                22
+            )
+
+
+        ws.column_dimensions[
+            get_column_letter(
+                col_num
+            )
+        ].width = width
+
+
+    # =========================================================
+    # ROW HEIGHT
+    # =========================================================
+
+    ws.row_dimensions[1].height = 30
+
+
+    for row_num in range(
+        2,
+        ws.max_row + 1
+    ):
+
+        ws.row_dimensions[
+            row_num
+        ].height = 22
+
+
+    # =========================================================
+    # FREEZE AREA ONLY
+    # =========================================================
+
+    ws.freeze_panes = "B2"
+
+
+    # =========================================================
+    # FILTER
+    # =========================================================
+
+    ws.auto_filter.ref = (
+        ws.dimensions
+    )
+
+
+    # =========================================================
+    # SAVE
+    # =========================================================
+
+    excel_output = BytesIO()
+
+    wb.save(
+        excel_output
+    )
+
+    excel_output.seek(0)
+
+
+    # =========================================================
+    # DOWNLOAD
+    # =========================================================
+
+    st.download_button(
+
+        label="⬇️ Download MDP Comparison Excel",
+
+        data=excel_output.getvalue(),
+
+        file_name=(
+            "MDP_Month_Wise_Comparison.xlsx"
+        ),
+
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+
+        use_container_width=True
+
+    )
