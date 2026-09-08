@@ -2675,93 +2675,70 @@ if raw_df is not None:
         mime="application/pdf"
     )
 
-    import streamlit as st
-    import pandas as pd
-    import numpy as np
-    from io import BytesIO
+import streamlit as st
+import pandas as pd
+import numpy as np
+from io import BytesIO
 
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from openpyxl.formatting.rule import CellIsRule
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.formatting.rule import CellIsRule
 
-    # =========================================================
-    # CSS
-    # =========================================================
+# =========================================================
+# CSS
+# =========================================================
 
-    st.markdown("""
-    <style>
+st.markdown("""
+<style>
 
-    .mdp-title {
-        background: linear-gradient(135deg,#063b66,#0876b9);
-        color:white;
-        padding:18px;
-        border-radius:12px;
-        text-align:center;
-        font-size:27px;
-        font-weight:800;
-        margin-bottom:20px;
-    }
+.mdp-title {
+    background: linear-gradient(135deg,#063b66,#0876b9);
+    color:white;
+    padding:18px;
+    border-radius:12px;
+    text-align:center;
+    font-size:27px;
+    font-weight:800;
+    margin-bottom:20px;
+}
 
-    </style>
-    """, unsafe_allow_html=True)
-
-
-    st.markdown(
-        '<div class="mdp-title">📊 MDP MONTH-WISE COMPARISON REPORT</div>',
-        unsafe_allow_html=True
-    )
+</style>
+""", unsafe_allow_html=True)
 
 
-    # =========================================================
-    # UPLOAD
-    # =========================================================
-
-    st.subheader("📤 Upload MDP Excel")
-
-    uploaded_file = st.file_uploader(
-        "Upload MDP Excel File",
-        type=["xlsx", "xls"],
-        key="mdp_comparison_upload"
-    )
-
-    if uploaded_file is None:
-
-        st.info(
-            "Please upload your MDP Excel file."
-        )
-
-        st.stop()
+st.markdown(
+    '<div class="mdp-title">📊 MDP MONTH-WISE COMPARISON REPORT</div>',
+    unsafe_allow_html=True
+)
 
 
+# =========================================================
+# UPLOAD
+# =========================================================
+
+st.subheader("📤 Upload MDP Excel")
+
+uploaded_file = st.file_uploader(
+    "Upload MDP Excel File",
+    type=["xlsx", "xls"],
+    key="mdp_comparison_upload"
+)
+
+if uploaded_file is None:
+    st.info("Upload an MDP Excel file when you want to run the MDP comparison. All portal sections remain available.")
+else:
     # =========================================================
     # READ EXCEL
     # =========================================================
-
     try:
-
         excel_file = pd.ExcelFile(uploaded_file)
-
-        sheet_name = st.selectbox(
-            "Select Sheet",
-            excel_file.sheet_names
-        )
-
-        raw_df = pd.read_excel(
-            uploaded_file,
-            sheet_name=sheet_name
-        )
-
+        sheet_name = st.selectbox("Select Sheet", excel_file.sheet_names, key="mdp_sheet_selection")
+        raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
     except Exception as e:
+        st.error(f"Excel file read نہیں ہو سکی: {e}")
+        raw_df = None
 
-        st.error(
-            f"Excel file read نہیں ہو سکی: {e}"
-        )
-
-        st.stop()
-
-
-    # =========================================================
     # CLEAN COLUMN NAMES
     # =========================================================
 
