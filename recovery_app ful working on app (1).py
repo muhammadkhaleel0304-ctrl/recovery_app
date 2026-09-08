@@ -2493,188 +2493,6 @@ if raw_df is not None:
             st.write("---")
 
         st.success("All Branch PDF Buttons Ready!")
-    import streamlit as st
-    import pandas as pd
-    from io import BytesIO
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-    from reportlab.lib import colors
-    import os
-
-    st.title("Recovery Date Range Summary")
-
-    # ---------------- Local storage folder ----------------
-    LOCAL_FILE = "data/recovery.xlsx"
-    os.makedirs("data", exist_ok=True)
-
-    # ---------------- File Upload ----------------
-    uploaded = st.file_uploader("Upload Recovery Excel / CSV", type=["xlsx", "csv"])
-
-    # --- If uploaded, save locally and store in session_state ---
-    if uploaded:
-        if uploaded.name.endswith(".csv"):
-            df = pd.read_csv(uploaded)
-        else:
-            df = pd.read_excel(uploaded)
-
-        st.session_state["df"] = df
-        df.to_excel(LOCAL_FILE, index=False)
-        st.success("File uploaded and saved locally!")
-
-    # --- If no upload, check session_state or local file ---
-    elif "df" in st.session_state:
-        df = st.session_state["df"]
-        st.info("Using previously uploaded file from session.")
-    elif os.path.exists(LOCAL_FILE):
-        df = pd.read_excel(LOCAL_FILE)
-        st.session_state["df"] = df
-        st.info("Loaded previously uploaded file from local storage.")
-    else:
-        st.info("Please upload recovery file.")
-        #st.stop()
-
-    # ---------------- Column Selection ----------------
-    st.subheader("Available Columns")
-
-    date_col = st.selectbox("Select Date Column", df.columns)
-    branch_col = st.selectbox("Select Branch Column (branch_id)", df.columns)
-    area_col = None
-    if 'area_id' in df.columns:
-        area_col = 'area_id'
-
-    # ---------------- Convert Date ----------------
-    df[date_col] = pd.to_datetime(
-        df[date_col].astype(str).str.strip(),
-        format="%Y-%b-%d",
-        errors="coerce"
-    )
-    df = df.dropna(subset=[date_col, branch_col])
-    df["Day"] = df[date_col].dt.day
-    df = df[df["Day"].notna()]
-
-    # --- Updated Bins (1-5, 6-10, 11-15, 16-31) ---
-    df["Range"] = pd.cut(
-        df["Day"],
-        bins=[0, 5, 10, 15, 31],
-        labels=["1-5", "6-10", "11-15", "16-31"]
-    )
-    if df["Range"].isna().all():
-        st.error("Date column sahi format me nahi.")
-        st.stop()
-
-    # ---------------- Pivot Table ----------------
-    pivot = pd.pivot_table(
-        df,
-        index=[branch_col],
-        columns="Range",
-        aggfunc="size",
-        fill_value=0
-    )
-
-    # Ensure columns exist
-    for c in ["1-5", "6-10", "11-15", "16-31"]:
-        if c not in pivot.columns:
-            pivot[c] = 0
-
-    pivot["Total"] = pivot[["1-5", "6-10", "11-15", "16-31"]].sum(axis=1)
-
-    # Percentages
-    pivot["1-5 %"] = (pivot["1-5"] / pivot["Total"] * 100).round(2)
-    pivot["6-10 %"] = (pivot["6-10"] / pivot["Total"] * 100).round(2)
-    pivot["11-15 %"] = (pivot["11-15"] / pivot["Total"] * 100).round(2)
-    pivot["16-31 %"] = (pivot["16-31"] / pivot["Total"] * 100).round(2)
-
-    # Rename for readability
-    pivot.rename(columns={
-        "1-5": "Recovery 1-5",
-        "6-10": "Recovery 6-10",
-        "11-15": "Recovery 11-15",
-        "16-31": "Recovery 16-31"
-    }, inplace=True)
-
-    result_df = pivot.reset_index()
-
-    # ---------------- Add Area column BEFORE Branch ----------------
-    if area_col:
-        branch_area_df = df[[branch_col, area_col]].drop_duplicates()
-        result_df = result_df.merge(branch_area_df, on=branch_col, how='left')
-        # Move Area column before Branch column
-        cols = result_df.columns.tolist()
-        branch_idx = cols.index(branch_col)
-        cols.insert(branch_idx, cols.pop(cols.index(area_col)))
-        result_df = result_df[cols]
-
-    # ---------------- Grand Total Row ----------------
-    numeric_cols = ["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31", "Total"]
-    # Sum numeric counts
-    grand_total_counts = result_df[numeric_cols].sum()
-    # Calculate percentages for Grand Total
-    grand_total_percent = (grand_total_counts[["Recovery 1-5", "Recovery 6-10", "Recovery 11-15", "Recovery 16-31"]] / grand_total_counts["Total"] * 100).round(2)
-
-    grand_values = {}
-    for col in result_df.columns:
-        if col == branch_col:
-            grand_values[col] = "Grand Total"
-        elif col == area_col:
-            grand_values[col] = ""
-        elif col in numeric_cols:
-            grand_values[col] = grand_total_counts[col]
-        elif col in ["1-5 %", "6-10 %", "11-15 %", "16-31 %"]:
-            pct_map = {
-                "1-5 %": "Recovery 1-5", 
-                "6-10 %": "Recovery 6-10", 
-                "11-15 %": "Recovery 11-15", 
-                "16-31 %": "Recovery 16-31"
-            }
-            grand_values[col] = grand_total_percent[pct_map[col]]
-        else:
-            grand_values[col] = ""
-
-    result_df = pd.concat([result_df, pd.DataFrame([grand_values])], ignore_index=True)
-
-    # ---------------- Show Table ----------------
-    st.subheader("Branch Wise Recovery Summary")
-    st.dataframe(result_df)
-
-    # ---------------- CSV Download ----------------
-    csv = result_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="⬇ Download CSV",
-        data=csv,
-        file_name="recovery_summary.csv",
-        mime="text/csv"
-    )
-
-    # ---------------- PDF Download ----------------
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-
-    # Table data
-    table_data = [result_df.columns.tolist()] + result_df.values.tolist()
-
-    # Create Table with style
-    table = Table(table_data)
-    style = TableStyle([
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('FONTSIZE', (0,0), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-    ])
-    table.setStyle(style)
-
-    doc.build([table])
-    pdf_bytes = buffer.getvalue()
-    buffer.close()
-
-    st.download_button(
-        label="⬇ Download PDF",
-        data=pdf_bytes,
-        file_name="recovery_summary.pdf",
-        mime="application/pdf"
-    )
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -2726,19 +2544,40 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is None:
-    st.info("Upload an MDP Excel file when you want to run the MDP comparison. All portal sections remain available.")
-else:
+
+    st.info(
+        "Please upload your MDP Excel file."
+    )
+
+    st.stop()
+
+
     # =========================================================
     # READ EXCEL
     # =========================================================
+
     try:
+
         excel_file = pd.ExcelFile(uploaded_file)
-        sheet_name = st.selectbox("Select Sheet", excel_file.sheet_names, key="mdp_sheet_selection")
-        raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+
+        sheet_name = st.selectbox(
+            "Select Sheet",
+            excel_file.sheet_names
+        )
+
+        raw_df = pd.read_excel(
+            uploaded_file,
+            sheet_name=sheet_name
+        )
+
     except Exception as e:
+
         st.error(f"Excel file read نہیں ہو سکی: {e}")
         raw_df = None
 
+
+if raw_df is not None:
+    # =========================================================
     # CLEAN COLUMN NAMES
     # =========================================================
 
